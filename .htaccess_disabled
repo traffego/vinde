@@ -1,0 +1,272 @@
+# =========================================
+# VINDE - CONFIGURAÇÕES APACHE
+# Sistema de Eventos Católicos
+# =========================================
+
+# Ativar mod_rewrite
+RewriteEngine On
+
+# =========================================
+# SEGURANÇA
+# =========================================
+
+# Prevenir acesso a arquivos sensíveis
+<FilesMatch "\.(env|log|sql|bak|config|ini)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Proteger diretórios includes
+<IfModule mod_rewrite.c>
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^backup/ - [F,L]
+</IfModule>
+
+# Headers de segurança
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Prevenir listagem de diretórios
+Options -Indexes
+
+# Proteger arquivos de configuração do PHP
+<Files "*.php">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "private, no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </IfModule>
+</Files>
+
+# =========================================
+# COMPRESSÃO E PERFORMANCE
+# =========================================
+
+# Compressão GZIP
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE image/x-icon
+    AddOutputFilterByType DEFLATE image/svg+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/x-font
+    AddOutputFilterByType DEFLATE application/x-font-truetype
+    AddOutputFilterByType DEFLATE application/x-font-ttf
+    AddOutputFilterByType DEFLATE application/x-font-otf
+    AddOutputFilterByType DEFLATE application/x-font-opentype
+    AddOutputFilterByType DEFLATE application/vnd.ms-fontobject
+    AddOutputFilterByType DEFLATE font/ttf
+    AddOutputFilterByType DEFLATE font/otf
+    AddOutputFilterByType DEFLATE font/opentype
+    
+    # Comprimir por extensão de arquivo
+    AddOutputFilter DEFLATE js css htm html xml
+</IfModule>
+
+# Cache de arquivos estáticos
+<IfModule mod_expires.c>
+    ExpiresActive on
+    
+    # Imagens
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+    
+    # CSS e JavaScript
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    
+    # Fontes
+    ExpiresByType application/x-font-ttf "access plus 1 year"
+    ExpiresByType font/opentype "access plus 1 year"
+    ExpiresByType application/x-font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+    
+    # HTML, XML, TXT
+    ExpiresByType text/html "access plus 2 hours"
+    ExpiresByType text/xml "access plus 2 hours"
+    ExpiresByType text/plain "access plus 2 hours"
+    ExpiresByType application/xml "access plus 2 hours"
+    ExpiresByType application/rss+xml "access plus 2 hours"
+    
+    # JSON
+    ExpiresByType application/json "access plus 2 hours"
+    
+    # Arquivos de mídia
+    ExpiresByType audio/ogg "access plus 1 month"
+    ExpiresByType video/mp4 "access plus 1 month"
+    ExpiresByType video/webm "access plus 1 month"
+</IfModule>
+
+# Cache-Control headers
+<IfModule mod_headers.c>
+    <FilesMatch "\.(ico|jpe?g|png|gif|swf|css|gz|js|webp|svg)$">
+        Header set Cache-Control "max-age=2592000, public"
+    </FilesMatch>
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "max-age=604800, public"
+    </FilesMatch>
+    <FilesMatch "\.(html|htm)$">
+        Header set Cache-Control "max-age=7200, public"
+    </FilesMatch>
+    <FilesMatch "\.(pl|php|cgi|spl|scgi|fcgi)$">
+        Header unset Cache-Control
+    </FilesMatch>
+</IfModule>
+
+# =========================================
+# URLS AMIGÁVEIS
+# =========================================
+
+# Remover .php das URLs (apenas quando não há parâmetros)
+<IfModule mod_rewrite.c>
+    # Redirecionar .php para URL sem extensão APENAS quando NÃO há query string
+    RewriteCond %{THE_REQUEST} \s/+(.+)\.php\s [NC]
+    RewriteCond %{QUERY_STRING} ^$
+    RewriteRule ^ /%1? [R=301,L]
+    
+    # Adicionar .php internamente se arquivo existir e não há query string
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^([^.]+)$ $1.php [L]
+</IfModule>
+
+# URLs específicas do sistema
+<IfModule mod_rewrite.c>
+    # Página de evento: /evento/slug-do-evento
+    RewriteRule ^evento/([a-zA-Z0-9\-]+)/?$ evento.php?slug=$1 [QSA,L]
+    
+    # Página de inscrição: /inscricao/evento-id
+    RewriteRule ^inscricao/([0-9]+)/?$ inscricao.php?evento_id=$1 [QSA,L]
+    
+    # Página de pagamento: /pagamento/participante-id
+    RewriteRule ^pagamento/([0-9]+)/?$ pagamento.php?participante_id=$1 [QSA,L]
+    
+    # Confirmação: /confirmacao/token
+    RewriteRule ^confirmacao/([a-zA-Z0-9]+)/?$ confirmacao.php?token=$1 [QSA,L]
+    
+    # Admin - forçar HTTPS em produção
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^admin(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# =========================================
+# TIPOS MIME
+# =========================================
+
+<IfModule mod_mime.c>
+    # Fontes Web
+    AddType application/font-woff2 .woff2
+    AddType application/font-woff .woff
+    AddType application/vnd.ms-fontobject .eot
+    AddType font/ttf .ttf
+    AddType font/otf .otf
+    
+    # Outros tipos
+    AddType image/webp .webp
+    AddType application/json .json
+    AddType text/cache-manifest .appcache
+</IfModule>
+
+# =========================================
+# PROTEÇÃO CONTRA HOTLINKING
+# =========================================
+
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?localhost [NC]
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?vinde\. [NC]
+    RewriteRule \.(jpg|jpeg|png|gif|webp)$ - [F]
+</IfModule>
+
+# =========================================
+# CONFIGURAÇÕES DE UPLOAD
+# =========================================
+
+# Limites de upload (ajustar conforme necessário)
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300
+php_value max_input_time 300
+php_value memory_limit 256M
+
+# =========================================
+# CONFIGURAÇÕES DE SESSÃO
+# =========================================
+
+php_value session.cookie_httponly 1
+php_value session.cookie_secure 0
+php_value session.use_strict_mode 1
+php_value session.cookie_samesite "Strict"
+
+# =========================================
+# LOGS DE ERRO (DESENVOLVIMENTO)
+# =========================================
+
+# Descomente para desenvolvimento
+# php_flag log_errors on
+# php_value error_log logs/php_errors.log
+
+# =========================================
+# REDIRECIONAMENTOS ESPECÍFICOS
+# =========================================
+
+# Redirecionar página inicial sem www para com www (se necessário)
+# RewriteCond %{HTTP_HOST} ^vinde\.com\.br [NC]
+# RewriteRule ^(.*)$ https://www.vinde.com.br/$1 [R=301,L]
+
+# Redirecionar HTTP para HTTPS (produção)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# =========================================
+# PROTEÇÃO CONTRA BOTS MALICIOSOS
+# =========================================
+
+<IfModule mod_rewrite.c>
+    # Bloquear user agents suspeitos
+    RewriteCond %{HTTP_USER_AGENT} ^$ [OR]
+    RewriteCond %{HTTP_USER_AGENT} ^(java|curl|wget) [NC,OR]
+    RewriteCond %{HTTP_USER_AGENT} (winhttp|HTTrack|clshttp|archiver|loader|email|harvest|extract|grab|miner) [NC]
+    RewriteRule .* - [F]
+    
+    # Bloquear métodos HTTP desnecessários
+    RewriteCond %{REQUEST_METHOD} ^(TRACE|DELETE|TRACK) [NC]
+    RewriteRule .* - [F]
+</IfModule>
+
+# =========================================
+# CONFIGURAÇÕES FINAIS
+# =========================================
+
+# Charset padrão
+AddDefaultCharset UTF-8
+
+# Prevenir acessos diretos a arquivos de template
+<FilesMatch "^(header|footer|sidebar)">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Erro personalizado desabilitado - usando função PHP
+# ErrorDocument 404 /404.php
+# ErrorDocument 403 /403.php
+# ErrorDocument 500 /500.php 

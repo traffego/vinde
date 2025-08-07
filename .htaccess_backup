@@ -1,0 +1,10 @@
+# Backup do .htaccess original - caso precise restaurar
+
+# Teste mínimo - apenas o essencial
+RewriteEngine On
+
+# URL amigável para eventos
+RewriteRule ^evento/([a-zA-Z0-9\-]+)/?$ evento.php?slug=$1 [QSA,L]
+
+# Bloquear acesso a includes
+RewriteRule ^includes/ - [F,L] 

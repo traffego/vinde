@@ -1,0 +1,64 @@
+# =========================================
+# VINDE - CONFIGURAÇÕES APACHE (VERSÃO LIMPA)
+# =========================================
+
+# Ativar mod_rewrite
+RewriteEngine On
+
+# =========================================
+# SEGURANÇA BÁSICA
+# =========================================
+
+# Prevenir acesso a arquivos sensíveis
+<FilesMatch "\.(env|log|sql|bak|config|ini)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Proteger diretório includes
+<IfModule mod_rewrite.c>
+    RewriteRule ^includes/ - [F,L]
+    RewriteRule ^backup/ - [F,L]
+</IfModule>
+
+# Prevenir listagem de diretórios
+Options -Indexes
+
+# =========================================
+# URLS AMIGÁVEIS E REMOÇÃO DE .PHP
+# =========================================
+
+# URL amigável para eventos: /evento/id-do-evento
+RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [QSA,L]
+
+# URL amigável para inscrição: /inscricao/evento-id
+RewriteRule ^inscricao/([0-9]+)/?$ inscricao.php?evento_id=$1 [QSA,L]
+
+# URL amigável para pagamento: /pagamento/participante-id
+RewriteRule ^pagamento/([0-9]+)/?$ pagamento.php?participante_id=$1 [QSA,L]
+
+# URL amigável para confirmação: /confirmacao/token
+RewriteRule ^confirmacao/([a-zA-Z0-9]+)/?$ confirmacao.php?token=$1 [QSA,L]
+
+# Remover .php das URLs (APENAS quando não há query string)
+RewriteCond %{THE_REQUEST} \s/+(.+)\.php\s [NC]
+RewriteCond %{QUERY_STRING} ^$
+RewriteRule ^ /%1? [R=301,L]
+
+# Adicionar .php internamente se arquivo existir
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^([^.]+)$ $1.php [L]
+
+# =========================================
+# CONFIGURAÇÕES BÁSICAS
+# =========================================
+
+# Charset padrão
+AddDefaultCharset UTF-8
+
+# Configurações de upload
+php_value upload_max_filesize 10M
+php_value post_max_size 10M
+php_value max_execution_time 300 
