@@ -111,11 +111,7 @@ Desktop.ini
 # Linux
 *~
 
-# ========================================
-# CHAVES PRIVADAS (certificados podem ir)
-# ========================================
-*.pem
-*.key
+
 
 # ========================================
 # COMPOSER E DEPENDÊNCIAS
