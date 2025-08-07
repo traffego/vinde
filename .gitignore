@@ -1,0 +1,142 @@
+# ========================================
+# VINDE - SISTEMA DE EVENTOS CATÓLICOS
+# Arquivo .gitignore
+# ========================================
+
+# ========================================
+# DOCUMENTAÇÃO
+# ========================================
+*.md
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE.md
+docs/
+documentation/
+
+# ========================================
+# ARQUIVOS SQL
+# ========================================
+*.sql
+database*.sql
+backup*.sql
+dump*.sql
+migration*.sql
+update*.sql
+schema*.sql
+
+# ========================================
+# LOGS E DEBUGGING
+# ========================================
+*.log
+logs/
+error.log
+access.log
+debug.log
+php_errors.log
+mysql.log
+apache.log
+nginx.log
+
+# ========================================
+# TESTES
+# ========================================
+test/
+tests/
+testing/
+*test.php
+*_test.php
+test_*.php
+phpunit.xml
+.phpunit.result.cache
+coverage/
+
+# ========================================
+# BACKUP E TEMPORÁRIOS
+# ========================================
+backup/
+backups/
+temp/
+tmp/
+*.tmp
+*.bak
+*.backup
+*.old
+*~
+
+# ========================================
+# CONFIGURAÇÕES LOCAIS
+# ========================================
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+config_local.php
+local_config.php
+
+# ========================================
+# UPLOADS E CACHE
+# ========================================
+uploads/*.jpg
+uploads/*.jpeg
+uploads/*.png
+uploads/*.gif
+uploads/*.pdf
+cache/
+*.cache
+
+# ========================================
+# EDITOR E IDE
+# ========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.cursor/
+
+# ========================================
+# SISTEMA OPERACIONAL
+# ========================================
+# Windows
+Thumbs.db
+Desktop.ini
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ========================================
+# CHAVES PRIVADAS (certificados podem ir)
+# ========================================
+*.pem
+*.key
+
+# ========================================
+# COMPOSER E DEPENDÊNCIAS
+# ========================================
+vendor/
+composer.lock
+node_modules/
+package-lock.json
+
+# ========================================
+# ESPECÍFICOS DO PROJETO
+# ========================================
+# Arquivos de configuração EFI
+efi_config_local.php
+
+# Logs específicos do sistema
+logs_sistema.log
+checkin.log
+pagamentos.log
+
+# Arquivos de setup específicos
+*_SETUP.md
+INSTALL.md
+DEPLOY.md 
