@@ -9,13 +9,13 @@ if (!defined('SISTEMA_INSCRICOES')) {
 
 // Configurações do Banco de Dados
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'eventos_catolicos');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_NAME', 'platafo5_vinde');
+define('DB_USER', 'platafo5_vinde');
+define('DB_PASS', 'Traffego444#');
 define('DB_CHARSET', 'utf8mb4');
 
 // Configurações do Site
-define('SITE_URL', 'http://localhost/vinde');
+define('SITE_URL', 'https://vinde.traffego.agency');
 define('SITE_NOME', 'Vinde - Eventos Católicos');
 define('SITE_EMAIL', 'contato@vinde.com.br');
 define('ADMIN_EMAIL', 'admin@vinde.com.br');
