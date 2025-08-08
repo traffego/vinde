@@ -461,7 +461,7 @@ function formatar_status_pagamento($status, $valor) {
                             <div class="evento-actions">
                                 <?php
                                 $inscricaoId = $evento['inscricao_id'] ?? null;
-                                $statusInscricao = $evento['status'];
+                                $statusInscricao = $evento['status_inscricao'] ?? ($evento['status'] ?? null);
                                 $pagamentoStatus = $evento['pagamento_status'] ?? null;
                                 $valorEvento = $evento['valor'] ?? 0;
                                 ?>
@@ -477,7 +477,7 @@ function formatar_status_pagamento($status, $valor) {
                                     <a href="<?= SITE_URL ?>/pagamento.php?inscricao=<?= (int)$inscricaoId ?>" class="btn-secondary">💳 Pagar agora</a>
                                 <?php endif; ?>
 
-                                <?php if ($inscricaoId && $statusInscricao === 'pendente'): ?>
+                                <?php if ($inscricaoId && ($statusInscricao === 'pendente' || $pagamentoStatus === 'pendente')): ?>
                                     <button class="btn-secondary" onclick="cancelarInscricao(<?= (int)$inscricaoId ?>)">❌ Cancelar</button>
                                 <?php endif; ?>
 
