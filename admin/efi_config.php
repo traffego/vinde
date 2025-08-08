@@ -70,6 +70,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!empty($upload_msgs)) {
                             $msg_final .= ' ' . implode(' ', $upload_msgs);
                         }
+                        // Registrar webhook automaticamente se URL estiver definida e EFI ativo
+                        $cfg_atual = obter_configuracoes_efi();
+                        $webhook_url = $cfg_atual['efi_webhook_url'] ?? '';
+                        $efi_ativo_auto = ($cfg_atual['efi_ativo'] ?? '0') === '1';
+                        $cert_ok_auto = !empty($cfg_atual['efi_certificado_path']) && file_exists($cfg_atual['efi_certificado_path']);
+                        if ($efi_ativo_auto && $cert_ok_auto && !empty($webhook_url)) {
+                            $okWebhook = efi_configurar_webhook($webhook_url);
+                            if ($okWebhook) {
+                                $msg_final .= ' Webhook registrado na Efí com sucesso.';
+                            } else {
+                                $msg_final .= ' (Aviso: não foi possível registrar o webhook agora. Verifique credenciais/certificado e tente novamente.)';
+                            }
+                        }
                         registrar_log('efi_config_atualizada', 'Configurações EFI Bank atualizadas via painel admin');
                         $mensagem = $msg_final;
                     } else {
