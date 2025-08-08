@@ -333,7 +333,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                         <img src="<?= htmlspecialchars($pagamento['pix_qrcode_url']) ?>" 
                              alt="QR Code PIX" 
                              id="qr-code-img"
-                             onerror="document.getElementById('qr-code-img').style.display='none';document.getElementById('qr-canvas-pix').style.display='block';gerarQrPixCanvas();">
+                             onerror="document.getElementById('qr-code-img').style.display='none';var w=document.getElementById('qr-canvas-wrapper');if(w){w.style.display='inline-block';}gerarQrPixCanvas();">
                     </div>
                 <?php endif; ?>
 
