@@ -34,6 +34,7 @@
     border-radius: 12px;
     padding: 20px; /* reduzido para aproximar do último botão */
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    align-self: start; /* evita esticar até a altura da outra coluna */
 }
 
 /* remover espaço extra do último bloco interno */
@@ -47,6 +48,7 @@
     padding: 25px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     height: fit-content;
+    align-self: start; /* garantir não esticar linha */
 }
 
 .pix-section {
