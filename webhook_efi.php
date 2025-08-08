@@ -126,11 +126,19 @@ try {
         
         if ($txid_relacionado) {
             $pagamento = buscar_um("
-                SELECT p.*, pa.id as participante_id, pa.nome as participante_nome, 
-                       pa.email, pa.whatsapp, e.nome as evento_nome
+                SELECT 
+                    p.*, 
+                    i.id AS inscricao_id,
+                    pa.id AS participante_id, 
+                    pa.nome AS participante_nome, 
+                    pa.email, 
+                    pa.whatsapp, 
+                    e.id AS evento_id,
+                    e.nome AS evento_nome
                 FROM pagamentos p
-                LEFT JOIN participantes pa ON p.participante_id = pa.id
-                LEFT JOIN eventos e ON pa.evento_id = e.id
+                JOIN inscricoes i   ON p.inscricao_id = i.id
+                JOIN participantes pa ON p.participante_id = pa.id
+                JOIN eventos e       ON i.evento_id = e.id
                 WHERE p.pix_txid = ? AND p.status != 'pago'
             ", [$txid_relacionado]);
         }
@@ -138,11 +146,19 @@ try {
         if (!$pagamento) {
             // Tentar buscar por valor e status pendente (fallback)
             $pagamento = buscar_um("
-                SELECT p.*, pa.id as participante_id, pa.nome as participante_nome, 
-                       pa.email, pa.whatsapp, e.nome as evento_nome
+                SELECT 
+                    p.*, 
+                    i.id AS inscricao_id,
+                    pa.id AS participante_id, 
+                    pa.nome AS participante_nome, 
+                    pa.email, 
+                    pa.whatsapp, 
+                    e.id AS evento_id,
+                    e.nome AS evento_nome
                 FROM pagamentos p
-                LEFT JOIN participantes pa ON p.participante_id = pa.id
-                LEFT JOIN eventos e ON pa.evento_id = e.id
+                JOIN inscricoes i   ON p.inscricao_id = i.id
+                JOIN participantes pa ON p.participante_id = pa.id
+                JOIN eventos e       ON i.evento_id = e.id
                 WHERE p.valor = ? AND p.status = 'pendente'
                 ORDER BY p.criado_em DESC
                 LIMIT 1
@@ -183,7 +199,15 @@ try {
         ]);
         
         if ($pagamento_atualizado) {
-            // Atualizar status do participante
+            // Atualizar status da inscrição e participante
+            if (!empty($pagamento['inscricao_id'])) {
+                executar(
+                    "UPDATE inscricoes 
+                     SET status = 'aprovada', valor_pago = ?, data_pagamento = NOW(), atualizado_em = NOW() 
+                     WHERE id = ?",
+                    [$valor_pix, $pagamento['inscricao_id']]
+                );
+            }
             executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$pagamento['participante_id']]);
             
             // Log de sucesso
@@ -204,8 +228,8 @@ Seu PIX foi processado com sucesso!
 💰 Valor: R$ " . number_format($valor_pix, 2, ',', '.') . "
 📅 Data do Pagamento: " . date('d/m/Y H:i', strtotime($data_pagamento)) . "
 
-🎫 Acesse sua confirmação:
-" . SITE_URL . "/confirmacao.php?participante={$pagamento['participante_id']}
+            🎫 Acesse sua confirmação:
+            " . SITE_URL . "/confirmacao.php?inscricao={$pagamento['inscricao_id']}
 
 Nos vemos lá! 🙏";
 
