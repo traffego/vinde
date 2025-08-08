@@ -10,27 +10,50 @@ if (participante_esta_logado()) {
 $erro = '';
 $sucesso = '';
 
-// Processar login
+// Processar login ou verificação de CPF
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verificar_csrf_token($_POST['csrf_token'] ?? '')) {
         $erro = 'Token de segurança inválido. Tente novamente.';
     } else {
         $cpf = $_POST['cpf'] ?? '';
-        $whatsapp = $_POST['whatsapp'] ?? '';
         
-        if (empty($cpf) || empty($whatsapp)) {
-            $erro = 'Por favor, preencha todos os campos.';
+        if (empty($cpf)) {
+            $erro = 'Por favor, informe seu CPF.';
         } else {
-            $resultado = participante_fazer_login($cpf, $whatsapp);
-            
-            if ($resultado['sucesso']) {
-                redirecionar(SITE_URL . '/participante/');
+            // Verificar se é tentativa de login (com senha) ou verificação de CPF
+            if (isset($_POST['senha']) && !empty($_POST['senha'])) {
+                // Tentativa de login com senha
+                $senha = $_POST['senha'];
+                $resultado = participante_fazer_login($cpf, $senha);
+                
+                if ($resultado['sucesso']) {
+                    // Verificar se há redirecionamento para evento específico
+                    $redirect_to = $_GET['redirect_to'] ?? SITE_URL . '/participante/';
+                    redirecionar($redirect_to);
+                } else {
+                    $erro = $resultado['mensagem'];
+                }
             } else {
-                $erro = $resultado['mensagem'];
+                // Verificação de CPF
+                if (participante_cpf_existe($cpf)) {
+                    // CPF existe, mostrar campo de senha
+                    $mostrar_senha = true;
+                } else {
+                    // CPF não existe, redirecionar para cadastro
+                    $redirect_url = SITE_URL . '/participante/cadastro.php?cpf=' . urlencode($cpf);
+                    if (isset($_GET['evento_id'])) {
+                        $redirect_url .= '&evento_id=' . urlencode($_GET['evento_id']);
+                    }
+                    redirecionar($redirect_url);
+                }
             }
         }
     }
 }
+
+// Verificar se está em modo de inserir senha
+$mostrar_senha = isset($_POST['cpf']) && participante_cpf_existe($_POST['cpf']) || isset($mostrar_senha);
+$cpf_verificado = $mostrar_senha ? ($_POST['cpf'] ?? '') : '';
 
 $csrf_token = gerar_csrf_token();
 ?>
@@ -165,19 +188,51 @@ $csrf_token = gerar_csrf_token();
         .login-info strong {
             color: var(--cor-texto-principal);
         }
+
+        .step-indicator {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: var(--cor-texto-secundario);
+        }
+
+        .btn-voltar {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        .btn-voltar:hover {
+            background: #5a6268;
+        }
     </style>
 </head>
 <body class="login-participante">
     <div class="login-container">
         <div class="login-header">
             <div class="login-logo">Área do Participante</div>
-            <div class="login-subtitle">Acesse seus eventos e QR codes</div>
+            <div class="login-subtitle">
+                <?= $mostrar_senha ? 'Digite sua senha para entrar' : 'Acesse seus eventos e QR codes' ?>
+            </div>
         </div>
 
-        <div class="login-info">
-            <strong>Como acessar:</strong><br>
-            Use o CPF e WhatsApp que você informou na inscrição do evento.
-        </div>
+        <?php if (!$mostrar_senha): ?>
+            <div class="login-info">
+                <strong>Como funciona:</strong><br>
+                1. Digite seu CPF<br>
+                2. Se você já tem conta, digite sua senha<br>
+                3. Se é seu primeiro acesso, você será direcionado para criar uma conta
+            </div>
+        <?php else: ?>
+            <div class="step-indicator">
+                CPF verificado ✓ | Agora digite sua senha
+            </div>
+        <?php endif; ?>
         
         <?php if ($erro): ?>
             <div class="error-message">
@@ -194,33 +249,58 @@ $csrf_token = gerar_csrf_token();
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
             
-            <div class="form-group">
-                <label for="cpf" class="form-label">CPF</label>
-                <input type="text" 
-                       id="cpf" 
-                       name="cpf" 
-                       class="form-input" 
-                       placeholder="000.000.000-00"
-                       required 
-                       maxlength="14"
-                       value="<?= htmlspecialchars($_POST['cpf'] ?? '') ?>">
-            </div>
-            
-            <div class="form-group">
-                <label for="whatsapp" class="form-label">WhatsApp</label>
-                <input type="text" 
-                       id="whatsapp" 
-                       name="whatsapp" 
-                       class="form-input" 
-                       placeholder="(11) 99999-9999"
-                       required
-                       maxlength="15"
-                       value="<?= htmlspecialchars($_POST['whatsapp'] ?? '') ?>">
-            </div>
-            
-            <button type="submit" class="btn-login">
-                Entrar
-            </button>
+            <?php if ($mostrar_senha): ?>
+                <!-- Campo oculto com CPF já verificado -->
+                <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf_verificado) ?>">
+                
+                <!-- Botão para voltar e alterar CPF -->
+                <button type="button" class="btn-voltar" onclick="window.location.reload()">
+                    ← Alterar CPF
+                </button>
+                
+                <!-- Mostrar CPF verificado -->
+                <div class="form-group">
+                    <label class="form-label">CPF Verificado</label>
+                    <div style="padding: 12px 16px; background: #e9ecef; border-radius: 8px; color: #495057;">
+                        <?= formatarCpf($cpf_verificado) ?>
+                    </div>
+                </div>
+                
+                <!-- Campo de senha -->
+                <div class="form-group">
+                    <label for="senha" class="form-label">Senha</label>
+                    <input type="password" 
+                           id="senha" 
+                           name="senha" 
+                           class="form-input" 
+                           placeholder="Digite sua senha"
+                           required 
+                           autofocus>
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    Entrar
+                </button>
+                
+            <?php else: ?>
+                <!-- Campo de CPF -->
+                <div class="form-group">
+                    <label for="cpf" class="form-label">CPF</label>
+                    <input type="text" 
+                           id="cpf" 
+                           name="cpf" 
+                           class="form-input" 
+                           placeholder="000.000.000-00"
+                           required 
+                           maxlength="14"
+                           autofocus
+                           value="<?= htmlspecialchars($_POST['cpf'] ?? '') ?>">
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    Continuar
+                </button>
+            <?php endif; ?>
         </form>
         
         <div class="login-footer">
@@ -232,27 +312,15 @@ $csrf_token = gerar_csrf_token();
         document.addEventListener('DOMContentLoaded', function() {
             // Máscara para CPF
             const cpfInput = document.getElementById('cpf');
-            cpfInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                e.target.value = value;
-            });
-
-            // Máscara para WhatsApp
-            const whatsappInput = document.getElementById('whatsapp');
-            whatsappInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                if (value.length <= 10) {
-                    value = value.replace(/(\d{2})(\d)/, '($1) $2');
-                    value = value.replace(/(\d{4})(\d)/, '$1-$2');
-                } else {
-                    value = value.replace(/(\d{2})(\d)/, '($1) $2');
-                    value = value.replace(/(\d{5})(\d)/, '$1-$2');
-                }
-                e.target.value = value;
-            });
+            if (cpfInput) {
+                cpfInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                    value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                    e.target.value = value;
+                });
+            }
         });
     </script>
 </body>

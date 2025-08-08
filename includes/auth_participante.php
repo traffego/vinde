@@ -31,31 +31,43 @@ function participante_esta_logado() {
 }
 
 /**
- * Fazer login do participante com CPF e WhatsApp
+ * Fazer login do participante com CPF e senha
  */
-function participante_fazer_login($cpf, $whatsapp) {
+function participante_fazer_login($cpf, $senha) {
     iniciar_sessao();
     
     // Sanitizar entrada
     $cpf = sanitizar_entrada($cpf);
-    $whatsapp = sanitizar_entrada($whatsapp);
+    $senha = sanitizar_entrada($senha);
     
-    // Remover formatação
+    // Remover formatação do CPF
     $cpf = preg_replace('/[^0-9]/', '', $cpf);
-    $whatsapp = preg_replace('/[^0-9]/', '', $whatsapp);
     
-    // Buscar participante
+    // Validações básicas
+    if (empty($cpf) || empty($senha)) {
+        return ['sucesso' => false, 'mensagem' => 'CPF e senha são obrigatórios.'];
+    }
+    
+    if (strlen($cpf) !== 11) {
+        return ['sucesso' => false, 'mensagem' => 'CPF deve ter 11 dígitos.'];
+    }
+    
+    // Buscar participante pelo CPF
     $participante = buscar_um("
-        SELECT p.*, e.nome as evento_nome, e.data_inicio, e.local, e.imagem as evento_imagem
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        WHERE p.cpf = ? AND p.whatsapp = ? AND p.status != 'cancelado'
-        ORDER BY p.criado_em DESC
-        LIMIT 1
-    ", [$cpf, $whatsapp]);
+        SELECT id, nome, cpf, email, whatsapp, senha, criado_em
+        FROM participantes 
+        WHERE cpf = ?
+    ", [$cpf]);
     
     if (!$participante) {
-        return ['sucesso' => false, 'mensagem' => 'CPF ou WhatsApp não encontrados nas inscrições.'];
+        return ['sucesso' => false, 'mensagem' => 'CPF não encontrado. Você precisa criar uma conta primeiro.'];
+    }
+    
+    // Verificar senha
+    if (!password_verify($senha, $participante['senha'])) {
+        // Log da tentativa de login falhou
+        registrar_log('tentativa_login_participante_falhou', "CPF: {$cpf}");
+        return ['sucesso' => false, 'mensagem' => 'Senha incorreta.'];
     }
     
     // Login bem-sucedido
@@ -66,7 +78,107 @@ function participante_fazer_login($cpf, $whatsapp) {
     $_SESSION['participante_whatsapp'] = $participante['whatsapp'];
     $_SESSION['participante_ultimo_acesso'] = time();
     
+    // Log do login bem-sucedido
+    registrar_log('login_participante_realizado', "Participante: {$participante['nome']} (CPF: {$cpf})");
+    
     return ['sucesso' => true, 'mensagem' => 'Login realizado com sucesso!'];
+}
+
+/**
+ * Verificar se CPF existe no sistema
+ */
+function participante_cpf_existe($cpf) {
+    // Sanitizar e limpar CPF
+    $cpf = preg_replace('/[^0-9]/', '', sanitizar_entrada($cpf));
+    
+    if (strlen($cpf) !== 11) {
+        return false;
+    }
+    
+    $participante = buscar_um("SELECT id FROM participantes WHERE cpf = ?", [$cpf]);
+    return $participante !== false;
+}
+
+/**
+ * Criar novo participante com senha
+ */
+function participante_criar_conta($dados) {
+    try {
+        // Validações
+        $erros = [];
+        
+        // Campos obrigatórios
+        $campos_obrigatorios = ['nome', 'cpf', 'whatsapp', 'email', 'idade', 'cidade', 'senha'];
+        foreach ($campos_obrigatorios as $campo) {
+            if (empty($dados[$campo])) {
+                $erros[] = "Campo '{$campo}' é obrigatório.";
+            }
+        }
+        
+        if (!empty($erros)) {
+            return ['sucesso' => false, 'mensagem' => implode(' ', $erros)];
+        }
+        
+        // Limpar e validar CPF
+        $cpf = preg_replace('/[^0-9]/', '', $dados['cpf']);
+        if (strlen($cpf) !== 11) {
+            return ['sucesso' => false, 'mensagem' => 'CPF deve ter 11 dígitos.'];
+        }
+        
+        // Verificar se CPF já existe
+        if (participante_cpf_existe($cpf)) {
+            return ['sucesso' => false, 'mensagem' => 'Este CPF já está cadastrado no sistema.'];
+        }
+        
+        // Validar email
+        if (!filter_var($dados['email'], FILTER_VALIDATE_EMAIL)) {
+            return ['sucesso' => false, 'mensagem' => 'Email inválido.'];
+        }
+        
+        // Validar idade
+        $idade = intval($dados['idade']);
+        if ($idade < 1 || $idade > 120) {
+            return ['sucesso' => false, 'mensagem' => 'Idade deve estar entre 1 e 120 anos.'];
+        }
+        
+        // Validar senha
+        if (strlen($dados['senha']) < 6) {
+            return ['sucesso' => false, 'mensagem' => 'Senha deve ter pelo menos 6 caracteres.'];
+        }
+        
+        // Preparar dados para inserção
+        $participante_dados = [
+            'nome' => sanitizar_entrada($dados['nome']),
+            'cpf' => $cpf,
+            'whatsapp' => preg_replace('/[^0-9]/', '', $dados['whatsapp']),
+            'instagram' => sanitizar_entrada($dados['instagram'] ?? ''),
+            'email' => sanitizar_entrada($dados['email']),
+            'idade' => $idade,
+            'cidade' => sanitizar_entrada($dados['cidade']),
+            'estado' => sanitizar_entrada($dados['estado'] ?? 'SP'),
+            'senha' => password_hash($dados['senha'], PASSWORD_DEFAULT)
+        ];
+        
+        // Inserir participante
+        $participante_id = inserir_registro('participantes', $participante_dados);
+        
+        if (!$participante_id) {
+            return ['sucesso' => false, 'mensagem' => 'Erro ao criar conta. Tente novamente.'];
+        }
+        
+        // Log da criação
+        registrar_log('participante_cadastrado', "Participante: {$dados['nome']} (CPF: {$cpf})");
+        
+        return [
+            'sucesso' => true, 
+            'mensagem' => 'Conta criada com sucesso!',
+            'participante_id' => $participante_id
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Erro ao criar conta de participante: " . $e->getMessage());
+        return ['sucesso' => false, 'mensagem' => 'Erro interno. Tente novamente mais tarde.'];
+    }
 }
 
 /**
@@ -74,6 +186,11 @@ function participante_fazer_login($cpf, $whatsapp) {
  */
 function participante_fazer_logout() {
     iniciar_sessao();
+    
+    // Log do logout se o participante estava logado
+    if (isset($_SESSION['participante_nome'])) {
+        registrar_log('logout_participante_realizado', "Participante: {$_SESSION['participante_nome']}");
+    }
     
     // Limpar sessão do participante
     unset($_SESSION['participante_id']);
@@ -102,20 +219,20 @@ function obter_participante_logado() {
 }
 
 /**
- * Buscar eventos do participante logado
+ * Buscar inscrições do participante logado
  */
-function obter_eventos_participante($participante_id) {
+function obter_inscricoes_participante($participante_id) {
     return buscar_varios("
         SELECT 
-            p.id as participante_id,
-            p.status,
-            p.tipo,
-            p.qr_token,
-            p.checkin_timestamp,
-            p.criado_em as inscricao_em,
+            i.id as inscricao_id,
+            i.status as status_inscricao,
+            i.valor_pago,
+            i.metodo_pagamento,
+            i.data_inscricao,
+            i.data_pagamento,
             e.id as evento_id,
-            e.nome,
-            e.slug,
+            e.nome as evento_nome,
+            e.slug as evento_slug,
             e.descricao,
             e.data_inicio,
             e.data_fim,
@@ -125,58 +242,124 @@ function obter_eventos_participante($participante_id) {
             e.endereco,
             e.cidade,
             e.estado,
-            e.valor,
+            e.valor as evento_valor,
             e.imagem,
             e.status as evento_status,
-            pag.status as pagamento_status,
-            pag.valor as pagamento_valor,
-            pag.metodo as pagamento_metodo,
-            pag.pago_em
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        WHERE p.id = ? AND p.status != 'cancelado'
+            p.qr_token,
+            p.checkin_timestamp
+        FROM inscricoes i
+        JOIN eventos e ON i.evento_id = e.id
+        LEFT JOIN participantes p ON i.participante_id = p.id AND p.evento_id = e.id
+        WHERE i.participante_id = ? AND i.status != 'cancelada'
         ORDER BY e.data_inicio DESC
     ", [$participante_id]);
+}
+
+/**
+ * Verificar se participante já está inscrito em um evento
+ */
+function participante_ja_inscrito($participante_id, $evento_id) {
+    $inscricao = buscar_um("
+        SELECT id FROM inscricoes 
+        WHERE participante_id = ? AND evento_id = ? AND status != 'cancelada'
+    ", [$participante_id, $evento_id]);
+    
+    return $inscricao !== false;
+}
+
+/**
+ * Criar inscrição para participante em evento
+ */
+function criar_inscricao_participante($participante_id, $evento_id) {
+    try {
+        // Verificar se já está inscrito
+        if (participante_ja_inscrito($participante_id, $evento_id)) {
+            return ['sucesso' => false, 'mensagem' => 'Você já está inscrito neste evento.'];
+        }
+        
+        // Verificar se evento existe e está ativo
+        $evento = buscar_um("
+            SELECT *, 
+                   (limite_participantes - (
+                       SELECT COUNT(*) 
+                       FROM inscricoes 
+                       WHERE evento_id = eventos.id AND status IN ('pendente', 'aprovada')
+                   )) as vagas_restantes
+            FROM eventos 
+            WHERE id = ? AND status = 'ativo'
+        ", [$evento_id]);
+        
+        if (!$evento) {
+            return ['sucesso' => false, 'mensagem' => 'Evento não encontrado ou inativo.'];
+        }
+        
+        // Verificar vagas
+        if ($evento['vagas_restantes'] <= 0) {
+            return ['sucesso' => false, 'mensagem' => 'Evento esgotado.'];
+        }
+        
+        // Criar inscrição
+        $inscricao_dados = [
+            'participante_id' => $participante_id,
+            'evento_id' => $evento_id,
+            'status' => 'pendente',
+            'valor_pago' => $evento['valor']
+        ];
+        
+        $inscricao_id = inserir_registro('inscricoes', $inscricao_dados);
+        
+        if (!$inscricao_id) {
+            return ['sucesso' => false, 'mensagem' => 'Erro ao processar inscrição. Tente novamente.'];
+        }
+        
+        return [
+            'sucesso' => true,
+            'mensagem' => 'Inscrição realizada com sucesso!',
+            'inscricao_id' => $inscricao_id,
+            'evento_valor' => $evento['valor']
+        ];
+        
+    } catch (Exception $e) {
+        error_log("Erro ao criar inscrição: " . $e->getMessage());
+        return ['sucesso' => false, 'mensagem' => 'Erro interno. Tente novamente mais tarde.'];
+    }
 }
 
 /**
  * Gerar QR Code para check-in do participante
  */
 function gerar_qr_checkin($participante_id, $evento_id) {
-    // Buscar dados completos
-    $dados = buscar_um("
+    // Verificar se participante está inscrito no evento
+    $inscricao = buscar_um("
         SELECT 
-            p.id,
+            i.id as inscricao_id,
+            i.status,
             p.nome,
             p.cpf,
-            p.whatsapp,
-            p.email,
             p.qr_token,
-            p.status,
-            e.id as evento_id,
             e.nome as evento_nome,
             e.data_inicio,
-            e.horario_inicio,
             e.local
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        WHERE p.id = ? AND e.id = ?
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
+        WHERE i.participante_id = ? AND i.evento_id = ? AND i.status = 'aprovada'
     ", [$participante_id, $evento_id]);
     
-    if (!$dados) {
+    if (!$inscricao) {
         return null;
     }
     
     // Dados do QR Code para check-in
     $qr_data = [
         'type' => 'checkin',
-        'participante_id' => $dados['id'],
-        'token' => $dados['qr_token'],
-        'evento_id' => $dados['evento_id'],
-        'evento_nome' => $dados['evento_nome'],
-        'participante_nome' => $dados['nome'],
-        'data_evento' => $dados['data_inicio'],
+        'inscricao_id' => $inscricao['inscricao_id'],
+        'participante_id' => $participante_id,
+        'evento_id' => $evento_id,
+        'token' => $inscricao['qr_token'],
+        'evento_nome' => $inscricao['evento_nome'],
+        'participante_nome' => $inscricao['nome'],
+        'data_evento' => $inscricao['data_inicio'],
         'timestamp' => time()
     ];
     
@@ -191,4 +374,13 @@ function requer_login_participante() {
         redirecionar(SITE_URL . '/participante/login.php');
     }
 }
+
+/**
+ * Função para compatibilidade com sistema antigo
+ * @deprecated Use participante_fazer_login($cpf, $senha) instead
+ */
+function participante_fazer_login_antigo($cpf, $whatsapp) {
+    return participante_fazer_login($cpf, $whatsapp);
+}
+
 ?> 
