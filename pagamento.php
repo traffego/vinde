@@ -2,7 +2,7 @@
 require_once 'includes/init.php';
 
 // Debug mode para desenvolvimento
-$debug_mode = (AMBIENTE === 'desenvolvimento' || isset($_GET['debug']));
+$debug_mode = is_debug_enabled() || isset($_GET['debug']);
 
 $participante_id = $_GET['participante'] ?? '';
 $erro = '';

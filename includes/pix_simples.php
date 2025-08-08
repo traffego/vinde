@@ -211,15 +211,8 @@ function verificar_pagamento_pix_simples($txid) {
     // Para desenvolvimento: simular pagamento após 2 minutos (para testes)
     $created_at = strtotime($pagamento['criado_em']);
     if (time() > ($created_at + 120)) { // 2 minutos para teste
-        // Marcar como pago automaticamente (apenas para desenvolvimento)
-        if (AMBIENTE === 'desenvolvimento') {
-            processar_pagamento_confirmado($pagamento['id']);
-            return [
-                'status' => 'paid',
-                'paid_at' => date('Y-m-d H:i:s'),
-                'message' => 'Pagamento confirmado (simulação)'
-            ];
-        }
+        // Simulação removida - em produção, pagamentos são confirmados apenas via webhook real
+        // Para testar, use o botão "Simular Pagamento" na página de pagamento
     }
     
     return ['status' => 'pending', 'message' => 'Aguardando pagamento'];

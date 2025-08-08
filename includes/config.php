@@ -75,19 +75,14 @@ define('PAGAMENTO_PAGO', 'pago');
 define('PAGAMENTO_CANCELADO', 'cancelado');
 define('PAGAMENTO_ESTORNADO', 'estornado');
 
-// Ambiente
-define('AMBIENTE', 'desenvolvimento');
+// Ambiente - CONTROLE CENTRAL DO SISTEMA
+define('AMBIENTE', 'producao');
 
-// Configurações de erro
-if (defined('AMBIENTE') && AMBIENTE === 'desenvolvimento') {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-} else {
-    error_reporting(0);
-    ini_set('display_errors', 0);
-    ini_set('log_errors', 1);
-    ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
-}
+// Configurações de erro (debug é controlado pelo debug_config.php)
+error_reporting(0);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
 
 // Configurações de sessão
 ini_set('session.cookie_httponly', 1);
