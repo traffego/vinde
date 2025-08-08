@@ -284,10 +284,18 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     padding: 15px;
     border-radius: 8px;
     border: 1px solid #dee2e6;
-    font-family: monospace;
-    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
     word-break: break-all;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    line-height: 1.4;
     margin: 15px 0;
+    max-height: 120px;
+    overflow-y: auto;
+    text-align: left;
+    user-select: all;
+    cursor: text;
 }
 
 .btn-copiar {
@@ -307,6 +315,48 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
 
 .btn-copiar.copiado {
     background: #28a745;
+}
+
+.pix-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.pix-code-section {
+    margin: 20px 0;
+}
+
+.pix-code-section p {
+    margin-bottom: 10px;
+    color: #495057;
+    font-weight: 500;
+}
+
+.pix-code:hover {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 768px) {
+    .pix-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .pix-actions button {
+        width: 100%;
+        max-width: 250px;
+        margin: 5px 0 !important;
+    }
+    
+    .pix-code {
+        font-size: 10px;
+        padding: 12px;
+    }
 }
 
 .timer-expiracao {
@@ -468,12 +518,35 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                 <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
                     <div class="pix-code-section">
                         <p><strong>Ou copie o código PIX:</strong></p>
-                        <div class="pix-code" id="pix-code">
-                            <?= htmlspecialchars($pagamento['pix_qrcode_data']) ?>
+                        <div class="pix-code" id="pix-code" title="Clique para selecionar todo o código">
+                            <?= htmlspecialchars(trim($pagamento['pix_qrcode_data'])) ?>
                         </div>
-                        <button type="button" class="btn-copiar" onclick="copiarPix(this)">
-                            📋 Copiar Código PIX
-                        </button>
+                        
+                        <?php if ($debug_mode): ?>
+                        <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 11px;">
+                            <strong>Debug Info:</strong><br>
+                            Tamanho: <?= strlen(trim($pagamento['pix_qrcode_data'])) ?> caracteres<br>
+                            Início: <?= htmlspecialchars(substr(trim($pagamento['pix_qrcode_data']), 0, 20)) ?>...<br>
+                            Final: ...<?= htmlspecialchars(substr(trim($pagamento['pix_qrcode_data']), -20)) ?><br>
+                            TXID: <?= htmlspecialchars($pagamento['pix_txid'] ?? 'N/A') ?><br>
+                            Expira em: <?= $pagamento['pix_expires_at'] ? date('d/m/Y H:i:s', strtotime($pagamento['pix_expires_at'])) : 'N/A' ?>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <div class="pix-actions">
+                            <button type="button" class="btn-copiar" onclick="copiarPix(this)" id="btn-copiar-pix">
+                                📋 Copiar Código PIX
+                            </button>
+                            <button type="button" class="btn-copiar" onclick="validarCodigoPix()" style="background: #17a2b8; margin-left: 10px;">
+                                ✅ Validar Código
+                            </button>
+                        </div>
+                        <div id="pix-validation-result" style="margin-top: 10px; font-size: 12px;"></div>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-warning" style="margin: 20px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
+                        <strong>⚠️ Código PIX não disponível</strong><br>
+                        <small>O código PIX não foi gerado corretamente. <?= $debug_mode ? 'Verifique as configurações EFI Bank no painel administrativo.' : 'Entre em contato com o suporte.' ?></small>
                     </div>
                 <?php endif; ?>
 
@@ -569,26 +642,70 @@ function atualizarTimer() {
 setInterval(atualizarTimer, 1000);
 <?php endif; ?>
 
-// Função para copiar código PIX (com fallback)
+// Função para copiar código PIX (melhorada)
 function copiarPix(btn) {
     const pixEl = document.getElementById('pix-code');
-    let pixCode = pixEl ? (pixEl.textContent || pixEl.innerText) : '';
-    pixCode = pixCode.replace(/\r?\n|\r/g, '').trim();
-    if (!pixCode) return;
+    if (!pixEl) {
+        alert('Código PIX não encontrado');
+        return;
+    }
     
+    let pixCode = (pixEl.textContent || pixEl.innerText || '').trim();
+    
+    // Remover quebras de linha e espaços extras
+    pixCode = pixCode.replace(/\s+/g, '').replace(/\r?\n|\r/g, '');
+    
+    if (!pixCode || pixCode.length < 50) {
+        alert('Código PIX inválido ou muito curto');
+        return;
+    }
+    
+    // Validação básica do formato PIX
+    if (!pixCode.startsWith('00020101') && !pixCode.startsWith('00020126')) {
+        alert('Código PIX com formato inválido');
+        return;
+    }
+    
+    // Tentar copiar usando API moderna
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(pixCode).then(() => feedbackCopiado(btn));
+        navigator.clipboard.writeText(pixCode)
+            .then(() => {
+                feedbackCopiado(btn);
+                console.log('PIX copiado:', pixCode.substring(0, 50) + '...');
+            })
+            .catch(err => {
+                console.error('Erro ao copiar:', err);
+                copiarPixFallback(pixCode, btn);
+            });
     } else {
-        const area = document.createElement('textarea');
-        area.value = pixCode;
-        area.setAttribute('readonly', '');
-        area.style.position = 'absolute';
-        area.style.left = '-9999px';
-        document.body.appendChild(area);
+        copiarPixFallback(pixCode, btn);
+    }
+}
+
+// Fallback para navegadores antigos
+function copiarPixFallback(pixCode, btn) {
+    const area = document.createElement('textarea');
+    area.value = pixCode;
+    area.setAttribute('readonly', '');
+    area.style.position = 'absolute';
+    area.style.left = '-9999px';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    
+    try {
         area.select();
-        try { document.execCommand('copy'); } catch (e) {}
+        area.setSelectionRange(0, 99999); // Para mobile
+        const success = document.execCommand('copy');
+        if (success) {
+            feedbackCopiado(btn);
+        } else {
+            alert('Não foi possível copiar automaticamente. Por favor, selecione e copie manualmente.');
+        }
+    } catch (err) {
+        console.error('Erro no fallback:', err);
+        alert('Erro ao copiar. Tente selecionar o código manualmente.');
+    } finally {
         document.body.removeChild(area);
-        feedbackCopiado(btn);
     }
 }
 
@@ -601,6 +718,78 @@ function feedbackCopiado(btn) {
         btn.textContent = textoOriginal;
         btn.classList.remove('copiado');
     }, 2000);
+}
+
+// Função para validar código PIX
+function validarCodigoPix() {
+    const pixEl = document.getElementById('pix-code');
+    const resultEl = document.getElementById('pix-validation-result');
+    
+    if (!pixEl || !resultEl) return;
+    
+    let pixCode = (pixEl.textContent || pixEl.innerText || '').trim();
+    pixCode = pixCode.replace(/\s+/g, '').replace(/\r?\n|\r/g, '');
+    
+    // Limpar resultado anterior
+    resultEl.innerHTML = '';
+    
+    if (!pixCode) {
+        resultEl.innerHTML = '<span style="color: #dc3545;">❌ Código PIX não encontrado</span>';
+        return;
+    }
+    
+    // Validações básicas
+    const validacoes = [];
+    
+    // 1. Tamanho mínimo
+    if (pixCode.length < 50) {
+        validacoes.push('❌ Código muito curto (mínimo 50 caracteres)');
+    } else {
+        validacoes.push('✅ Tamanho adequado (' + pixCode.length + ' caracteres)');
+    }
+    
+    // 2. Formato inicial
+    if (pixCode.startsWith('00020101') || pixCode.startsWith('00020126')) {
+        validacoes.push('✅ Formato inicial correto');
+    } else {
+        validacoes.push('❌ Formato inicial inválido');
+    }
+    
+    // 3. Verificar se contém identificador PIX
+    if (pixCode.includes('BR.GOV.BCB.PIX')) {
+        validacoes.push('✅ Identificador PIX encontrado');
+    } else {
+        validacoes.push('❌ Identificador PIX não encontrado');
+    }
+    
+    // 4. Verificar país (BR)
+    if (pixCode.includes('5802BR')) {
+        validacoes.push('✅ Código de país correto (BR)');
+    } else {
+        validacoes.push('❌ Código de país não encontrado');
+    }
+    
+    // 5. CRC (últimos 4 caracteres devem ser hexadecimais)
+    const crc = pixCode.slice(-4);
+    if (/^[0-9A-F]{4}$/i.test(crc)) {
+        validacoes.push('✅ CRC com formato correto (' + crc + ')');
+    } else {
+        validacoes.push('❌ CRC com formato inválido');
+    }
+    
+    // Mostrar resultados
+    const temErros = validacoes.some(v => v.includes('❌'));
+    const corGeral = temErros ? '#dc3545' : '#28a745';
+    const statusGeral = temErros ? '⚠️ Código com problemas' : '✅ Código PIX válido';
+    
+    resultEl.innerHTML = `
+        <div style="color: ${corGeral}; font-weight: bold; margin-bottom: 5px;">
+            ${statusGeral}
+        </div>
+        <div style="font-size: 11px; line-height: 1.3;">
+            ${validacoes.join('<br>')}
+        </div>
+    `;
 }
 
 // Função para verificar status do pagamento
@@ -667,6 +856,35 @@ document.addEventListener('DOMContentLoaded', function() {
         const wrapper = document.getElementById('qr-canvas-wrapper');
         if (wrapper) wrapper.style.display = 'inline-block';
         gerarQrPixCanvas();
+    }
+    
+    // Adicionar funcionalidade de clique no código PIX para seleção
+    const pixCodeEl = document.getElementById('pix-code');
+    if (pixCodeEl) {
+        pixCodeEl.addEventListener('click', function() {
+            // Selecionar todo o texto do código PIX
+            if (window.getSelection && document.createRange) {
+                const range = document.createRange();
+                range.selectNodeContents(pixCodeEl);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } else if (document.body.createTextRange) {
+                // Fallback para IE
+                const range = document.body.createTextRange();
+                range.moveToElementText(pixCodeEl);
+                range.select();
+            }
+            
+            // Feedback visual
+            pixCodeEl.style.backgroundColor = '#e3f2fd';
+            setTimeout(() => {
+                pixCodeEl.style.backgroundColor = '#f8f9fa';
+            }, 1000);
+        });
+        
+        // Validar código automaticamente ao carregar
+        setTimeout(validarCodigoPix, 500);
     }
 });
 </script>
