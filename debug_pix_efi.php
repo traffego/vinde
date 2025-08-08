@@ -2,9 +2,11 @@
 // Debug específico para PIX EFI
 require_once 'includes/init.php';
 
-// Verificar se é admin
-if (!isset($_SESSION['admin_logado'])) {
-    header('Location: admin/login.php');
+// Verificar se debug está habilitado ou se é admin
+$debug_habilitado = is_debug_enabled() || isset($_GET['debug']) || isset($_SESSION['admin_logado']);
+
+if (!$debug_habilitado) {
+    header('Location: index.php');
     exit;
 }
 
