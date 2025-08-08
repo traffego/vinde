@@ -269,7 +269,7 @@ function obter_inscricoes_participante($participante_id) {
 function participante_ja_inscrito($participante_id, $evento_id) {
     $inscricao = buscar_um("
         SELECT id FROM inscricoes 
-        WHERE participante_id = ? AND evento_id = ? AND status != 'cancelada'
+        WHERE participante_id = ? AND evento_id = ? AND status = 'aprovada'
     ", [$participante_id, $evento_id]);
     
     return $inscricao !== false;
@@ -291,7 +291,7 @@ function criar_inscricao_participante($participante_id, $evento_id) {
                    (limite_participantes - (
                        SELECT COUNT(*) 
                        FROM inscricoes 
-                       WHERE evento_id = eventos.id AND status IN ('pendente', 'aprovada')
+                       WHERE evento_id = eventos.id AND status = 'aprovada'
                    )) as vagas_restantes
             FROM eventos 
             WHERE id = ? AND status = 'ativo'
@@ -306,7 +306,43 @@ function criar_inscricao_participante($participante_id, $evento_id) {
             return ['sucesso' => false, 'mensagem' => 'Evento esgotado.'];
         }
         
-        // Criar inscrição
+        // Se já existe uma inscrição pendente, reutilizar e redirecionar para pagamento
+        $inscricao_pendente = buscar_um("
+            SELECT id FROM inscricoes 
+            WHERE participante_id = ? AND evento_id = ? AND status = 'pendente'
+        ", [$participante_id, $evento_id]);
+
+        if ($inscricao_pendente) {
+            $inscricao_id = $inscricao_pendente['id'];
+            
+            // Verificar se já existe pagamento pendente para esta inscrição
+            $pagamento_existente = buscar_um("
+                SELECT id FROM pagamentos WHERE inscricao_id = ? AND status = 'pendente' ORDER BY id DESC LIMIT 1
+            ", [$inscricao_id]);
+            
+            if (!$pagamento_existente && $evento['valor'] > 0) {
+                // Criar novo pagamento pendente para a inscrição existente
+                $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
+                $pagamento_dados = [
+                    'participante_id' => $participante_id,
+                    'inscricao_id' => $inscricao_id,
+                    'valor' => $evento['valor'],
+                    'status' => 'pendente',
+                    'metodo' => 'pix',
+                    'pix_txid' => $txid
+                ];
+                inserir_registro('pagamentos', $pagamento_dados);
+            }
+            
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Inscrição pendente encontrada. Redirecionando para pagamento.',
+                'inscricao_id' => $inscricao_id,
+                'redirect_to' => SITE_URL . '/pagamento.php?inscricao=' . $inscricao_id
+            ];
+        }
+
+        // Criar nova inscrição
         $inscricao_dados = [
             'participante_id' => $participante_id,
             'evento_id' => $evento_id,

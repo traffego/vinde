@@ -13,7 +13,7 @@ $evento = buscar_um("
            (limite_participantes - (
                SELECT COUNT(*) 
                FROM inscricoes 
-               WHERE evento_id = eventos.id AND status IN ('pendente', 'aprovada')
+               WHERE evento_id = eventos.id AND status = 'aprovada'
            )) as vagas_restantes
     FROM eventos 
     WHERE id = ? AND status = 'ativo'
@@ -48,7 +48,7 @@ function processar_inscricao($evento_id, $participante_id) {
                    (limite_participantes - (
                        SELECT COUNT(*) 
                        FROM inscricoes 
-                       WHERE evento_id = eventos.id AND status IN ('pendente', 'aprovada')
+                       WHERE evento_id = eventos.id AND status = 'aprovada'
                    )) as vagas_restantes
             FROM eventos 
             WHERE id = ?

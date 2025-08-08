@@ -3,7 +3,8 @@ require_once '../includes/init.php';
 
 // Redirecionar se já estiver logado
 if (esta_logado()) {
-    redirecionar(SITE_URL . '/admin/');
+    $redirect_to = $_GET['redirect_to'] ?? (SITE_URL . '/admin/');
+    redirecionar($redirect_to);
 }
 
 $erro = '';
@@ -22,7 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $resultado = fazer_login($username, $password);
             
             if ($resultado === true) {
-                redirecionar(SITE_URL . '/admin/');
+                $redirect_to = $_GET['redirect_to'] ?? (SITE_URL . '/admin/');
+                redirecionar($redirect_to);
             } else {
                 $erro = $resultado;
             }

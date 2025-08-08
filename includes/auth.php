@@ -80,12 +80,14 @@ function verificar_permissao($nivel_requerido = 'operador') {
  */
 function requer_login($nivel_requerido = 'operador') {
     if (!esta_logado()) {
-        redirecionar(SITE_URL . '/admin/login.php');
+        $redirect_to = urlencode($_SERVER['REQUEST_URI'] ?? (SITE_URL . '/admin/'));
+        redirecionar(SITE_URL . '/admin/login.php?redirect_to=' . $redirect_to);
     }
     
     if (!verificar_permissao($nivel_requerido)) {
         exibir_mensagem('Acesso negado. Permissões insuficientes.', 'error');
-        redirecionar(SITE_URL . '/admin/');
+        $redirect_to = urlencode($_SERVER['REQUEST_URI'] ?? (SITE_URL . '/admin/'));
+        redirecionar(SITE_URL . '/admin/login.php?redirect_to=' . $redirect_to);
     }
 }
 
