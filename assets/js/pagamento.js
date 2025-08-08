@@ -228,27 +228,41 @@ setInterval(function() {
 function gerarQrPixCanvas() {
     const canvas = document.getElementById('qr-canvas-pix');
     if (!canvas) return;
-    const payload = window.PIX_PAYLOAD || '';
+    const payload = (window.PIX_PAYLOAD || '').trim();
     if (!payload) return;
-    
-    if (typeof QRCode !== 'undefined') {
-        QRCode.toCanvas(canvas, payload, {
-            width: 250,
-            margin: 2,
-            color: { dark: '#000000', light: '#FFFFFF' }
-        }, function(err){ /* noop */ });
+
+    // Garantir que o wrapper fique visível quando for usar o canvas
+    const wrapper = document.getElementById('qr-canvas-wrapper');
+    if (wrapper && wrapper.style.display === 'none') {
+        wrapper.style.display = 'inline-block';
+    }
+
+    // Tentar com diferentes exposições globais da lib
+    const QRGlobal = (typeof QRCode !== 'undefined') ? QRCode : (typeof qrcode !== 'undefined' ? qrcode : null);
+    if (QRGlobal && typeof QRGlobal.toCanvas === 'function') {
+        try {
+            QRGlobal.toCanvas(canvas, payload, {
+                width: 260,
+                margin: 1,
+                color: { dark: '#000000', light: '#FFFFFF' }
+            }, function(){ /* noop */ });
+            return;
+        } catch (e) {
+            console.error('Falha ao desenhar QR no canvas:', e);
+        }
     }
 }
 
 // Inicialização quando DOM carrega
 document.addEventListener('DOMContentLoaded', function() {
     const img = document.getElementById('qr-code-img');
-    const shouldDraw = !img || img.style.display === 'none';
-    if (shouldDraw) {
-        const wrapper = document.getElementById('qr-canvas-wrapper');
-        if (wrapper) wrapper.style.display = 'inline-block';
-        gerarQrPixCanvas();
+    // Sempre tente desenhar no canvas (serve como fallback ou como primário)
+    const wrapper = document.getElementById('qr-canvas-wrapper');
+    if (wrapper && (!img || img.style.display === 'none')) {
+        wrapper.style.display = 'inline-block';
     }
+    // Desenhar QR de qualquer forma
+    setTimeout(gerarQrPixCanvas, 50);
     
     // Adicionar funcionalidade de clique no código PIX para seleção
     const pixCodeEl = document.getElementById('pix-code');
