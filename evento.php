@@ -1,6 +1,15 @@
 <?php
 require_once 'includes/init.php';
 
+// Verificar se sistema foi migrado
+$tabela_inscricoes_existe = false;
+try {
+    $teste_tabela = buscar_um("SHOW TABLES LIKE 'inscricoes'");
+    $tabela_inscricoes_existe = $teste_tabela !== false;
+} catch (Exception $e) {
+    $tabela_inscricoes_existe = false;
+}
+
 // Verificar se foi fornecido ID ou slug
 if (isset($_GET['id']) && !empty($_GET['id'])) {
     // Buscar por ID (nova forma)
@@ -10,29 +19,53 @@ if (isset($_GET['id']) && !empty($_GET['id'])) {
         exibir_erro_404();
     }
     
-    $evento = buscar_um("
-        SELECT e.*, 
-               COUNT(p.id) as total_inscritos,
-               (e.limite_participantes - COUNT(p.id)) as vagas_restantes
-        FROM eventos e
-        LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
-        WHERE e.id = ? AND e.status = 'ativo'
-        GROUP BY e.id
-    ", [$evento_id]);
+    if ($tabela_inscricoes_existe) {
+        $evento = buscar_um("
+            SELECT e.*, 
+                   COUNT(i.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(i.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente', 'aprovada')
+            WHERE e.id = ? AND e.status = 'ativo'
+            GROUP BY e.id
+        ", [$evento_id]);
+    } else {
+        $evento = buscar_um("
+            SELECT e.*, 
+                   COUNT(p.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(p.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+            WHERE e.id = ? AND e.status = 'ativo'
+            GROUP BY e.id
+        ", [$evento_id]);
+    }
     
 } elseif (isset($_GET['slug']) && !empty($_GET['slug'])) {
     // Buscar por slug (compatibilidade)
     $slug = sanitizar_entrada($_GET['slug']);
     
-    $evento = buscar_um("
-        SELECT e.*, 
-               COUNT(p.id) as total_inscritos,
-               (e.limite_participantes - COUNT(p.id)) as vagas_restantes
-        FROM eventos e
-        LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
-        WHERE e.slug = ? AND e.status = 'ativo'
-        GROUP BY e.id
-    ", [$slug]);
+    if ($tabela_inscricoes_existe) {
+        $evento = buscar_um("
+            SELECT e.*, 
+                   COUNT(i.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(i.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente', 'aprovada')
+            WHERE e.slug = ? AND e.status = 'ativo'
+            GROUP BY e.id
+        ", [$slug]);
+    } else {
+        $evento = buscar_um("
+            SELECT e.*, 
+                   COUNT(p.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(p.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+            WHERE e.slug = ? AND e.status = 'ativo'
+            GROUP BY e.id
+        ", [$slug]);
+    }
     
 } else {
     // Nem ID nem slug fornecidos
