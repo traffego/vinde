@@ -8,6 +8,7 @@ $debug_mode = is_debug_enabled() || isset($_GET['debug']);
 $inscricao_id = $_GET['inscricao'] ?? '';
 $erro = '';
 $sucesso = '';
+$novo_pix_gerado = false;
 
 // Debug inicial
 if ($debug_mode) {
@@ -274,6 +275,13 @@ if ($pagamento['pix_expires_at']) {
     $expira_timestamp = strtotime($pagamento['pix_expires_at']);
     $agora = time();
     $tempo_expiracao = max(0, $expira_timestamp - $agora);
+}
+
+// Variável já inicializada no início do arquivo
+
+// Debug: verificar se chegou até aqui
+if ($debug_mode) {
+    error_log("PAGAMENTO DEBUG: Chegou até obter_cabecalho - Evento: " . $evento['nome']);
 }
 
 obter_cabecalho('Pagamento - ' . $evento['nome']);
