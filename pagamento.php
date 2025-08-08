@@ -129,6 +129,23 @@ try {
     exit;
 }
 
+// Garantir que exista um registro de pagamento associado a esta inscrição
+if (empty($pagamento['id'])) {
+    $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
+    $pagamento_id = inserir_registro('pagamentos', [
+        'participante_id' => $participante_logado['id'],
+        'inscricao_id' => $inscricao_id,
+        'valor' => $evento['valor'],
+        'status' => 'pendente',
+        'metodo' => 'pix',
+        'pix_txid' => $txid
+    ]);
+    $pagamento['id'] = $pagamento_id;
+    $pagamento['status'] = 'pendente';
+    $pagamento['valor'] = $evento['valor'];
+    $pagamento['pix_txid'] = $txid;
+}
+
 // Verificar se pagamento já foi processado
 if ($pagamento['status'] === 'pago') {
     redirecionar(SITE_URL . '/confirmacao.php?inscricao=' . $inscricao_id);
@@ -155,33 +172,27 @@ if (empty($pagamento['pix_qrcode_data']) ||
     $certificado_existe = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
     
     if ($efi_ativo && $certificado_existe) {
-        // Usar EFI Bank
-        $descricao = "Inscrição: {$evento['nome']} - {$participante['nome']}";
-        $cobranca_efi = efi_criar_cobranca_pix(
-            $txid,
-            $valor,
-            $descricao,
-            $participante['nome'],
-            limpar_cpf($participante['cpf']),
-            3600 // 1 hora de expiração
-        );
-        
-        if ($cobranca_efi) {
+        // Usar EFI Bank com função de alto nível e fallback automático
+        $resultado_pix = efi_criar_pix_completo([
+            'valor' => $valor,
+            'descricao' => sprintf('Inscricao %s - %s', $evento['nome'], $participante['nome']),
+            'participante_id' => $participante_logado['id'],
+            'evento_nome' => $evento['nome'],
+            'nome_pagador' => $participante['nome'],
+            'cpf_pagador' => limpar_cpf($participante['cpf']),
+            'expiracao' => 3600,
+            'debug' => $debug_mode
+        ]);
+
+        if (!empty($resultado_pix['sucesso'])) {
             $dados_pagamento = [
-                'pix_txid' => $txid,
-                'pix_loc_id' => $cobranca_efi['loc']['id'] ?? null,
-                'pix_expires_at' => date('Y-m-d H:i:s', time() + 3600)
+                'pix_txid' => $resultado_pix['pix_txid'],
+                'pix_loc_id' => $resultado_pix['pix_loc_id'] ?? null,
+                'pix_qrcode_data' => $resultado_pix['pix_qrcode_data'] ?? null,
+                'pix_qrcode_url' => $resultado_pix['pix_qrcode_url'] ?? null,
+                'pix_expires_at' => $resultado_pix['pix_expires_at'] ?? date('Y-m-d H:i:s', time() + 3600)
             ];
-            
-            // Gerar QR Code da cobrança
-            if (isset($cobranca_efi['loc']['id'])) {
-                $qrcode_data = efi_gerar_qrcode($cobranca_efi['loc']['id']);
-                if ($qrcode_data) {
-                    $dados_pagamento['pix_qrcode_data'] = $qrcode_data['qrcode'];
-                    $dados_pagamento['pix_qrcode_url'] = $qrcode_data['imagemQrcode'] ?? null;
-                }
-            }
-            
+
             atualizar_registro('pagamentos', $dados_pagamento, ['id' => $pagamento['id']]);
             $pagamento = array_merge($pagamento, $dados_pagamento);
         }
@@ -191,7 +202,7 @@ if (empty($pagamento['pix_qrcode_data']) ||
     if (empty($pagamento['pix_qrcode_data'])) {
         $descricao = sprintf('INSCRICAO %s - %s', substr($evento['nome'], 0, 20), substr($participante['nome'], 0, 15));
         $descricao = preg_replace('/[^A-Z0-9 \-]/', '', strtoupper(iconv('UTF-8','ASCII//TRANSLIT',$descricao)));
-        $cobranca_simples = criar_cobranca_pix_simples($inscricao_id, $valor, $descricao);
+        $cobranca_simples = criar_cobranca_pix_simples($participante_logado['id'], $valor, $descricao);
         
         if ($cobranca_simples) {
             $dados_pagamento = [
@@ -582,7 +593,8 @@ setInterval(atualizarTimer, 1000);
 // Função para copiar código PIX (com fallback)
 function copiarPix(btn) {
     const pixEl = document.getElementById('pix-code');
-    const pixCode = pixEl ? (pixEl.textContent || pixEl.innerText) : '';
+    let pixCode = pixEl ? (pixEl.textContent || pixEl.innerText) : '';
+    pixCode = pixCode.replace(/\r?\n|\r/g, '').trim();
     if (!pixCode) return;
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
