@@ -57,7 +57,7 @@ if ($inscricao_id) {
             JOIN eventos e ON i.evento_id = e.id
             LEFT JOIN pagamentos pag ON pag.inscricao_id = i.id
             WHERE i.id = ? AND i.participante_id = ?
-        ", [$inscricao_id, participante_obter_id()]);
+        ", [$inscricao_id, $_SESSION['participante_id']]);
         
     } else {
         // Sistema antigo - usar participante_id direto
@@ -143,7 +143,7 @@ if (!$pagamento_ok && $evento['valor'] > 0) {
 // Gerar QR Token se não existir
 if (empty($participante['qr_token'])) {
     $qr_token = bin2hex(random_bytes(16));
-    atualizar_registro('participantes', ['qr_token' => $qr_token], ['id' => $participante['participante_id']]);
+    atualizar_registro('participantes', ['qr_token' => $qr_token], ['id' => $_SESSION['participante_id']]);
     $participante['qr_token'] = $qr_token;
 }
 

@@ -20,8 +20,9 @@ try {
         print_r($_SESSION);
     } else {
         echo "✅ Participante está logado<br>";
-        echo "ID do participante: " . participante_obter_id() . "<br>";
-        echo "Nome: " . participante_obter_nome() . "<br>";
+        echo "ID do participante: " . $_SESSION['participante_id'] . "<br>";
+        echo "CPF: " . $_SESSION['participante_cpf'] . "<br>";
+        echo "Nome: " . ($_SESSION['participante_nome'] ?? 'N/A') . "<br>";
     }
     
     echo "<h2>3. Verificando se tabela inscricoes existe</h2>";
@@ -73,7 +74,7 @@ try {
                     JOIN eventos e ON i.evento_id = e.id
                     LEFT JOIN pagamentos pag ON pag.inscricao_id = i.id
                     WHERE i.id = ? AND i.participante_id = ?
-                ", [$inscricao_id, participante_obter_id()]);
+                ", [$inscricao_id, $_SESSION['participante_id']]);
                 
                 if ($dados) {
                     echo "✅ Dados encontrados no sistema novo<br>";
@@ -89,7 +90,7 @@ try {
                         echo "⚠️ Inscrição existe mas não pertence ao participante logado<br>";
                         echo "ID da inscrição: " . $inscricao_existe['id'] . "<br>";
                         echo "Participante da inscrição: " . $inscricao_existe['participante_id'] . "<br>";
-                        echo "Participante logado: " . participante_obter_id() . "<br>";
+                        echo "Participante logado: " . $_SESSION['participante_id'] . "<br>";
                     } else {
                         echo "❌ Inscrição não existe no sistema<br>";
                     }
@@ -228,13 +229,10 @@ try {
             echo "❌ Erro: " . $e->getMessage() . "<br>";
         }
         
-        echo "<h3>6.2 Função participante_obter_id()</h3>";
-        try {
-            $id = participante_obter_id();
-            echo "ID: " . $id . "<br>";
-        } catch (Exception $e) {
-            echo "❌ Erro: " . $e->getMessage() . "<br>";
-        }
+                 echo "<h3>6.2 Sessão do participante</h3>";
+         echo "ID da sessão: " . ($_SESSION['participante_id'] ?? 'N/A') . "<br>";
+         echo "CPF da sessão: " . ($_SESSION['participante_cpf'] ?? 'N/A') . "<br>";
+         echo "Nome da sessão: " . ($_SESSION['participante_nome'] ?? 'N/A') . "<br>";
         
     } else {
         echo "<h2>4. Nenhum inscricao_id fornecido</h2>";
