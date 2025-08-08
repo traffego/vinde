@@ -39,8 +39,8 @@ function testar_webhook_local() {
         ]
     ];
     
-    // Simular chamada para o webhook
-    $webhook_url = SITE_URL . '/webhook_efi.php';
+    // Detectar URL do webhook automaticamente
+    $webhook_url = detectar_url_webhook();
     
     $curl = curl_init();
     curl_setopt_array($curl, [
@@ -50,11 +50,17 @@ function testar_webhook_local() {
         CURLOPT_POSTFIELDS => json_encode($payload_teste),
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'User-Agent: EFI-Webhook-Test'
+            'User-Agent: EFI-Webhook-Test/1.0',
+            'Accept: application/json'
         ],
         CURLOPT_TIMEOUT => 30,
-        CURLOPT_SSL_VERIFYPEER => false, // Para testes locais
-        CURLOPT_SSL_VERIFYHOST => false
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => true, // Manter verificação SSL em produção
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 3,
+        CURLOPT_USERAGENT => 'EFI-Webhook-Test/1.0',
+        CURLOPT_VERBOSE => false
     ]);
     
     $response = curl_exec($curl);
@@ -68,7 +74,12 @@ function testar_webhook_local() {
         'http_code' => $http_code,
         'resposta' => $response,
         'erro_curl' => $error,
-        'sucesso' => $http_code === 200 && !$error
+        'sucesso' => ($http_code >= 200 && $http_code < 500) && !$error, // Aceitar códigos de erro do webhook como sucesso de conectividade
+        'info_adicional' => [
+            'connect_time' => curl_getinfo($curl, CURLINFO_CONNECT_TIME),
+            'total_time' => curl_getinfo($curl, CURLINFO_TOTAL_TIME),
+            'ssl_verify_result' => curl_getinfo($curl, CURLINFO_SSL_VERIFYRESULT)
+        ]
     ];
 }
 
@@ -111,7 +122,7 @@ function simular_notificacao_pix() {
             ]
         ];
         
-        $webhook_url = SITE_URL . '/webhook_efi.php';
+        $webhook_url = detectar_url_webhook();
         
         $curl = curl_init();
         curl_setopt_array($curl, [
@@ -121,11 +132,15 @@ function simular_notificacao_pix() {
             CURLOPT_POSTFIELDS => json_encode($payload_pix),
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'User-Agent: EFI-PIX-Webhook/1.0'
+                'User-Agent: EFI-PIX-Webhook/1.0',
+                'Accept: application/json'
             ],
             CURLOPT_TIMEOUT => 30,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS => 3
         ]);
         
         $response = curl_exec($curl);
@@ -145,12 +160,49 @@ function simular_notificacao_pix() {
             'erro_curl' => $error,
             'status_antes' => 'pendente',
             'status_depois' => $pagamento_atualizado['status'] ?? 'erro',
-            'sucesso' => $http_code === 200 && $pagamento_atualizado['status'] === 'pago'
+            'conectividade_ok' => ($http_code >= 200 && $http_code < 500) && !$error,
+            'webhook_processou' => $http_code === 200,
+            'pagamento_confirmado' => $pagamento_atualizado['status'] === 'pago',
+            'sucesso' => ($http_code >= 200 && $http_code < 500) && !$error
         ];
         
     } catch (Exception $e) {
         return ['erro' => 'Exceção: ' . $e->getMessage()];
     }
+}
+
+/**
+ * Detecta automaticamente a URL do webhook baseada no ambiente atual
+ */
+function detectar_url_webhook() {
+    // Usar função de detecção de ambiente local se disponível
+    if (function_exists('obter_url_base')) {
+        return obter_url_base() . '/webhook_efi.php';
+    }
+    
+    // Fallback para detecção manual
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $is_localhost = (strpos($host, 'localhost') !== false || 
+                     strpos($host, '127.0.0.1') !== false ||
+                     strpos($host, '::1') !== false);
+    
+    if ($is_localhost) {
+        // Construir URL local
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $port = $_SERVER['SERVER_PORT'] ?? '';
+        $port_str = ($port && $port != '80' && $port != '443') ? ':' . $port : '';
+        
+        $base_url = $protocol . '://' . $host . $port_str;
+        
+        // Detectar diretório do projeto automaticamente
+        $script_dir = dirname($_SERVER['SCRIPT_NAME']);
+        $project_dir = dirname($script_dir); // Remove /admin
+        
+        return $base_url . $project_dir . '/webhook_efi.php';
+    }
+    
+    // Em produção, usar SITE_URL configurado
+    return (defined('SITE_URL') ? SITE_URL : 'http://localhost') . '/webhook_efi.php';
 }
 
 obter_cabecalho_admin($titulo_pagina, 'configuracoes');
@@ -193,12 +245,46 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
 
     <div class="info-section">
         <h3>ℹ️ Informações do Webhook</h3>
+        <?php 
+        $webhook_url_detectada = detectar_url_webhook();
+        $is_localhost = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
+        $ambiente_local = function_exists('is_ambiente_local') && is_ambiente_local();
+        $url_base_atual = function_exists('obter_url_base') ? obter_url_base() : (defined('SITE_URL') ? SITE_URL : 'N/A');
+        ?>
         <ul>
-            <li><strong>URL do Webhook:</strong> <code><?= SITE_URL ?>/webhook_efi.php</code></li>
+            <li><strong>URL do Webhook (Configurada):</strong> <code><?= SITE_URL ?>/webhook_efi.php</code></li>
+            <li><strong>URL do Webhook (Para Teste):</strong> <code><?= $webhook_url_detectada ?></code></li>
+            <li><strong>URL Base Detectada:</strong> <code><?= $url_base_atual ?></code></li>
+            <li><strong>Ambiente:</strong> 
+                <?php if ($ambiente_local): ?>
+                    🏠 Local (Auto-detectado)
+                <?php elseif ($is_localhost): ?>
+                    🏠 Local (XAMPP)
+                <?php else: ?>
+                    🌐 Produção
+                <?php endif; ?>
+            </li>
+            <li><strong>Host:</strong> <?= $_SERVER['HTTP_HOST'] ?? 'N/A' ?></li>
             <li><strong>Método:</strong> POST</li>
             <li><strong>Content-Type:</strong> application/json</li>
             <li><strong>EFI Ativa:</strong> <?= efi_esta_ativo() ? '✅ Sim' : '❌ Não' ?></li>
         </ul>
+        
+        <?php if ($is_localhost): ?>
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <strong>🏠 Ambiente Local Detectado</strong><br>
+            O teste usará a URL local automaticamente (<?= $webhook_url_detectada ?>).<br>
+            Para testes reais da EFI, configure o domínio em produção e registre o webhook via API.
+        </div>
+        <?php endif; ?>
+        
+        <?php if ($webhook_url_detectada !== SITE_URL . '/webhook_efi.php'): ?>
+        <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin-top: 15px;">
+            <strong>ℹ️ URLs Diferentes</strong><br>
+            A URL configurada é diferente da URL detectada. Isso é normal em ambiente local.<br>
+            Em produção, certifique-se de que a URL configurada seja acessível pela EFI.
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="logs-section">

@@ -8,6 +8,7 @@ define('SISTEMA_INSCRICOES', true);
 // Carregar configurações
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/debug_config.php';
+require_once __DIR__ . '/config_local.php';
 
 // Carregar dependências
 require_once __DIR__ . '/database.php';
