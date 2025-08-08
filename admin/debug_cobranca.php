@@ -67,7 +67,8 @@ header('Content-Type: text/html; charset=utf-8');
         echo "<h3>Passo 3: Tentativa de Criação de Cobrança</h3>";
         
         // Dados para teste
-        $txid = 'TESTE' . time();
+        // Usar função para gerar TXID válido
+        $txid = efi_gerar_txid_valido('TESTE');
         $dados_teste = [
             'valor' => 0.01,
             'descricao' => 'Teste debug cobranca',

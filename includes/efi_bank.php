@@ -583,8 +583,12 @@ function efi_criar_pix_completo($dados_pagamento) {
     }
     
     try {
-        // Gerar TXID único baseado no participante e timestamp
-        $txid = 'VINDE' . str_pad($dados_pagamento['participante_id'], 6, '0', STR_PAD_LEFT) . substr(time(), -6);
+        // Gerar TXID único conforme padrão EFI Bank
+        $txid = efi_gerar_txid_valido('VINDE', $dados_pagamento['participante_id']);
+        
+        if ($dados_pagamento['debug'] ?? false) {
+            error_log("EFI Debug: TXID gerado: {$txid} (tamanho: " . strlen($txid) . ")");
+        }
         
         // Criar cobrança PIX na EFI Bank
         $cobranca = efi_criar_cobranca_pix(
@@ -787,6 +791,37 @@ function efi_verificar_configuracoes() {
         'problemas' => $problemas,
         'ambiente' => $config_efi['efi_sandbox'] === '1' ? 'sandbox' : 'producao'
     ];
+}
+
+/**
+ * Gera TXID válido conforme padrão EFI Bank
+ * Padrão: ^[a-zA-Z0-9]{26,35}$ (26-35 caracteres alfanuméricos)
+ * @param string $prefixo Prefixo para o TXID (ex: 'VINDE')
+ * @param int $participante_id ID do participante (opcional)
+ * @return string TXID válido
+ */
+function efi_gerar_txid_valido($prefixo = 'VINDE', $participante_id = null) {
+    $timestamp = time();
+    $random_str = strtoupper(bin2hex(random_bytes(12))); // 24 caracteres hex
+    
+    if ($participante_id) {
+        $participante_str = str_pad($participante_id, 6, '0', STR_PAD_LEFT);
+        // Formato: PREFIX + 6 dígitos participante + 6 dígitos timestamp + resto random
+        $txid = $prefixo . $participante_str . substr($timestamp, -6) . substr($random_str, 0, 35 - strlen($prefixo) - 6 - 6);
+    } else {
+        // Formato: PREFIX + 6 dígitos timestamp + resto random
+        $txid = $prefixo . substr($timestamp, -6) . substr($random_str, 0, 35 - strlen($prefixo) - 6);
+    }
+    
+    // Garantir que tem entre 26-35 caracteres e só alfanuméricos
+    $txid = substr(preg_replace('/[^A-Za-z0-9]/', '', $txid), 0, 35);
+    
+    // Se ficou menor que 26, preencher com random
+    while (strlen($txid) < 26) {
+        $txid .= strtoupper(dechex(mt_rand(0, 15)));
+    }
+    
+    return substr($txid, 0, 35); // Máximo 35 caracteres
 }
 
 ?> 
