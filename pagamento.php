@@ -42,7 +42,7 @@ if ($debug_mode) {
 // Verificar se usuário está logado
 if (!participante_esta_logado()) {
     redirecionar(SITE_URL . '/participante/login.php');
-}
+    }
 
     $participante_logado = obter_participante_logado();
     
@@ -132,8 +132,8 @@ try {
     </div>
     <?php
     obter_rodape();
-    exit;
-}
+        exit;
+    }
 
 // Garantir que exista um registro de pagamento associado a esta inscrição
 if (empty($pagamento['id'])) {
@@ -276,7 +276,7 @@ if ($deve_gerar_pix) {
         error_log("ERRO: EFI Bank não configurado corretamente - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO') . " | Certificado: " . ($certificado_existe ? 'SIM' : 'NÃO'));
         $erro = "Sistema de pagamento não configurado. Entre em contato com o suporte.";
     }
-    } catch (Exception $e) {
+} catch (Exception $e) {
         error_log('PAGAMENTO ERRO: Exceção ao gerar PIX: ' . $e->getMessage());
         $erro = 'Erro interno ao gerar o PIX. Tente novamente.';
     }
@@ -304,7 +304,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     <div class="pagamento-header">
         <h1>Finalizar Pagamento</h1>
         <p>Complete seu pagamento para confirmar a inscrição</p>
-        </div>
+    </div>
 
     <?php if ($erro && $debug_mode): ?>
         <div class="alert alert-error">
@@ -370,7 +370,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                             Expira em: <?= $pagamento['pix_expires_at'] ? date('d/m/Y H:i:s', strtotime($pagamento['pix_expires_at'])) : 'N/A' ?><br>
                             Status Pagamento: <?= htmlspecialchars($pagamento['status'] ?? 'N/A') ?><br>
                             Status Inscrição: <?= htmlspecialchars($inscricao['status'] ?? 'N/A') ?>
-                        </div>
+        </div>
                         <?php endif; ?>
                         
                         <div class="pix-actions">
@@ -381,20 +381,20 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     <div class="alert alert-warning" style="margin: 20px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
                         <strong>⚠️ Código PIX não disponível</strong><br>
                         <small>O código PIX não foi gerado corretamente. <?= $debug_mode ? 'Verifique as configurações EFI Bank no painel administrativo.' : 'Entre em contato com o suporte.' ?></small>
-                    </div>
+    </div>
                 <?php endif; ?>
 
                 <div class="instrucoes-pix" style="margin-bottom: 8px;">
                     <h4>Como pagar:</h4>
-                    <ol>
-                        <li>Abra o app do seu banco</li>
-                        <li>Escolha a opção PIX</li>
+        <ol>
+            <li>Abra o app do seu banco</li>
+            <li>Escolha a opção PIX</li>
                         <li>Escaneie o QR Code ou cole o código copiado</li>
-                        <li>Confirme o pagamento</li>
+            <li>Confirme o pagamento</li>
                         <li>Aguarde a confirmação automática</li>
-                    </ol>
-                        </div>
-                        
+        </ol>
+    </div>
+
                 <div class="verificacao-status" style="margin: 8px 0 0 0;">
                     <button type="button" class="btn-verificar" onclick="verificarPagamento()">
                         🔄 Verificar Pagamento
