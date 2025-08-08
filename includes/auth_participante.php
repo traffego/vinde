@@ -222,7 +222,7 @@ function obter_participante_logado() {
  * Buscar inscrições do participante logado
  */
 function obter_inscricoes_participante($participante_id) {
-    return buscar_varios("
+    return buscar_todos("
         SELECT 
             i.id as inscricao_id,
             i.status as status_inscricao,
@@ -232,7 +232,7 @@ function obter_inscricoes_participante($participante_id) {
             i.data_pagamento,
             e.id as evento_id,
             e.nome as evento_nome,
-            e.slug as evento_slug,
+            e.slug,
             e.descricao,
             e.data_inicio,
             e.data_fim,
@@ -242,14 +242,22 @@ function obter_inscricoes_participante($participante_id) {
             e.endereco,
             e.cidade,
             e.estado,
-            e.valor as evento_valor,
+            e.valor,
             e.imagem,
             e.status as evento_status,
+            p.nome as participante_nome,
+            p.cpf as participante_cpf,
             p.qr_token,
-            p.checkin_timestamp
+            -- Campos compatíveis com sistema antigo
+            i.status as status,
+            e.nome as nome,
+            i.participante_id,
+            pg.status as pagamento_status,
+            NULL as checkin_timestamp
         FROM inscricoes i
         JOIN eventos e ON i.evento_id = e.id
-        LEFT JOIN participantes p ON i.participante_id = p.id AND p.evento_id = e.id
+        JOIN participantes p ON i.participante_id = p.id
+        LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
         WHERE i.participante_id = ? AND i.status != 'cancelada'
         ORDER BY e.data_inicio DESC
     ", [$participante_id]);
@@ -312,12 +320,39 @@ function criar_inscricao_participante($participante_id, $evento_id) {
             return ['sucesso' => false, 'mensagem' => 'Erro ao processar inscrição. Tente novamente.'];
         }
         
-        return [
-            'sucesso' => true,
-            'mensagem' => 'Inscrição realizada com sucesso!',
-            'inscricao_id' => $inscricao_id,
-            'evento_valor' => $evento['valor']
-        ];
+        // Determinar próximo passo baseado no valor do evento
+        if ($evento['valor'] > 0) {
+            // Criar pagamento e redirecionar para pagamento
+            $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
+            
+            $pagamento_dados = [
+                'participante_id' => $participante_id,
+                'inscricao_id' => $inscricao_id,
+                'valor' => $evento['valor'],
+                'status' => 'pendente',
+                'metodo' => 'pix',
+                'pix_txid' => $txid
+            ];
+            
+            inserir_registro('pagamentos', $pagamento_dados);
+            
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Inscrição realizada com sucesso!',
+                'inscricao_id' => $inscricao_id,
+                'redirect_to' => SITE_URL . '/pagamento.php?inscricao=' . $inscricao_id
+            ];
+        } else {
+            // Evento gratuito - aprovar automaticamente
+            executar("UPDATE inscricoes SET status = 'aprovada' WHERE id = ?", [$inscricao_id]);
+            
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Inscrição realizada com sucesso!',
+                'inscricao_id' => $inscricao_id,
+                'redirect_to' => SITE_URL . '/confirmacao.php?inscricao=' . $inscricao_id
+            ];
+        }
         
     } catch (Exception $e) {
         error_log("Erro ao criar inscrição: " . $e->getMessage());
@@ -343,11 +378,21 @@ function gerar_qr_checkin($participante_id, $evento_id) {
         FROM inscricoes i
         JOIN participantes p ON i.participante_id = p.id
         JOIN eventos e ON i.evento_id = e.id
-        WHERE i.participante_id = ? AND i.evento_id = ? AND i.status = 'aprovada'
+        WHERE i.participante_id = ? AND i.evento_id = ? AND i.status IN ('pendente', 'aprovada')
     ", [$participante_id, $evento_id]);
     
     if (!$inscricao) {
         return null;
+    }
+    
+    // Gerar QR token se não existir
+    if (empty($inscricao['qr_token'])) {
+        $qr_token = gerar_string_aleatoria(32);
+        
+        // Atualizar na tabela participantes
+        executar("UPDATE participantes SET qr_token = ? WHERE id = ?", [$qr_token, $participante_id]);
+        
+        $inscricao['qr_token'] = $qr_token;
     }
     
     // Dados do QR Code para check-in
