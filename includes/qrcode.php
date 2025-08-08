@@ -226,7 +226,7 @@ function processar_checkin($participante_id, $operador_nome = null) {
 /**
  * Gerar QR Code para check-in do participante
  */
-function gerar_qr_checkin($participante_id) {
+function gerar_qr_checkin_basico($participante_id) {
     $participante = buscar_um("
         SELECT p.*, e.nome as evento_nome 
         FROM participantes p 
