@@ -36,7 +36,11 @@ function processar_inscricao($evento_id, $dados) {
         $erros = [];
         
         if (empty($dados['nome'])) $erros[] = 'Nome é obrigatório';
-        if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
+        
+        // Validar CPF apenas se a verificação estiver ativada
+        if (cpf_obrigatorio()) {
+            if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
+        }
         if (empty($dados['whatsapp']) || !validar_telefone($dados['whatsapp'])) $erros[] = 'WhatsApp inválido';
         if (empty($dados['email']) || !filter_var($dados['email'], FILTER_VALIDATE_EMAIL)) $erros[] = 'Email inválido';
         if (empty($dados['idade']) || !is_numeric($dados['idade']) || $dados['idade'] < 1 || $dados['idade'] > 120) {
@@ -278,6 +282,7 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                                 <div class="field-error" id="erro-nome"></div>
                             </div>
                             
+                            <?php if (cpf_obrigatorio()): ?>
                             <div class="form-row-group">
                                 <div class="form-row">
                                     <label for="cpf">CPF *</label>
@@ -286,6 +291,16 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                                            placeholder="000.000.000-00" data-mask="cpf">
                                     <div class="field-error" id="erro-cpf"></div>
                                 </div>
+                            <?php else: ?>
+                            <div class="form-row-group">
+                                <div class="form-row">
+                                    <label for="cpf">CPF (opcional)</label>
+                                    <input type="text" id="cpf" name="cpf"
+                                           value="<?= htmlspecialchars($_POST['cpf'] ?? '') ?>"
+                                           placeholder="000.000.000-00" data-mask="cpf">
+                                    <div class="field-error" id="erro-cpf"></div>
+                                </div>
+                            <?php endif; ?>
                                 
                                 <div class="form-row">
                                     <label for="idade">Idade *</label>
@@ -520,6 +535,59 @@ function fecharTermos() {
 function aceitarTermos() {
     document.getElementById('aceito-termos').checked = true;
     fecharTermos();
+}
+
+// Validação condicional de CPF
+document.addEventListener('DOMContentLoaded', function() {
+    const formulario = document.querySelector('form');
+    const cpfInput = document.getElementById('cpf');
+    const cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+    
+    if (formulario && cpfInput) {
+        formulario.addEventListener('submit', function(e) {
+            // Validar CPF apenas se for obrigatório
+            if (cpfObrigatorio) {
+                const cpf = cpfInput.value.replace(/\D/g, '');
+                if (!cpf || !validarCPF(cpf)) {
+                    e.preventDefault();
+                    alert('Por favor, preencha um CPF válido.');
+                    cpfInput.focus();
+                    return false;
+                }
+            } else if (cpfInput.value && !validarCPF(cpfInput.value.replace(/\D/g, ''))) {
+                // Se o CPF foi preenchido mas está inválido, mesmo que não seja obrigatório
+                e.preventDefault();
+                alert('CPF preenchido está inválido. Corrija ou deixe em branco.');
+                cpfInput.focus();
+                return false;
+            }
+        });
+    }
+});
+
+// Função para validar CPF
+function validarCPF(cpf) {
+    if (!cpf || cpf.length !== 11) return false;
+    
+    // Eliminar CPFs conhecidos como inválidos
+    if (/^(\d)\1+$/.test(cpf)) return false;
+    
+    // Validar dígito verificador
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+        soma += parseInt(cpf.charAt(i)) * (10 - i);
+    }
+    let resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    if (resto !== parseInt(cpf.charAt(9))) return false;
+    
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+        soma += parseInt(cpf.charAt(i)) * (11 - i);
+    }
+    resto = (soma * 10) % 11;
+    if (resto === 10 || resto === 11) resto = 0;
+    return resto === parseInt(cpf.charAt(10));
 }
 </script>
 

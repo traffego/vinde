@@ -515,6 +515,14 @@ function obter_configuracoes_efi() {
 }
 
 /**
+ * Verificar se a verificação de CPF está ativada
+ * @return bool
+ */
+function cpf_obrigatorio() {
+    return obter_configuracao('verificar_cpf', '1') === '1';
+}
+
+/**
  * Verificar se EFI Bank está configurado e ativo
  * @return bool
  */

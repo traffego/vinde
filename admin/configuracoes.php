@@ -50,7 +50,8 @@ function salvar_configuracoes($dados) {
             'theme_color' => sanitizar_entrada($dados['theme_color'] ?? '#1e40af'),
             'max_upload_size' => intval($dados['max_upload_size'] ?? 5),
             'termos_uso' => $dados['termos_uso'] ?? '',
-            'politica_privacidade' => $dados['politica_privacidade'] ?? ''
+            'politica_privacidade' => $dados['politica_privacidade'] ?? '',
+            'verificar_cpf' => isset($dados['verificar_cpf']) ? '1' : '0'
         ];
         
         // Validações
@@ -108,7 +109,8 @@ function obter_descricao_config($chave) {
         'theme_color' => 'Cor principal do tema',
         'max_upload_size' => 'Tamanho máximo de upload (MB)',
         'termos_uso' => 'Termos de uso do sistema',
-        'politica_privacidade' => 'Política de privacidade'
+        'politica_privacidade' => 'Política de privacidade',
+        'verificar_cpf' => 'Verificação de CPF obrigatória nas inscrições'
     ];
     
     return $descricoes[$chave] ?? '';
@@ -271,6 +273,18 @@ obter_cabecalho_admin('Configurações do Sistema', 'configuracoes');
                                <?= ($config_array['backup_automatico'] ?? '0') === '1' ? 'checked' : '' ?>>
                         <span class="checkmark"></span>
                         Backup Automático Ativado
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group-admin">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="verificar_cpf" 
+                               <?= ($config_array['verificar_cpf'] ?? '1') === '1' ? 'checked' : '' ?>>
+                        <span class="checkmark"></span>
+                        Verificação de CPF Obrigatória
+                        <small class="form-help">Quando ativado, o CPF será obrigatório e validado nos formulários de inscrição</small>
                     </label>
                 </div>
             </div>

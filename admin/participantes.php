@@ -184,7 +184,14 @@ function salvar_participante($dados, $participante_id = null) {
         $erros = [];
         
         if (empty($dados['nome'])) $erros[] = 'Nome é obrigatório';
-        if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
+        
+        // Validar CPF apenas se a verificação estiver ativada
+        if (cpf_obrigatorio()) {
+            if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
+        } elseif (!empty($dados['cpf']) && !validar_cpf($dados['cpf'])) {
+            // Se o CPF foi preenchido mas está inválido, mesmo que não seja obrigatório
+            $erros[] = 'CPF inválido';
+        }
         if (empty($dados['whatsapp']) || !validar_telefone($dados['whatsapp'])) $erros[] = 'WhatsApp inválido';
         if (empty($dados['email']) || !filter_var($dados['email'], FILTER_VALIDATE_EMAIL)) $erros[] = 'Email inválido';
         if (empty($dados['idade']) || !is_numeric($dados['idade']) || $dados['idade'] < 1 || $dados['idade'] > 120) {
@@ -574,9 +581,10 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             
             <div class="form-row">
                 <div class="form-group-admin">
-                    <label class="form-label-admin">CPF *</label>
-                    <input type="text" name="cpf" class="form-input-admin required" 
-                           value="<?= formatarCpf($participante['cpf'] ?? '') ?>" required data-mask="cpf">
+                    <label class="form-label-admin">CPF <?= cpf_obrigatorio() ? '*' : '(opcional)' ?></label>
+                    <input type="text" name="cpf" class="form-input-admin <?= cpf_obrigatorio() ? 'required' : '' ?>" 
+                           value="<?= formatarCpf($participante['cpf'] ?? '') ?>" 
+                           <?= cpf_obrigatorio() ? 'required' : '' ?> data-mask="cpf">
                 </div>
                 
                 <div class="form-group-admin">
