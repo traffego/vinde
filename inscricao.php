@@ -37,9 +37,12 @@ function processar_inscricao($evento_id, $dados) {
         
         if (empty($dados['nome'])) $erros[] = 'Nome é obrigatório';
         
-        // Validar CPF apenas se a verificação estiver ativada
-        if (cpf_obrigatorio()) {
-            if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
+        // Validar CPF conforme configuração
+        if (empty($dados['cpf'])) {
+            $erros[] = 'CPF é obrigatório';
+        } elseif (cpf_obrigatorio() && !validar_cpf($dados['cpf'])) {
+            // Só valida formato se a verificação estiver ativada
+            $erros[] = 'CPF inválido';
         }
         if (empty($dados['whatsapp']) || !validar_telefone($dados['whatsapp'])) $erros[] = 'WhatsApp inválido';
         if (empty($dados['email']) || !filter_var($dados['email'], FILTER_VALIDATE_EMAIL)) $erros[] = 'Email inválido';
@@ -537,27 +540,28 @@ function aceitarTermos() {
     fecharTermos();
 }
 
+// Definir configuração global de CPF
+window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+
 // Validação condicional de CPF
 document.addEventListener('DOMContentLoaded', function() {
     const formulario = document.querySelector('form');
     const cpfInput = document.getElementById('cpf');
-    const cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+    const cpfObrigatorio = window.cpfObrigatorio;
     
     if (formulario && cpfInput) {
         formulario.addEventListener('submit', function(e) {
-            // Validar CPF apenas se for obrigatório
-            if (cpfObrigatorio) {
-                const cpf = cpfInput.value.replace(/\D/g, '');
-                if (!cpf || !validarCPF(cpf)) {
-                    e.preventDefault();
-                    alert('Por favor, preencha um CPF válido.');
-                    cpfInput.focus();
-                    return false;
-                }
-            } else if (cpfInput.value && !validarCPF(cpfInput.value.replace(/\D/g, ''))) {
-                // Se o CPF foi preenchido mas está inválido, mesmo que não seja obrigatório
+            // Validar CPF conforme configuração
+            if (!cpfInput.value.trim()) {
+                // CPF sempre obrigatório (não pode ficar vazio)
                 e.preventDefault();
-                alert('CPF preenchido está inválido. Corrija ou deixe em branco.');
+                alert('Por favor, preencha o CPF.');
+                cpfInput.focus();
+                return false;
+            } else if (cpfObrigatorio && !validarCPF(cpfInput.value.replace(/\D/g, ''))) {
+                // Só valida formato se a verificação estiver ativada
+                e.preventDefault();
+                alert('Por favor, preencha um CPF válido.');
                 cpfInput.focus();
                 return false;
             }

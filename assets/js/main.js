@@ -175,7 +175,8 @@ function validateField(field) {
                 break;
                 
             case 'cpf':
-                if (!isValidCPF(value)) {
+                // Só valida formato se a configuração exigir verificação de CPF
+                if (window.cpfObrigatorio && !isValidCPF(value)) {
                     isValid = false;
                     message = 'Digite um CPF válido.';
                 }

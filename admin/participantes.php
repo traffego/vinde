@@ -185,11 +185,11 @@ function salvar_participante($dados, $participante_id = null) {
         
         if (empty($dados['nome'])) $erros[] = 'Nome é obrigatório';
         
-        // Validar CPF apenas se a verificação estiver ativada
-        if (cpf_obrigatorio()) {
-            if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
-        } elseif (!empty($dados['cpf']) && !validar_cpf($dados['cpf'])) {
-            // Se o CPF foi preenchido mas está inválido, mesmo que não seja obrigatório
+        // Validar CPF conforme configuração
+        if (empty($dados['cpf'])) {
+            $erros[] = 'CPF é obrigatório';
+        } elseif (cpf_obrigatorio() && !validar_cpf($dados['cpf'])) {
+            // Só valida formato se a verificação estiver ativada
             $erros[] = 'CPF inválido';
         }
         if (empty($dados['whatsapp']) || !validar_telefone($dados['whatsapp'])) $erros[] = 'WhatsApp inválido';
@@ -783,6 +783,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Definir configuração global de CPF
+window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
 </script>
 
 <?php
