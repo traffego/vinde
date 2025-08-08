@@ -27,6 +27,175 @@ if ($evento['vagas_restantes'] <= 0) {
 
 $erro = '';
 
+/**
+ * Processar inscrição do participante
+ */
+function processar_inscricao($evento_id, $dados) {
+    try {
+        // Validações
+        $erros = [];
+        
+        if (empty($dados['nome'])) $erros[] = 'Nome é obrigatório';
+        if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
+        if (empty($dados['whatsapp']) || !validar_telefone($dados['whatsapp'])) $erros[] = 'WhatsApp inválido';
+        if (empty($dados['email']) || !filter_var($dados['email'], FILTER_VALIDATE_EMAIL)) $erros[] = 'Email inválido';
+        if (empty($dados['idade']) || !is_numeric($dados['idade']) || $dados['idade'] < 1 || $dados['idade'] > 120) {
+            $erros[] = 'Idade deve ser um número válido';
+        }
+        if (empty($dados['cidade'])) $erros[] = 'Cidade é obrigatória';
+        
+        // Verificar se já existe inscrição com este CPF para este evento
+        $inscricao_existente = buscar_um("
+            SELECT id FROM participantes 
+            WHERE evento_id = ? AND cpf = ? AND status != 'cancelado'
+        ", [$evento_id, limpar_cpf($dados['cpf'])]);
+        
+        if ($inscricao_existente) {
+            $erros[] = 'Já existe uma inscrição com este CPF para este evento';
+        }
+        
+        if (!empty($erros)) {
+            return ['sucesso' => false, 'mensagem' => implode(', ', $erros)];
+        }
+        
+        // Verificar vagas novamente
+        $evento_atual = buscar_um("
+            SELECT e.limite_participantes,
+                   COUNT(p.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(p.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+            WHERE e.id = ?
+            GROUP BY e.id
+        ", [$evento_id]);
+        
+        if ($evento_atual['vagas_restantes'] <= 0) {
+            return ['sucesso' => false, 'mensagem' => 'As vagas se esgotaram durante o preenchimento. Tente outro evento.'];
+        }
+        
+        // Gerar token único para QR Code
+        $qr_token = gerar_string_aleatoria(32);
+        
+        // Inserir participante
+        $participante_dados = [
+            'evento_id' => $evento_id,
+            'nome' => sanitizar_entrada($dados['nome']),
+            'cpf' => limpar_cpf($dados['cpf']),
+            'whatsapp' => limpar_telefone($dados['whatsapp']),
+            'instagram' => sanitizar_entrada($dados['instagram'] ?? ''),
+            'email' => sanitizar_entrada($dados['email']),
+            'idade' => intval($dados['idade']),
+            'cidade' => sanitizar_entrada($dados['cidade']),
+            'estado' => $dados['estado'] ?? 'SP',
+            'tipo' => 'normal',
+            'status' => 'inscrito',
+            'qr_token' => $qr_token
+        ];
+        
+        $participante_id = inserir_registro('participantes', $participante_dados);
+        
+        if (!$participante_id) {
+            return ['sucesso' => false, 'mensagem' => 'Erro ao processar inscrição. Tente novamente.'];
+        }
+        
+        // Buscar valor do evento para criar pagamento
+        $evento_info = buscar_um("SELECT valor, nome FROM eventos WHERE id = ?", [$evento_id]);
+        $valor = floatval($evento_info['valor']);
+        
+        // Criar registro de pagamento
+        if ($valor > 0) {
+            // Gerar TXID único para EFI Bank
+            $txid = 'VINDE' . date('YmdHis') . str_pad($participante_id, 6, '0', STR_PAD_LEFT);
+            
+            $pagamento_dados = [
+                'participante_id' => $participante_id,
+                'valor' => $valor,
+                'status' => 'pendente',
+                'metodo' => 'pix',
+                'pix_txid' => $txid
+            ];
+            
+            // Verificar se EFI Bank está ativo e certificado disponível
+            $efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
+            $certificado_existe = file_exists(EFI_CERTIFICADO_PROD);
+            
+            if ($efi_ativo && $certificado_existe) {
+                // Usar EFI Bank
+                $descricao = "Inscrição: {$evento_info['nome']} - {$dados['nome']}";
+                $cobranca_efi = efi_criar_cobranca_pix(
+                    $txid,
+                    $valor,
+                    $descricao,
+                    $dados['nome'],
+                    limpar_cpf($dados['cpf']),
+                    3600 // 1 hora de expiração
+                );
+                
+                if ($cobranca_efi) {
+                    $pagamento_dados['pix_loc_id'] = $cobranca_efi['loc']['id'] ?? null;
+                    $pagamento_dados['pix_expires_at'] = date('Y-m-d H:i:s', time() + 3600);
+                    
+                    // Gerar QR Code da cobrança
+                    if (isset($cobranca_efi['loc']['id'])) {
+                        $qrcode_data = efi_gerar_qrcode($cobranca_efi['loc']['id']);
+                        if ($qrcode_data) {
+                            $pagamento_dados['pix_qrcode_data'] = $qrcode_data['qrcode'];
+                            $pagamento_dados['pix_qrcode_url'] = $qrcode_data['imagemQrcode'] ?? null;
+                        }
+                    }
+                } else {
+                    // Fallback para PIX simples se EFI Bank falhar
+                    $descricao = "Inscricao: " . substr($evento_info['nome'], 0, 20) . " - " . substr($dados['nome'], 0, 15);
+                    $cobranca_simples = criar_cobranca_pix_simples($participante_id, $valor, $descricao);
+                    
+                    if ($cobranca_simples) {
+                        $pagamento_dados['pix_qrcode_data'] = $cobranca_simples['payload'];
+                        $pagamento_dados['pix_qrcode_url'] = $cobranca_simples['qrcode_url'];
+                        $pagamento_dados['pix_expires_at'] = $cobranca_simples['expires_at'];
+                    }
+                }
+            } else {
+                // Usar PIX simples
+                $descricao = "Inscricao: " . substr($evento_info['nome'], 0, 20) . " - " . substr($dados['nome'], 0, 15);
+                $cobranca_simples = criar_cobranca_pix_simples($participante_id, $valor, $descricao);
+                
+                if ($cobranca_simples) {
+                    $pagamento_dados['pix_qrcode_data'] = $cobranca_simples['payload'];
+                    $pagamento_dados['pix_qrcode_url'] = $cobranca_simples['qrcode_url'];
+                    $pagamento_dados['pix_expires_at'] = $cobranca_simples['expires_at'];
+                    
+                    registrar_log('efi_cobranca_criada', "TXID: {$txid} | Valor: R$ {$valor} | Participante: {$dados['nome']}");
+                }
+            }
+            
+            inserir_registro('pagamentos', $pagamento_dados);
+        } else {
+            // Evento gratuito - marcar como pago
+            $pagamento_dados = [
+                'participante_id' => $participante_id,
+                'valor' => 0,
+                'status' => 'pago',
+                'metodo' => 'dinheiro',
+                'pago_em' => date('Y-m-d H:i:s')
+            ];
+            
+            inserir_registro('pagamentos', $pagamento_dados);
+            
+            // Atualizar status do participante
+            atualizar_registro('participantes', ['status' => 'pago'], ['id' => $participante_id]);
+        }
+        
+        // Log da ação
+        registrar_log('inscricao_criada', "Participante: {$dados['nome']} - Evento ID: {$evento_id}");
+        
+        return ['sucesso' => true, 'participante_id' => $participante_id];
+        
+    } catch (Exception $e) {
+        error_log("Erro ao processar inscrição: " . $e->getMessage());
+        return ['sucesso' => false, 'mensagem' => 'Erro interno. Tente novamente mais tarde.'];
+    }
+}
+
 // Processar formulário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verificar_csrf_token($_POST['csrf_token'] ?? '')) {
