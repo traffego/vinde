@@ -332,11 +332,12 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     <div class="qr-code-container">
                         <?php if (!empty($pagamento['pix_qrcode_url'])): ?>
                             <img 
-                                src="<?= htmlspecialchars($pagamento['pix_qrcode_url']) ?>" 
+                                src="<?= $pagamento['pix_qrcode_url'] ?>" 
                                 alt="QR Code PIX" 
                                 id="qr-code-img"
+                                width="260" height="260"
+                                decoding="async" loading="eager"
                                 onerror="this.style.display='none';var w=document.getElementById('qr-canvas-wrapper');if(w){w.style.display='inline-block';}gerarQrPixCanvas();"
-                                style="<?= strpos($pagamento['pix_qrcode_url'], 'data:image') === 0 ? '' : '' ?>"
                             >
                         <?php endif; ?>
                         <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
