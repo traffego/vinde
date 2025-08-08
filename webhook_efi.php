@@ -15,22 +15,6 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
-// Função para log específico do webhook
-function log_webhook($tipo, $dados, $mensagem = '') {
-    $log_data = [
-        'tipo' => $tipo,
-        'request_data' => json_encode($dados),
-        'mensagem' => $mensagem,
-        'criado_em' => date('Y-m-d H:i:s')
-    ];
-    
-    try {
-        inserir_registro('efi_logs', $log_data);
-    } catch (Exception $e) {
-        error_log("Erro ao salvar log webhook EFI: " . $e->getMessage());
-    }
-}
-
 // Função para resposta JSON
 function resposta_json($sucesso, $mensagem, $dados = []) {
     $resposta = [
@@ -50,28 +34,49 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     resposta_json(false, 'Método não permitido');
 }
 
-// Verificar se EFI está ativo
-$efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
-if (!$efi_ativo) {
+// Verificar se EFI está ativo e configurado
+if (!efi_esta_ativo()) {
     http_response_code(503);
-    resposta_json(false, 'EFI Bank não está ativo');
+    resposta_json(false, 'EFI Bank não está ativo ou configurado');
 }
+
+// Obter configurações EFI
+$config_efi = obter_configuracoes_efi();
 
 // Ler dados do webhook
 $input = file_get_contents('php://input');
 $dados_webhook = json_decode($input, true);
 
 // Log da requisição recebida
-log_webhook('webhook', $dados_webhook, 'Webhook recebido');
+registrar_log('webhook_recebido', 'Webhook EFI Bank recebido', null);
 
 // Verificar se dados são válidos
 if (!$dados_webhook) {
     http_response_code(400);
+    registrar_log('webhook_erro', 'Dados JSON inválidos no webhook');
     resposta_json(false, 'Dados inválidos');
+}
+
+// Log detalhado se debug está ativo
+if ($config_efi['efi_debug'] === '1') {
+    error_log("EFI Webhook Debug: " . json_encode($dados_webhook));
+}
+
+// Validar webhook secret se configurado
+if (!empty($config_efi['efi_webhook_secret'])) {
+    $webhook_signature = $_SERVER['HTTP_X_HUB_SIGNATURE'] ?? '';
+    $expected_signature = 'sha1=' . hash_hmac('sha1', $input, $config_efi['efi_webhook_secret']);
+    
+    if (!hash_equals($expected_signature, $webhook_signature)) {
+        http_response_code(401);
+        registrar_log('webhook_erro', 'Assinatura do webhook inválida');
+        resposta_json(false, 'Assinatura inválida');
+    }
 }
 
 // Verificar se é notificação de PIX
 if (!isset($dados_webhook['pix'])) {
+    registrar_log('webhook_info', 'Notificação recebida mas não é PIX');
     resposta_json(true, 'Notificação ignorada - não é PIX');
 }
 
@@ -93,150 +98,148 @@ try {
         
         if (!$pix_completo) {
             $erros[] = "Não foi possível consultar PIX: {$endToEndId}";
+            registrar_log('webhook_erro', "Falha ao consultar PIX via API", $endToEndId);
             continue;
         }
         
         // Log do PIX consultado
-        log_webhook('consulta', $pix_completo, "PIX consultado: {$endToEndId}");
+        registrar_log('webhook_pix_consultado', "PIX consultado com sucesso", $endToEndId);
         
-        // Extrair TXID da cobrança - conforme documentação EFI Bank
-        $txid = null;
-        
-        // 1. Verificar campo txid diretamente
-        if (isset($pix_completo['txid'])) {
-            $txid = $pix_completo['txid'];
-        }
-        // 2. Verificar em devolucoes se existe
-        elseif (isset($pix_completo['devolucoes']) && !empty($pix_completo['devolucoes'])) {
-            foreach ($pix_completo['devolucoes'] as $devolucao) {
-                if (isset($devolucao['rtrId'])) {
-                    // Para devoluções, buscar cobrança original
-                    $txid = $devolucao['rtrId'];
-                    break;
-                }
-            }
-        }
-        // 3. Verificar infoPagador para TXIDs customizados
-        elseif (isset($pix_completo['infoPagador'])) {
-            $info_pagador = $pix_completo['infoPagador'];
-            // Buscar padrão VINDE + timestamp + ID
-            if (preg_match('/VINDE\d{20}/', $info_pagador, $matches)) {
-                $txid = $matches[0];
-            }
-        }
-        // 4. Último recurso: buscar no campo horario.solicitacao
-        elseif (isset($pix_completo['horario']['solicitacao'])) {
-            // Tentar encontrar uma cobrança criada próximo ao horário
-            $timestamp_pix = strtotime($pix_completo['horario']['solicitacao']);
-            $valor_pix = floatval($pix_completo['valor']);
-            
-            // Buscar cobrança por valor e timestamp próximo (margem de 1 hora)
-            $margem = 3600; // 1 hora
-            $inicio = date('Y-m-d H:i:s', $timestamp_pix - $margem);
-            $fim = date('Y-m-d H:i:s', $timestamp_pix + $margem);
-            
-            $cobranca_encontrada = buscar_um("
-                SELECT pix_txid FROM pagamentos 
-                WHERE valor = ? AND status = 'pendente' 
-                AND created_at BETWEEN ? AND ?
-                ORDER BY ABS(TIMESTAMPDIFF(SECOND, created_at, ?)) 
-                LIMIT 1
-            ", [$valor_pix, $inicio, $fim, date('Y-m-d H:i:s', $timestamp_pix)]);
-            
-            if ($cobranca_encontrada) {
-                $txid = $cobranca_encontrada['pix_txid'];
-            }
-        }
-        
-        if (!$txid) {
-            $erros[] = "TXID não encontrado para PIX: {$endToEndId}";
+        // Verificar se é um PIX de entrada (recebido)
+        if ($pix_completo['devolucao'] ?? false) {
+            // É uma devolução, ignorar
             continue;
         }
         
-        // Buscar pagamento no banco
-        $pagamento = buscar_um("
-            SELECT p.*, pa.id as participante_id, pa.nome, pa.whatsapp, e.nome as evento_nome
-            FROM pagamentos p
-            JOIN participantes pa ON p.participante_id = pa.id
-            JOIN eventos e ON pa.evento_id = e.id
-            WHERE p.pix_txid = ? AND p.status = ?
-        ", [$txid, PAGAMENTO_PENDENTE]);
+        // Extrair dados do PIX
+        $valor_pix = floatval($pix_completo['valor'] ?? 0);
+        $txid_relacionado = $pix_completo['txid'] ?? null;
+        $data_pagamento = $pix_completo['horario'] ?? date('Y-m-d H:i:s');
+        $info_pagador = $pix_completo['infoPagador'] ?? '';
+        
+        if ($config_efi['efi_debug'] === '1') {
+            error_log("EFI Webhook Debug PIX: TXID={$txid_relacionado}, Valor={$valor_pix}, EndToEndId={$endToEndId}");
+        }
+        
+        // Buscar pagamento no banco pelo TXID
+        $pagamento = null;
+        
+        if ($txid_relacionado) {
+            $pagamento = buscar_um("
+                SELECT p.*, pa.id as participante_id, pa.nome as participante_nome, 
+                       pa.email, pa.whatsapp, e.nome as evento_nome
+                FROM pagamentos p
+                LEFT JOIN participantes pa ON p.participante_id = pa.id
+                LEFT JOIN eventos e ON pa.evento_id = e.id
+                WHERE p.pix_txid = ? AND p.status != 'pago'
+            ", [$txid_relacionado]);
+        }
         
         if (!$pagamento) {
-            log_webhook('erro', $pix_completo, "Pagamento não encontrado para TXID: {$txid}");
+            // Tentar buscar por valor e status pendente (fallback)
+            $pagamento = buscar_um("
+                SELECT p.*, pa.id as participante_id, pa.nome as participante_nome, 
+                       pa.email, pa.whatsapp, e.nome as evento_nome
+                FROM pagamentos p
+                LEFT JOIN participantes pa ON p.participante_id = pa.id
+                LEFT JOIN eventos e ON pa.evento_id = e.id
+                WHERE p.valor = ? AND p.status = 'pendente'
+                ORDER BY p.criado_em DESC
+                LIMIT 1
+            ", [$valor_pix]);
+        }
+        
+        if (!$pagamento) {
+            $erros[] = "Pagamento não encontrado para PIX: {$endToEndId} (TXID: {$txid_relacionado}, Valor: R$ {$valor_pix})";
+            registrar_log('webhook_erro', "Pagamento não encontrado", $endToEndId);
             continue;
         }
         
-        // Verificar valor
-        $valor_pix = floatval($pix_completo['valor']);
-        $valor_pagamento = floatval($pagamento['valor']);
-        
-        if (abs($valor_pix - $valor_pagamento) > 0.01) {
-            $erros[] = "Valor divergente - PIX: R$ {$valor_pix} | Esperado: R$ {$valor_pagamento}";
+        // Verificar se o valor confere
+        if (abs($valor_pix - floatval($pagamento['valor'])) > 0.01) {
+            $erros[] = "Valor do PIX (R$ {$valor_pix}) não confere com pagamento (R$ {$pagamento['valor']})";
+            registrar_log('webhook_erro', "Valor divergente: PIX R$ {$valor_pix} vs Pagamento R$ {$pagamento['valor']}", $endToEndId);
             continue;
         }
         
-        // Processar baixa automática
-        $sucesso_baixa = efi_processar_baixa_automatica($txid, $pagamento['participante_id']);
+        // Confirmar pagamento no banco
+        $dados_update = [
+            'status' => 'pago',
+            'pago_em' => date('Y-m-d H:i:s', strtotime($data_pagamento)),
+            'pix_end_to_end_id' => $endToEndId,
+            'pix_info_pagador' => $info_pagador
+        ];
         
-        if ($sucesso_baixa) {
+        $pagamento_atualizado = executar("
+            UPDATE pagamentos 
+            SET status = ?, pago_em = ?, pix_end_to_end_id = ?, pix_info_pagador = ? 
+            WHERE id = ?
+        ", [
+            $dados_update['status'],
+            $dados_update['pago_em'],
+            $dados_update['pix_end_to_end_id'],
+            $dados_update['pix_info_pagador'],
+            $pagamento['id']
+        ]);
+        
+        if ($pagamento_atualizado) {
+            // Atualizar status do participante
+            executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$pagamento['participante_id']]);
+            
+            // Log de sucesso
+            registrar_log('webhook_baixa_automatica', 
+                "Pagamento confirmado automaticamente - Participante: {$pagamento['participante_nome']} | Valor: R$ {$valor_pix} | Evento: {$pagamento['evento_nome']}", 
+                $txid_relacionado
+            );
+            
+            // Enviar notificação por WhatsApp
+            if (!empty($pagamento['whatsapp'])) {
+                $mensagem_confirmacao = "🎉 Pagamento confirmado automaticamente!
+
+Olá {$pagamento['participante_nome']},
+
+Seu PIX foi processado com sucesso!
+
+📅 Evento: {$pagamento['evento_nome']}
+💰 Valor: R$ " . number_format($valor_pix, 2, ',', '.') . "
+📅 Data do Pagamento: " . date('d/m/Y H:i', strtotime($data_pagamento)) . "
+
+🎫 Acesse sua confirmação:
+" . SITE_URL . "/confirmacao.php?participante={$pagamento['participante_id']}
+
+Nos vemos lá! 🙏";
+
+                simular_whatsapp($pagamento['whatsapp'], $mensagem_confirmacao);
+            }
+            
             $processados++;
-            
-            // Log específico da baixa
-            log_webhook('baixa', [
-                'txid' => $txid,
-                'participante_id' => $pagamento['participante_id'],
-                'valor' => $valor_pix,
-                'endToEndId' => $endToEndId
-            ], "Baixa processada com sucesso");
-            
-            // Enviar confirmação por WhatsApp
-            $mensagem_whatsapp = "🎉 *Pagamento Confirmado!*\n\n";
-            $mensagem_whatsapp .= "Olá {$pagamento['nome']},\n\n";
-            $mensagem_whatsapp .= "Seu pagamento PIX foi confirmado!\n\n";
-            $mensagem_whatsapp .= "📅 *Evento:* {$pagamento['evento_nome']}\n";
-            $mensagem_whatsapp .= "💰 *Valor:* R$ " . number_format($valor_pix, 2, ',', '.') . "\n";
-            $mensagem_whatsapp .= "🆔 *Código:* {$txid}\n\n";
-            $mensagem_whatsapp .= "✅ Sua inscrição está confirmada!\n";
-            $mensagem_whatsapp .= "Em breve você receberá o QR Code de acesso.\n\n";
-            $mensagem_whatsapp .= "Paz e Bem! 🙏";
-            
-            enviar_whatsapp($pagamento['whatsapp'], $mensagem_whatsapp);
-            
         } else {
-            $erros[] = "Erro ao processar baixa para TXID: {$txid}";
+            $erros[] = "Erro ao atualizar pagamento no banco de dados";
+            registrar_log('webhook_erro', "Falha ao atualizar pagamento no banco", $endToEndId);
         }
     }
     
     // Resposta final
+    $resposta_dados = [
+        'processados' => $processados,
+        'erros' => $erros,
+        'total_pix' => count($dados_webhook['pix'])
+    ];
+    
     if ($processados > 0) {
-        $mensagem = "Processados {$processados} pagamento(s)";
-        if (!empty($erros)) {
-            $mensagem .= " com " . count($erros) . " erro(s)";
-        }
-        
-        registrar_log('webhook_efi_sucesso', $mensagem);
-        resposta_json(true, $mensagem, [
-            'processados' => $processados,
-            'erros' => $erros
-        ]);
+        registrar_log('webhook_sucesso', "Webhook processado com sucesso: {$processados} pagamentos confirmados");
+        resposta_json(true, "Processados {$processados} pagamentos com sucesso", $resposta_dados);
     } else {
-        $mensagem = "Nenhum pagamento processado";
-        if (!empty($erros)) {
-            $mensagem .= " - Erros: " . implode(', ', $erros);
-        }
-        
-        log_webhook('erro', $dados_webhook, $mensagem);
-        resposta_json(false, $mensagem, ['erros' => $erros]);
+        registrar_log('webhook_info', "Webhook processado mas nenhum pagamento foi confirmado");
+        resposta_json(true, "Nenhum pagamento foi processado", $resposta_dados);
     }
     
 } catch (Exception $e) {
-    $erro_msg = "Erro no webhook EFI: " . $e->getMessage();
-    error_log($erro_msg);
-    
-    log_webhook('erro', $dados_webhook, $erro_msg);
+    error_log("Erro no webhook EFI: " . $e->getMessage());
+    registrar_log('webhook_erro', "Exceção no webhook: " . $e->getMessage());
     
     http_response_code(500);
-    resposta_json(false, 'Erro interno do servidor');
+    resposta_json(false, 'Erro interno do servidor: ' . $e->getMessage());
 }
+
 ?> 

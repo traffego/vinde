@@ -14,8 +14,8 @@ if ($participante_id) {
     $dados = buscar_um("
         SELECT p.*, e.*, 
                pag.id as pagamento_id, pag.valor, pag.status as pagamento_status,
-               pag.pix_txid, pag.pix_qrcode_data, pag.pix_qrcode_url, pag.pix_expires_at,
-               pag.criado_em as pagamento_criado
+               pag.pix_txid, pag.pix_loc_id, pag.pix_qrcode_data, pag.pix_qrcode_url, 
+               pag.pix_expires_at, pag.criado_em as pagamento_criado
         FROM participantes p
         JOIN eventos e ON p.evento_id = e.id
         LEFT JOIN pagamentos pag ON p.id = pag.participante_id
@@ -54,62 +54,130 @@ if ($pagamento['valor'] <= 0) {
     redirecionar(SITE_URL . '/confirmacao.php?participante=' . $participante_id);
 }
 
-// Verificar se tem dados EFI Bank ou gerar PIX manual
-if (!empty($pagamento['pix_qrcode_data'])) {
-    // Usar dados da EFI Bank
-    $codigo_pix = $pagamento['pix_qrcode_data'];
-    $qr_code_data = gerar_qr_code_data($codigo_pix);
+// Verificar se precisa gerar novo PIX via EFI Bank
+$precisa_gerar_pix = false;
+
+if (efi_esta_ativo()) {
+    // Se EFI Bank está ativo, verificar se já tem PIX válido
+    if (empty($pagamento['pix_txid']) || empty($pagamento['pix_qrcode_data'])) {
+        $precisa_gerar_pix = true;
+    } else {
+        // Verificar se não expirou
+        if (!empty($pagamento['pix_expires_at'])) {
+            $expires_timestamp = strtotime($pagamento['pix_expires_at']);
+            if (time() > $expires_timestamp) {
+                $precisa_gerar_pix = true;
+            }
+        }
+    }
     
-    $pagamento['pix_codigo'] = $codigo_pix;
-    $pagamento['pix_qr_code'] = $qr_code_data;
-} elseif (empty($pagamento['pix_codigo'])) {
-    // Gerar código PIX manual (fallback)
-    $codigo_pix = gerar_codigo_pix($pagamento['valor'], $evento['nome'], $participante['nome']);
-    $qr_code_data = gerar_qr_code_data($codigo_pix);
-    
-    // Atualizar no banco
-    atualizar_registro('pagamentos', [
-        'pix_codigo' => $codigo_pix,
-        'pix_qr_code' => $qr_code_data
-    ], ['id' => $pagamento['pagamento_id']]);
-    
-    $pagamento['pix_codigo'] = $codigo_pix;
-    $pagamento['pix_qr_code'] = $qr_code_data;
+    // Gerar novo PIX via EFI Bank se necessário
+    if ($precisa_gerar_pix) {
+        $dados_pix = [
+            'valor' => $pagamento['valor'],
+            'descricao' => "Inscrição: " . $evento['nome'],
+            'participante_id' => $participante_id,
+            'evento_nome' => $evento['nome'],
+            'nome_pagador' => $participante['nome'],
+            'cpf_pagador' => $participante['cpf'] ?? '',
+            'expiracao' => 3600 // 1 hora
+        ];
+        
+        $resultado_efi = efi_criar_pix_completo($dados_pix);
+        
+        if ($resultado_efi && isset($resultado_efi['sucesso'])) {
+            // Atualizar dados no banco
+            $dados_update = [
+                'pix_txid' => $resultado_efi['pix_txid'],
+                'pix_loc_id' => $resultado_efi['pix_loc_id'],
+                'pix_qrcode_data' => $resultado_efi['pix_qrcode_data'],
+                'pix_qrcode_url' => $resultado_efi['pix_qrcode_url'],
+                'pix_expires_at' => $resultado_efi['pix_expires_at']
+            ];
+            
+            if (executar("UPDATE pagamentos SET pix_txid = ?, pix_loc_id = ?, pix_qrcode_data = ?, pix_qrcode_url = ?, pix_expires_at = ? WHERE id = ?", 
+                [$dados_update['pix_txid'], $dados_update['pix_loc_id'], $dados_update['pix_qrcode_data'], 
+                 $dados_update['pix_qrcode_url'], $dados_update['pix_expires_at'], $pagamento['pagamento_id']])) {
+                
+                // Atualizar dados na memória
+                $pagamento = array_merge($pagamento, $dados_update);
+                $sucesso = 'PIX gerado com sucesso via EFI Bank!';
+            } else {
+                $erro = 'PIX gerado mas houve erro ao salvar no banco de dados.';
+            }
+        } else {
+            $erro_msg = $resultado_efi['erro'] ?? 'Erro desconhecido ao gerar PIX via EFI Bank';
+            $erro = "Erro EFI Bank: " . $erro_msg;
+            
+            // Fallback para PIX manual se EFI Bank falhar
+            if (empty($pagamento['pix_codigo'])) {
+                $codigo_pix = gerar_codigo_pix($pagamento['valor'], $evento['nome'], $participante['nome']);
+                $qr_code_data = gerar_qr_code_data($codigo_pix);
+                
+                // Atualizar no banco
+                executar("UPDATE pagamentos SET pix_codigo = ?, pix_qr_code = ? WHERE id = ?", 
+                    [$codigo_pix, $qr_code_data, $pagamento['pagamento_id']]);
+                
+                $pagamento['pix_codigo'] = $codigo_pix;
+                $pagamento['pix_qr_code'] = $qr_code_data;
+                
+                $erro .= " Usando PIX manual como alternativa.";
+            }
+        }
+    }
+} else {
+    // EFI Bank não está ativo, usar PIX manual
+    if (empty($pagamento['pix_codigo'])) {
+        $codigo_pix = gerar_codigo_pix($pagamento['valor'], $evento['nome'], $participante['nome']);
+        $qr_code_data = gerar_qr_code_data($codigo_pix);
+        
+        // Atualizar no banco
+        executar("UPDATE pagamentos SET pix_codigo = ?, pix_qr_code = ? WHERE id = ?", 
+            [$codigo_pix, $qr_code_data, $pagamento['pagamento_id']]);
+        
+        $pagamento['pix_codigo'] = $codigo_pix;
+        $pagamento['pix_qr_code'] = $qr_code_data;
+    }
 }
 
 // Processar confirmação manual de pagamento (para teste)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirmar_pagamento'])) {
     if (verificar_csrf_token($_POST['csrf_token'] ?? '')) {
         // Em produção, isso seria feito via webhook do banco
-        atualizar_registro('pagamentos', [
-            'status' => 'pago',
-            'pago_em' => date('Y-m-d H:i:s')
-        ], ['id' => $pagamento['pagamento_id']]);
+        $sucesso_update = executar("UPDATE pagamentos SET status = 'pago', pago_em = ? WHERE id = ?", 
+            [date('Y-m-d H:i:s'), $pagamento['pagamento_id']]);
         
-        atualizar_registro('participantes', [
-            'status' => 'pago'
-        ], ['id' => $participante_id]);
-        
-        registrar_log('pagamento_confirmado', "Participante: {$participante['nome']} - Valor: {$pagamento['valor']}");
-        
-        // Simular envio de WhatsApp
-        simular_whatsapp($participante['whatsapp'], "
-🎉 Pagamento confirmado!
+        if ($sucesso_update) {
+            executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$participante_id]);
+            
+            registrar_log('pagamento_confirmado', "Participante: {$participante['nome']} - Valor: R$ {$pagamento['valor']} - TXID: " . ($pagamento['pix_txid'] ?? 'N/A'));
+            
+            // Simular envio de WhatsApp
+            $mensagem_whatsapp = "🎉 Pagamento confirmado!
 
 Olá {$participante['nome']},
 
 Seu pagamento foi confirmado com sucesso!
 
 📅 Evento: {$evento['nome']}
+💰 Valor: R$ " . number_format($pagamento['valor'], 2, ',', '.') . "
 📍 Local: {$evento['local']}
 📅 Data: " . formatar_data($evento['data_inicio']) . "
 
-Em breve você receberá seu QR Code de acesso.
+🎫 Acesse o link para ver sua confirmação:
+" . SITE_URL . "/confirmacao.php?participante={$participante_id}
 
-Paz e Bem! 🙏
-        ");
-        
-        redirecionar(SITE_URL . '/confirmacao.php?participante=' . $participante_id);
+Nos vemos lá! 🙏";
+
+            simular_whatsapp($participante['whatsapp'], $mensagem_whatsapp);
+            
+            // Redirecionar para página de confirmação
+            redirecionar(SITE_URL . '/confirmacao.php?participante=' . $participante_id);
+        } else {
+            $erro = 'Erro ao confirmar pagamento. Tente novamente.';
+        }
+    } else {
+        $erro = 'Token de segurança inválido.';
     }
 }
 

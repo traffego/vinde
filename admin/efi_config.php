@@ -16,140 +16,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($acao) {
             case 'salvar_config':
                 try {
-                    // Salvar configurações no banco
-                    definir_configuracao('efi_ativo', $_POST['efi_ativo'] ?? '0');
-                    definir_configuracao('efi_ambiente', $_POST['efi_ambiente'] ?? 'desenvolvimento');
-                    definir_configuracao('efi_webhook_url', $_POST['efi_webhook_url'] ?? '');
+                    // Salvar configurações no banco de dados
+                    $configs_salvas = 0;
                     
-                    // Atualizar arquivo config.php com credenciais
-                    $config_path = '../includes/config.php';
-                    $config_content = file_get_contents($config_path);
+                    // Configurações gerais
+                    if (salvar_configuracao('efi_ativo', $_POST['efi_ativo'] ?? '0', 'EFI Bank ativo (0=inativo, 1=ativo)')) $configs_salvas++;
+                    if (salvar_configuracao('efi_sandbox', $_POST['efi_sandbox'] ?? '1', 'Usar ambiente sandbox (1=sim, 0=não)')) $configs_salvas++;
+                    if (salvar_configuracao('efi_debug', $_POST['efi_debug'] ?? '0', 'Modo debug para logs detalhados')) $configs_salvas++;
                     
-                    // Credenciais EFI
-                    $config_content = preg_replace(
-                        "/define\('EFI_CLIENT_ID_HOM',\s*'[^']*'\);/",
-                        "define('EFI_CLIENT_ID_HOM', '" . addslashes($_POST['efi_client_id_hom'] ?? '') . "');",
-                        $config_content
-                    );
-                    
-                    $config_content = preg_replace(
-                        "/define\('EFI_CLIENT_SECRET_HOM',\s*'[^']*'\);/",
-                        "define('EFI_CLIENT_SECRET_HOM', '" . addslashes($_POST['efi_client_secret_hom'] ?? '') . "');",
-                        $config_content
-                    );
-                    
-                    $config_content = preg_replace(
-                        "/define\('EFI_CLIENT_ID_PROD',\s*'[^']*'\);/",
-                        "define('EFI_CLIENT_ID_PROD', '" . addslashes($_POST['efi_client_id_prod'] ?? '') . "');",
-                        $config_content
-                    );
-                    
-                    $config_content = preg_replace(
-                        "/define\('EFI_CLIENT_SECRET_PROD',\s*'[^']*'\);/",
-                        "define('EFI_CLIENT_SECRET_PROD', '" . addslashes($_POST['efi_client_secret_prod'] ?? '') . "');",
-                        $config_content
-                    );
-                    
-                    $config_content = preg_replace(
-                        "/define\('EFI_SENHA_CERTIFICADO',\s*'[^']*'\);/",
-                        "define('EFI_SENHA_CERTIFICADO', '" . addslashes($_POST['efi_senha_certificado'] ?? '') . "');",
-                        $config_content
-                    );
+                    // Credenciais
+                    if (salvar_configuracao('efi_client_id', $_POST['efi_client_id'] ?? '', 'Client ID da aplicação EFI Bank')) $configs_salvas++;
+                    if (salvar_configuracao('efi_client_secret', $_POST['efi_client_secret'] ?? '', 'Client Secret da aplicação EFI Bank')) $configs_salvas++;
+                    if (salvar_configuracao('efi_certificate_password', $_POST['efi_certificate_password'] ?? '', 'Senha do certificado EFI Bank')) $configs_salvas++;
                     
                     // Dados PIX
-                    $config_content = preg_replace(
-                        "/define\('PIX_CHAVE',\s*'[^']*'\);/",
-                        "define('PIX_CHAVE', '" . addslashes($_POST['pix_chave'] ?? '') . "');",
-                        $config_content
-                    );
+                    if (salvar_configuracao('efi_pix_key', $_POST['efi_pix_key'] ?? '', 'Chave PIX cadastrada na EFI Bank')) $configs_salvas++;
+                    if (salvar_configuracao('pix_nome', $_POST['pix_nome'] ?? '', 'Nome do beneficiário PIX')) $configs_salvas++;
+                    if (salvar_configuracao('pix_cidade', $_POST['pix_cidade'] ?? '', 'Cidade do beneficiário PIX')) $configs_salvas++;
                     
-                    $config_content = preg_replace(
-                        "/define\('PIX_NOME',\s*'[^']*'\);/",
-                        "define('PIX_NOME', '" . addslashes(strtoupper($_POST['pix_nome'] ?? '')) . "');",
-                        $config_content
-                    );
-                    
-                    $config_content = preg_replace(
-                        "/define\('PIX_CIDADE',\s*'[^']*'\);/",
-                        "define('PIX_CIDADE', '" . addslashes(strtoupper($_POST['pix_cidade'] ?? '')) . "');",
-                        $config_content
-                    );
+                    // Webhook
+                    if (salvar_configuracao('efi_webhook_url', $_POST['efi_webhook_url'] ?? '', 'URL do webhook para notificações EFI Bank')) $configs_salvas++;
+                    if (salvar_configuracao('efi_webhook_secret', $_POST['efi_webhook_secret'] ?? '', 'Secret para validação do webhook EFI')) $configs_salvas++;
                     
                     // Processar upload de certificados
                     $upload_msgs = [];
                     
-                    // Upload certificado homologação
-                    if (isset($_FILES['certificado_hom']) && $_FILES['certificado_hom']['error'] === UPLOAD_ERR_OK) {
-                        $file_info = $_FILES['certificado_hom'];
+                    // Criar diretório certificados se não existir
+                    $cert_dir = '../certificados';
+                    if (!is_dir($cert_dir)) {
+                        mkdir($cert_dir, 0755, true);
+                    }
+                    
+                    // Upload certificado
+                    if (isset($_FILES['certificado']) && $_FILES['certificado']['error'] === UPLOAD_ERR_OK) {
+                        $file_info = $_FILES['certificado'];
                         if (pathinfo($file_info['name'], PATHINFO_EXTENSION) === 'p12') {
-                            $dest_path = '../certificados/certificado_hom.p12';
+                            $cert_filename = 'certificado_efi.p12';
+                            $dest_path = $cert_dir . '/' . $cert_filename;
+                            
                             if (move_uploaded_file($file_info['tmp_name'], $dest_path)) {
-                                $upload_msgs[] = 'Certificado de homologação atualizado';
+                                // Salvar caminho do certificado no banco
+                                if (salvar_configuracao('efi_certificado_path', $dest_path, 'Caminho para o certificado .p12 da EFI Bank')) {
+                                    $upload_msgs[] = 'Certificado EFI Bank atualizado com sucesso';
+                                    $configs_salvas++;
+                                }
                             } else {
-                                $upload_msgs[] = 'Erro ao salvar certificado de homologação';
+                                $upload_msgs[] = 'Erro ao salvar certificado EFI Bank';
                             }
                         } else {
-                            $upload_msgs[] = 'Certificado de homologação deve ser um arquivo .p12';
+                            $upload_msgs[] = 'Certificado deve ser um arquivo .p12';
                         }
                     }
                     
-                    // Upload certificado produção
-                    if (isset($_FILES['certificado_prod']) && $_FILES['certificado_prod']['error'] === UPLOAD_ERR_OK) {
-                        $file_info = $_FILES['certificado_prod'];
-                        if (pathinfo($file_info['name'], PATHINFO_EXTENSION) === 'p12') {
-                            $dest_path = '../certificados/certificado_prod.p12';
-                            if (move_uploaded_file($file_info['tmp_name'], $dest_path)) {
-                                $upload_msgs[] = 'Certificado de produção atualizado';
-                            } else {
-                                $upload_msgs[] = 'Erro ao salvar certificado de produção';
-                            }
-                        } else {
-                            $upload_msgs[] = 'Certificado de produção deve ser um arquivo .p12';
-                        }
-                    }
-                    
-                    // Salvar arquivo config.php
-                    if (file_put_contents($config_path, $config_content)) {
-                        $msg_final = 'Configurações salvas com sucesso! As credenciais foram atualizadas no arquivo config.php.';
+                    if ($configs_salvas > 0) {
+                        $msg_final = "Configurações salvas com sucesso! {$configs_salvas} configurações atualizadas.";
                         if (!empty($upload_msgs)) {
                             $msg_final .= ' ' . implode(' ', $upload_msgs);
                         }
-                        registrar_log('efi_config_atualizada', 'Configurações EFI Bank e credenciais atualizadas');
+                        registrar_log('efi_config_atualizada', 'Configurações EFI Bank atualizadas via painel admin');
                         $mensagem = $msg_final;
                     } else {
-                        $erro = 'Erro ao salvar credenciais no arquivo config.php. Verifique as permissões.';
+                        $erro = 'Nenhuma configuração foi salva. Verifique os dados informados.';
                     }
                     
                 } catch (Exception $e) {
+                    error_log("Erro ao salvar configurações EFI: " . $e->getMessage());
                     $erro = 'Erro ao salvar configurações: ' . $e->getMessage();
                 }
                 break;
                 
             case 'testar_conexao':
-                $resultados = efi_testar_configuracao();
-                break;
-                
-            case 'configurar_webhook':
-                $webhook_url = SITE_URL . '/webhook_efi.php';
-                $sucesso = efi_configurar_webhook($webhook_url);
-                
-                if ($sucesso) {
-                    definir_configuracao('efi_webhook_url', $webhook_url);
-                    $mensagem = 'Webhook configurado com sucesso!';
-                } else {
-                    $erro = 'Erro ao configurar webhook na EFI Bank';
-                }
+                // TODO: Implementar teste de conexão usando as configurações do banco
+                $mensagem = 'Funcionalidade de teste será implementada em breve.';
                 break;
         }
     }
 }
 
-// Obter configurações atuais
-$config_efi = [
-    'ativo' => obter_configuracao('efi_ativo', '0'),
-    'ambiente' => obter_configuracao('efi_ambiente', 'desenvolvimento'),
-    'webhook_url' => obter_configuracao('efi_webhook_url', '')
-];
+// Obter configurações atuais do banco
+$config_efi = obter_configuracoes_efi();
+
+// Verificar se certificado existe
+$cert_exists = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
 
 obter_cabecalho_admin($titulo_pagina, 'configuracoes');
 ?>
@@ -178,13 +126,13 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
         <!-- Status da Configuração -->
         <div class="config-status-section">
             <div class="status-cards">
-                <div class="status-card <?= $config_efi['ativo'] === '1' ? 'active' : 'inactive' ?>">
+                <div class="status-card <?= $config_efi['efi_ativo'] === '1' ? 'active' : 'inactive' ?>">
                     <div class="status-icon">
-                        <i class="<?= $config_efi['ativo'] === '1' ? 'icon-check-circle' : 'icon-warning-circle' ?>"></i>
+                        <i class="<?= $config_efi['efi_ativo'] === '1' ? 'icon-check-circle' : 'icon-warning-circle' ?>"></i>
                     </div>
                     <div class="status-content">
                         <h4>Status EFI Bank</h4>
-                        <p><?= $config_efi['ativo'] === '1' ? 'Ativo e Funcionando' : 'Inativo' ?></p>
+                        <p><?= $config_efi['efi_ativo'] === '1' ? 'Ativo e Funcionando' : 'Inativo' ?></p>
                     </div>
                 </div>
                 
@@ -194,7 +142,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                     </div>
                     <div class="status-content">
                         <h4>Ambiente</h4>
-                        <p><?= ucfirst($config_efi['ambiente']) ?></p>
+                        <p><?= $config_efi['efi_sandbox'] === '1' ? 'Sandbox (Testes)' : 'Produção' ?></p>
                     </div>
                 </div>
                 
@@ -203,15 +151,8 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                         <i class="icon-certificate"></i>
                     </div>
                     <div class="status-content">
-                        <h4>Certificados</h4>
-                        <p>
-                            <?php 
-                            $cert_count = 0;
-                            if (file_exists(EFI_CERTIFICADO_HOM)) $cert_count++;
-                            if (file_exists(EFI_CERTIFICADO_PROD)) $cert_count++;
-                            echo $cert_count . '/2 Configurados';
-                            ?>
-                        </p>
+                        <h4>Certificado</h4>
+                        <p><?= $cert_exists ? 'Configurado' : 'Não Configurado' ?></p>
                     </div>
                 </div>
                 
@@ -221,7 +162,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                     </div>
                     <div class="status-content">
                         <h4>Webhook</h4>
-                        <p><?= !empty($config_efi['webhook_url']) ? 'Configurado' : 'Não Configurado' ?></p>
+                        <p><?= !empty($config_efi['efi_webhook_url']) ? 'Configurado' : 'Não Configurado' ?></p>
                     </div>
                 </div>
             </div>
@@ -244,11 +185,11 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                         <div class="form-group">
                             <label for="efi_ativo" class="checkbox-label">
                                 <input type="checkbox" id="efi_ativo" name="efi_ativo" value="1" 
-                                       <?= $config_efi['ativo'] === '1' ? 'checked' : '' ?>>
+                                       <?= $config_efi['efi_ativo'] === '1' ? 'checked' : '' ?>>
                                 <span class="checkbox-custom"></span>
                                 <span class="checkbox-text">
                                     <strong>🚀 Ativar Integração EFI Bank</strong>
-                                    <small>Quando ativo, os pagamentos PIX serão processados automaticamente via EFI Bank. Os campos pix_txid, pix_loc_id e demais dados serão salvos na tabela pagamentos.</small>
+                                    <small>Quando ativo, os pagamentos PIX serão processados automaticamente via EFI Bank.</small>
                                 </span>
                             </label>
                         </div>
@@ -257,24 +198,36 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                             <label>🌍 Ambiente de Operação</label>
                             <div class="radio-group">
                                 <label class="radio-option">
-                                    <input type="radio" name="efi_ambiente" value="desenvolvimento" 
-                                           <?= $config_efi['ambiente'] === 'desenvolvimento' ? 'checked' : '' ?>>
+                                    <input type="radio" name="efi_sandbox" value="1" 
+                                           <?= $config_efi['efi_sandbox'] === '1' ? 'checked' : '' ?>>
                                     <span class="radio-custom"></span>
                                     <div class="radio-content">
-                                        <strong>🧪 Desenvolvimento</strong>
-                                        <small>Para testes e integração. Usa certificado de homologação.</small>
+                                        <strong>🧪 Sandbox (Testes)</strong>
+                                        <small>Para testes e integração. Não processa dinheiro real.</small>
                                     </div>
                                 </label>
                                 <label class="radio-option">
-                                    <input type="radio" name="efi_ambiente" value="producao" 
-                                           <?= $config_efi['ambiente'] === 'producao' ? 'checked' : '' ?>>
+                                    <input type="radio" name="efi_sandbox" value="0" 
+                                           <?= $config_efi['efi_sandbox'] === '0' ? 'checked' : '' ?>>
                                     <span class="radio-custom"></span>
                                     <div class="radio-content">
                                         <strong>🔒 Produção</strong>
-                                        <small>Para operações reais com dinheiro. Usa certificado de produção.</small>
+                                        <small>Para operações reais com dinheiro. Use apenas quando tudo estiver testado.</small>
                                     </div>
                                 </label>
                             </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="efi_debug" class="checkbox-label">
+                                <input type="checkbox" id="efi_debug" name="efi_debug" value="1" 
+                                       <?= $config_efi['efi_debug'] === '1' ? 'checked' : '' ?>>
+                                <span class="checkbox-custom"></span>
+                                <span class="checkbox-text">
+                                    <strong>🐛 Modo Debug</strong>
+                                    <small>Ativar logs detalhados para diagnóstico de problemas.</small>
+                                </span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -287,177 +240,94 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                     </div>
                     
                     <div class="section-content">
-                        <div class="credentials-tabs">
-                            <div class="tab-buttons">
-                                <button type="button" class="tab-btn active" data-tab="hom">
-                                    <i class="icon-test"></i> Homologação
-                                </button>
-                                <button type="button" class="tab-btn" data-tab="prod">
-                                    <i class="icon-live"></i> Produção
-                                </button>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="efi_client_id">
+                                    <i class="icon-id"></i> Client ID EFI Bank
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" id="efi_client_id" name="efi_client_id" 
+                                           value="<?= htmlspecialchars($config_efi['efi_client_id'] ?? '') ?>"
+                                           placeholder="Client_Id_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" required>
+                                    <button type="button" class="input-btn" onclick="generatePlaceholder('efi_client_id')">
+                                        <i class="icon-refresh"></i>
+                                    </button>
+                                </div>
+                                <small><i class="icon-info"></i> Obtido no painel EFI Bank > API > Aplicações</small>
                             </div>
                             
-                            <div class="tab-content active" data-tab="hom">
-                                <div class="credentials-header">
-                                    <h4>🧪 Ambiente de Homologação</h4>
-                                    <p>Credenciais para testes - não processa dinheiro real</p>
+                            <div class="form-group">
+                                <label for="efi_client_secret">
+                                    <i class="icon-key"></i> Client Secret EFI Bank
+                                </label>
+                                <div class="input-group">
+                                    <input type="password" id="efi_client_secret" name="efi_client_secret" 
+                                           value="<?= htmlspecialchars($config_efi['efi_client_secret'] ?? '') ?>"
+                                           placeholder="Client_Secret_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX" required>
+                                    <button type="button" class="input-btn" onclick="togglePassword('efi_client_secret')">
+                                        <i class="icon-eye"></i>
+                                    </button>
                                 </div>
-                                
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="efi_client_id_hom">
-                                            <i class="icon-id"></i> Client ID (Homologação)
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="text" id="efi_client_id_hom" name="efi_client_id_hom" 
-                                                   value="<?= htmlspecialchars(EFI_CLIENT_ID_HOM) ?>"
-                                                   placeholder="Client_Id_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">
-                                            <button type="button" class="input-btn" onclick="generatePlaceholder('efi_client_id_hom')">
-                                                <i class="icon-refresh"></i>
-                                            </button>
-                                        </div>
-                                        <small><i class="icon-info"></i> Obtido no painel EFI Bank > API > Aplicações</small>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="efi_client_secret_hom">
-                                            <i class="icon-key"></i> Client Secret (Homologação)
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="password" id="efi_client_secret_hom" name="efi_client_secret_hom" 
-                                                   value="<?= htmlspecialchars(EFI_CLIENT_SECRET_HOM) ?>"
-                                                   placeholder="Client_Secret_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">
-                                            <button type="button" class="input-btn" onclick="togglePassword('efi_client_secret_hom')">
-                                                <i class="icon-eye"></i>
-                                            </button>
-                                        </div>
-                                        <small><i class="icon-info"></i> Chave secreta para autenticação na API</small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="tab-content" data-tab="prod">
-                                <div class="credentials-header">
-                                    <h4>🔒 Ambiente de Produção</h4>
-                                    <p>Credenciais para operações reais - processa dinheiro real</p>
-                                </div>
-                                
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label for="efi_client_id_prod">
-                                            <i class="icon-id"></i> Client ID (Produção)
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="text" id="efi_client_id_prod" name="efi_client_id_prod" 
-                                                   value="<?= htmlspecialchars(EFI_CLIENT_ID_PROD) ?>"
-                                                   placeholder="Client_Id_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">
-                                            <button type="button" class="input-btn" onclick="generatePlaceholder('efi_client_id_prod')">
-                                                <i class="icon-refresh"></i>
-                                            </button>
-                                        </div>
-                                        <small><i class="icon-info"></i> Credencial de produção - use apenas quando tudo estiver testado</small>
-                                    </div>
-                                    
-                                    <div class="form-group">
-                                        <label for="efi_client_secret_prod">
-                                            <i class="icon-key"></i> Client Secret (Produção)
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="password" id="efi_client_secret_prod" name="efi_client_secret_prod" 
-                                                   value="<?= htmlspecialchars(EFI_CLIENT_SECRET_PROD) ?>"
-                                                   placeholder="Client_Secret_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX">
-                                            <button type="button" class="input-btn" onclick="togglePassword('efi_client_secret_prod')">
-                                                <i class="icon-eye"></i>
-                                            </button>
-                                        </div>
-                                        <small><i class="icon-warning"></i> Mantenha esta chave segura - acesso total à sua conta EFI</small>
-                                    </div>
-                                </div>
+                                <small><i class="icon-info"></i> Chave secreta para autenticação na API</small>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label for="efi_senha_certificado">
-                                <i class="icon-lock"></i> Senha dos Certificados .p12
+                            <label for="efi_certificate_password">
+                                <i class="icon-lock"></i> Senha do Certificado .p12
                             </label>
                             <div class="input-group">
-                                <input type="password" id="efi_senha_certificado" name="efi_senha_certificado" 
-                                       value="<?= htmlspecialchars(EFI_SENHA_CERTIFICADO) ?>"
+                                <input type="password" id="efi_certificate_password" name="efi_certificate_password" 
+                                       value="<?= htmlspecialchars($config_efi['efi_certificate_password'] ?? '') ?>"
                                        placeholder="Deixe em branco se não há senha">
-                                <button type="button" class="input-btn" onclick="togglePassword('efi_senha_certificado')">
+                                <button type="button" class="input-btn" onclick="togglePassword('efi_certificate_password')">
                                     <i class="icon-eye"></i>
                                 </button>
                             </div>
-                            <small><i class="icon-info"></i> Senha utilizada para proteger os arquivos .p12 (opcional)</small>
+                            <small><i class="icon-info"></i> Senha utilizada para proteger o arquivo .p12 (opcional)</small>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Seção 3: Certificados de Segurança -->
+                <!-- Seção 3: Certificado de Segurança -->
                 <div class="config-section">
                     <div class="section-header">
-                        <h3><i class="icon-certificate"></i> Certificados de Segurança</h3>
-                        <p>Upload dos certificados .p12 para autenticação segura na EFI Bank</p>
+                        <h3><i class="icon-certificate"></i> Certificado de Segurança</h3>
+                        <p>Upload do certificado .p12 para autenticação segura na EFI Bank</p>
                     </div>
                     
                     <div class="section-content">
-                        <div class="certificate-grid">
-                            <div class="certificate-upload">
-                                <label for="certificado_hom" class="file-upload-label">
-                                    <div class="upload-icon">
-                                        <i class="icon-upload"></i>
-                                    </div>
-                                    <div class="upload-content">
-                                        <h5>🧪 Certificado Homologação</h5>
-                                        <p>Arrastar arquivo .p12 ou clique para selecionar</p>
-                                        <?php if (file_exists(EFI_CERTIFICADO_HOM)): ?>
-                                            <span class="file-status success">
-                                                <i class="icon-check"></i> <?= basename(EFI_CERTIFICADO_HOM) ?>
-                                                <small>Modificado: <?= date('d/m/Y H:i', filemtime(EFI_CERTIFICADO_HOM)) ?></small>
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="file-status error">
-                                                <i class="icon-warning"></i> Nenhum arquivo enviado
-                                                <small>Necessário para ambiente de testes</small>
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-                                </label>
-                                <input type="file" id="certificado_hom" name="certificado_hom" accept=".p12" class="file-input">
-                            </div>
-                            
-                            <div class="certificate-upload">
-                                <label for="certificado_prod" class="file-upload-label">
-                                    <div class="upload-icon">
-                                        <i class="icon-upload"></i>
-                                    </div>
-                                    <div class="upload-content">
-                                        <h5>🔒 Certificado Produção</h5>
-                                        <p>Arrastar arquivo .p12 ou clique para selecionar</p>
-                                        <?php if (file_exists(EFI_CERTIFICADO_PROD)): ?>
-                                            <span class="file-status success">
-                                                <i class="icon-check"></i> <?= basename(EFI_CERTIFICADO_PROD) ?>
-                                                <small>Modificado: <?= date('d/m/Y H:i', filemtime(EFI_CERTIFICADO_PROD)) ?></small>
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="file-status error">
-                                                <i class="icon-warning"></i> Nenhum arquivo enviado
-                                                <small>Necessário para operações reais</small>
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-                                </label>
-                                <input type="file" id="certificado_prod" name="certificado_prod" accept=".p12" class="file-input">
-                            </div>
+                        <div class="certificate-upload">
+                            <label for="certificado" class="file-upload-label">
+                                <div class="upload-icon">
+                                    <i class="icon-upload"></i>
+                                </div>
+                                <div class="upload-content">
+                                    <h5>📜 Certificado EFI Bank</h5>
+                                    <p>Arrastar arquivo .p12 ou clique para selecionar</p>
+                                    <?php if ($cert_exists): ?>
+                                        <span class="file-status success">
+                                            <i class="icon-check"></i> <?= basename($config_efi['efi_certificado_path']) ?>
+                                            <small>Modificado: <?= date('d/m/Y H:i', filemtime($config_efi['efi_certificado_path'])) ?></small>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="file-status error">
+                                            <i class="icon-warning"></i> Nenhum arquivo enviado
+                                            <small>Necessário para autenticação na EFI Bank</small>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                            </label>
+                            <input type="file" id="certificado" name="certificado" accept=".p12" class="file-input">
                         </div>
                         
                         <div class="certificate-info">
                             <h4><i class="icon-info"></i> Informações Importantes</h4>
                             <ul>
-                                <li><strong>Localização:</strong> Os certificados são salvos na pasta <code>certificados/</code></li>
-                                <li><strong>Segurança:</strong> Certificados são usados para autenticação SSL/TLS com a EFI Bank</li>
-                                <li><strong>Renovação:</strong> Certificados têm prazo de validade - verifique regularmente</li>
-                                <li><strong>Backup:</strong> Mantenha backup dos certificados em local seguro</li>
+                                <li><strong>Localização:</strong> O certificado é salvo na pasta <code>certificados/</code></li>
+                                <li><strong>Segurança:</strong> Certificado é usado para autenticação SSL/TLS com a EFI Bank</li>
+                                <li><strong>Validade:</strong> Certificados têm prazo de validade - verifique regularmente</li>
+                                <li><strong>Backup:</strong> Mantenha backup do certificado em local seguro</li>
                             </ul>
                         </div>
                     </div>
@@ -485,13 +355,13 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                         
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="pix_chave">
-                                    <i class="icon-key"></i> Chave PIX Principal
+                                <label for="efi_pix_key">
+                                    <i class="icon-key"></i> Chave PIX EFI Bank
                                 </label>
-                                <input type="text" id="pix_chave" name="pix_chave" 
-                                       value="<?= htmlspecialchars(PIX_CHAVE) ?>" required
+                                <input type="text" id="efi_pix_key" name="efi_pix_key" 
+                                       value="<?= htmlspecialchars($config_efi['efi_pix_key'] ?? '') ?>" required
                                        placeholder="11999999999 ou email@exemplo.com">
-                                <small><i class="icon-info"></i> CPF, CNPJ, email, telefone ou chave aleatória</small>
+                                <small><i class="icon-info"></i> Chave PIX cadastrada na sua conta EFI Bank</small>
                             </div>
                             
                             <div class="form-group">
@@ -499,7 +369,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                                     <i class="icon-user"></i> Nome do Recebedor
                                 </label>
                                 <input type="text" id="pix_nome" name="pix_nome" 
-                                       value="<?= htmlspecialchars(PIX_NOME) ?>" required
+                                       value="<?= htmlspecialchars($config_efi['pix_nome'] ?? '') ?>" required
                                        placeholder="NOME DA PAROQUIA" maxlength="25">
                                 <small><i class="icon-info"></i> Aparece no PIX (máx. 25 caracteres, MAIÚSCULAS)</small>
                             </div>
@@ -509,7 +379,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                                     <i class="icon-location"></i> Cidade do Recebedor
                                 </label>
                                 <input type="text" id="pix_cidade" name="pix_cidade" 
-                                       value="<?= htmlspecialchars(PIX_CIDADE) ?>" required
+                                       value="<?= htmlspecialchars($config_efi['pix_cidade'] ?? '') ?>" required
                                        placeholder="SAO PAULO" maxlength="15">
                                 <small><i class="icon-info"></i> Cidade no PIX (máx. 15 caracteres, MAIÚSCULAS)</small>
                             </div>
@@ -527,126 +397,65 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                     <div class="section-content">
                         <div class="webhook-info-card">
                             <h4><i class="icon-info"></i> Como funciona o Webhook</h4>
-                            <p>Quando um pagamento PIX é realizado, a EFI Bank enviará uma notificação para sua URL de webhook. Os dados são salvos na tabela <code>efi_logs</code> para auditoria.</p>
+                            <p>Quando um pagamento PIX é realizado, a EFI Bank enviará uma notificação para sua URL de webhook.</p>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="efi_webhook_url">
-                                <i class="icon-webhook"></i> URL do Webhook
-                            </label>
-                            <div class="input-group">
-                                <input type="url" id="efi_webhook_url" name="efi_webhook_url" 
-                                       value="<?= htmlspecialchars($config_efi['webhook_url']) ?>"
-                                       placeholder="<?= SITE_URL ?>/webhook_efi.php">
-                                <button type="button" class="input-btn" onclick="generateWebhookUrl()">
-                                    <i class="icon-auto"></i>
-                                </button>
-                            </div>
-                            <small><i class="icon-info"></i> URL que receberá notificações de pagamento da EFI Bank</small>
-                        </div>
-                        
-                        <div class="webhook-test-section">
-                            <h4><i class="icon-test"></i> Testar Webhook</h4>
-                            <p>Teste se sua URL está acessível e funcionando corretamente:</p>
-                            <div class="test-buttons">
-                                <button type="button" class="btn btn-info" onclick="testWebhookUrl()">
-                                    <i class="icon-test"></i> Testar URL do Webhook
-                                </button>
-                                <button type="button" class="btn btn-success" onclick="configureWebhook()">
-                                    <i class="icon-webhook"></i> Configurar na EFI Bank
-                                </button>
-                            </div>
-                            <div id="webhook-test-results" class="test-results"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Seção 6: Testes e Validação -->
-                <div class="config-section">
-                    <div class="section-header">
-                        <h3><i class="icon-test"></i> Testes e Validação</h3>
-                        <p>Teste todas as configurações antes de ativar em produção</p>
-                    </div>
-                    
-                    <div class="section-content">
-                        <div class="test-section">
-                            <div class="test-grid">
-                                <div class="test-card">
-                                    <h4><i class="icon-certificate"></i> Certificados</h4>
-                                    <p>Verifica se os certificados estão válidos</p>
-                                    <button type="button" class="btn btn-info btn-small" onclick="testCertificates()">
-                                        Testar Certificados
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="efi_webhook_url">
+                                    <i class="icon-webhook"></i> URL do Webhook
+                                </label>
+                                <div class="input-group">
+                                    <input type="url" id="efi_webhook_url" name="efi_webhook_url" 
+                                           value="<?= htmlspecialchars($config_efi['efi_webhook_url'] ?? '') ?>"
+                                           placeholder="<?= SITE_URL ?>/webhook_efi.php">
+                                    <button type="button" class="input-btn" onclick="generateWebhookUrl()">
+                                        <i class="icon-auto"></i>
                                     </button>
                                 </div>
-                                
-                                <div class="test-card">
-                                    <h4><i class="icon-key"></i> Autenticação</h4>
-                                    <p>Testa credenciais e obtenção de token</p>
-                                    <button type="button" class="btn btn-info btn-small" onclick="testAuthentication()">
-                                        Testar Auth
-                                    </button>
-                                </div>
-                                
-                                <div class="test-card">
-                                    <h4><i class="icon-pix"></i> Criar PIX</h4>
-                                    <p>Gera um PIX de teste (R$ 0,01)</p>
-                                    <button type="button" class="btn btn-info btn-small" onclick="testPixCreation()">
-                                        Testar PIX
-                                    </button>
-                                </div>
-                                
-                                <div class="test-card">
-                                    <h4><i class="icon-webhook"></i> Webhook</h4>
-                                    <p>Testa se o webhook está funcionando</p>
-                                    <button type="button" class="btn btn-info btn-small" onclick="testWebhook()">
-                                        Testar Webhook
-                                    </button>
-                                </div>
+                                <small><i class="icon-info"></i> URL que receberá notificações de pagamento da EFI Bank</small>
                             </div>
                             
-                            <div id="test-results" class="test-results"></div>
-                            
-                            <div class="comprehensive-test">
-                                <button type="button" class="btn btn-primary btn-large" onclick="runComprehensiveTest()">
-                                    <i class="icon-test"></i> Executar Teste Completo
-                                </button>
+                            <div class="form-group">
+                                <label for="efi_webhook_secret">
+                                    <i class="icon-lock"></i> Secret do Webhook
+                                </label>
+                                <div class="input-group">
+                                    <input type="password" id="efi_webhook_secret" name="efi_webhook_secret" 
+                                           value="<?= htmlspecialchars($config_efi['efi_webhook_secret'] ?? '') ?>"
+                                           placeholder="Secret para validação (opcional)">
+                                    <button type="button" class="input-btn" onclick="togglePassword('efi_webhook_secret')">
+                                        <i class="icon-eye"></i>
+                                    </button>
+                                </div>
+                                <small><i class="icon-info"></i> Chave secreta para validar as notificações do webhook</small>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Seção 7: Ativação Final -->
+                <!-- Seção 6: Ativação Final -->
                 <div class="config-section">
                     <div class="section-header">
-                        <h3><i class="icon-activate"></i> Ativação Final</h3>
-                        <p>Ative a integração após verificar que todos os testes passaram</p>
+                        <h3><i class="icon-activate"></i> Salvar Configurações</h3>
+                        <p>Salve todas as configurações da integração EFI Bank</p>
                     </div>
                     
                     <div class="section-content">
                         <div class="activation-section">
                             <div class="activation-card">
                                 <div class="activation-content">
-                                    <h4>🚀 Ativar Integração EFI Bank</h4>
-                                    <p>Após verificar que todos os testes passaram, ative a integração para começar a processar pagamentos PIX automáticos. Os dados serão salvos automaticamente na tabela <code>pagamentos</code> com todos os campos EFI.</p>
+                                    <h4>💾 Salvar Configurações EFI Bank</h4>
+                                    <p>Todas as configurações serão salvas no banco de dados e estarão disponíveis para o sistema de pagamentos PIX automático.</p>
                                     
                                     <div class="activation-checklist">
-                                        <h5>✅ Checklist de Ativação:</h5>
+                                        <h5>✅ Checklist antes de ativar:</h5>
                                         <ul>
-                                            <li>Certificados enviados e válidos</li>
-                                            <li>Credenciais configuradas corretamente</li>
-                                            <li>Webhook funcionando</li>
-                                            <li>Dados PIX preenchidos</li>
-                                            <li>Testes executados com sucesso</li>
+                                            <li>Credenciais EFI Bank preenchidas</li>
+                                            <li>Certificado .p12 enviado</li>
+                                            <li>Dados PIX configurados</li>
+                                            <li>Webhook configurado (opcional)</li>
                                         </ul>
-                                    </div>
-                                    
-                                    <div class="activation-toggle">
-                                        <label class="toggle-switch">
-                                            <input type="checkbox" name="efi_ativo_final" value="1" 
-                                                   <?= $config_efi['ativo'] === '1' ? 'checked' : '' ?>>
-                                            <span class="toggle-slider"></span>
-                                            <span class="toggle-label">Integração EFI Bank Ativa</span>
-                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -666,77 +475,38 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
         <div class="monitoring-section">
             <div class="config-section">
                 <div class="section-header">
-                    <h3><i class="icon-monitor"></i> Monitoramento e Logs</h3>
-                    <p>Acompanhe as atividades e logs da integração EFI Bank</p>
+                    <h3><i class="icon-monitor"></i> Status do Sistema</h3>
+                    <p>Informações sobre o funcionamento da integração EFI Bank</p>
                 </div>
                 
                 <div class="section-content">
                     <div class="monitoring-grid">
                         <div class="monitoring-card">
-                            <h4><i class="icon-database"></i> Logs EFI Bank</h4>
-                            <p>Últimas atividades registradas na tabela <code>efi_logs</code></p>
-                            <?php
-                            $logs_efi = buscar_todos("
-                                SELECT * FROM efi_logs 
-                                ORDER BY criado_em DESC 
-                                LIMIT 5
-                            ");
-                            ?>
-                            
-                            <?php if (empty($logs_efi)): ?>
-                                <div class="empty-state">
-                                    <i class="icon-empty"></i>
-                                    <p>Nenhum log encontrado</p>
+                            <h4><i class="icon-stats"></i> Configurações Atuais</h4>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-number"><?= $config_efi['efi_ativo'] === '1' ? '✅' : '❌' ?></div>
+                                    <div class="stat-label">EFI Ativo</div>
                                 </div>
-                            <?php else: ?>
-                                <div class="logs-preview">
-                                    <?php foreach ($logs_efi as $log): ?>
-                                        <div class="log-item-mini">
-                                            <span class="log-tipo <?= $log['tipo'] ?>"><?= ucfirst($log['tipo']) ?></span>
-                                            <span class="log-data"><?= formatar_data_hora($log['criado_em']) ?></span>
-                                        </div>
-                                    <?php endforeach; ?>
+                                <div class="stat-item">
+                                    <div class="stat-number"><?= $cert_exists ? '✅' : '❌' ?></div>
+                                    <div class="stat-label">Certificado</div>
                                 </div>
-                            <?php endif; ?>
-                            
-                            <a href="logs.php?filtro=efi" class="btn btn-outline btn-small">
-                                <i class="icon-view"></i> Ver Todos os Logs
-                            </a>
+                                <div class="stat-item">
+                                    <div class="stat-number"><?= !empty($config_efi['efi_webhook_url']) ? '✅' : '❌' ?></div>
+                                    <div class="stat-label">Webhook</div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="monitoring-card">
-                            <h4><i class="icon-stats"></i> Estatísticas PIX</h4>
-                            <p>Dados dos pagamentos processados via EFI Bank</p>
-                            <?php
-                            $stats_pix = buscar_um("
-                                SELECT 
-                                    COUNT(*) as total_pix,
-                                    COUNT(CASE WHEN status = 'pago' THEN 1 END) as pagos,
-                                    COUNT(CASE WHEN pix_txid IS NOT NULL THEN 1 END) as com_txid
-                                FROM pagamentos 
-                                WHERE metodo = 'pix' 
-                                AND criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                            ");
-                            ?>
-                            
-                            <div class="stats-grid">
-                                <div class="stat-item">
-                                    <div class="stat-number"><?= $stats_pix['total_pix'] ?? 0 ?></div>
-                                    <div class="stat-label">PIX Gerados (30d)</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-number"><?= $stats_pix['pagos'] ?? 0 ?></div>
-                                    <div class="stat-label">Pagamentos</div>
-                                </div>
-                                <div class="stat-item">
-                                    <div class="stat-number"><?= $stats_pix['com_txid'] ?? 0 ?></div>
-                                    <div class="stat-label">Com TXID</div>
-                                </div>
+                            <h4><i class="icon-database"></i> Dados Salvos</h4>
+                            <p>Todas as configurações são salvas na tabela <code>configuracoes</code></p>
+                            <div class="db-info">
+                                <p><strong>Client ID:</strong> <?= !empty($config_efi['efi_client_id']) ? 'Configurado' : 'Não configurado' ?></p>
+                                <p><strong>Chave PIX:</strong> <?= !empty($config_efi['efi_pix_key']) ? 'Configurada' : 'Não configurada' ?></p>
+                                <p><strong>Ambiente:</strong> <?= $config_efi['efi_sandbox'] === '1' ? 'Sandbox' : 'Produção' ?></p>
                             </div>
-                            
-                            <a href="relatorios.php?tipo=pix" class="btn btn-outline btn-small">
-                                <i class="icon-chart"></i> Ver Relatório Completo
-                            </a>
                         </div>
                     </div>
                 </div>

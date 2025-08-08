@@ -358,37 +358,184 @@ function simular_whatsapp($telefone, $mensagem) {
 }
 
 /**
- * Obtém configuração do sistema
+ * FUNÇÕES DE CONFIGURAÇÃO
+ */
+
+/**
+ * Buscar configuração por chave
  * @param string $chave Chave da configuração
- * @param mixed $padrao Valor padrão se não encontrar
+ * @param mixed $default Valor padrão se não encontrado
  * @return mixed
  */
-function obter_configuracao($chave, $padrao = null) {
-    static $cache = [];
+function obter_configuracao($chave, $default = null) {
+    static $configuracoes_cache = [];
     
-    if (!isset($cache[$chave])) {
-        $config = buscar_um("SELECT valor FROM configuracoes WHERE chave = ?", [$chave]);
-        $cache[$chave] = $config ? $config['valor'] : $padrao;
+    // Verificar cache primeiro
+    if (isset($configuracoes_cache[$chave])) {
+        return $configuracoes_cache[$chave];
     }
     
-    return $cache[$chave];
+    try {
+        $resultado = buscar_um("SELECT valor FROM configuracoes WHERE chave = ?", [$chave]);
+        
+        if ($resultado) {
+            $valor = $resultado['valor'];
+            $configuracoes_cache[$chave] = $valor;
+            return $valor;
+        }
+        
+        return $default;
+        
+    } catch (Exception $e) {
+        error_log("Erro ao buscar configuração '{$chave}': " . $e->getMessage());
+        return $default;
+    }
 }
 
 /**
- * Define configuração do sistema
+ * Buscar múltiplas configurações
+ * @param array $chaves Array de chaves para buscar
+ * @return array Array associativo com chave => valor
+ */
+function obter_configuracoes($chaves) {
+    static $configuracoes_cache = [];
+    
+    $resultado = [];
+    $chaves_buscar = [];
+    
+    // Verificar cache primeiro
+    foreach ($chaves as $chave) {
+        if (isset($configuracoes_cache[$chave])) {
+            $resultado[$chave] = $configuracoes_cache[$chave];
+        } else {
+            $chaves_buscar[] = $chave;
+        }
+    }
+    
+    // Buscar chaves não encontradas no cache
+    if (!empty($chaves_buscar)) {
+        try {
+            $placeholders = str_repeat('?,', count($chaves_buscar) - 1) . '?';
+            $configs = buscar_todos("SELECT chave, valor FROM configuracoes WHERE chave IN ($placeholders)", $chaves_buscar);
+            
+            foreach ($configs as $config) {
+                $configuracoes_cache[$config['chave']] = $config['valor'];
+                $resultado[$config['chave']] = $config['valor'];
+            }
+            
+            // Adicionar chaves não encontradas com valor null
+            foreach ($chaves_buscar as $chave) {
+                if (!isset($resultado[$chave])) {
+                    $resultado[$chave] = null;
+                }
+            }
+            
+        } catch (Exception $e) {
+            error_log("Erro ao buscar configurações: " . $e->getMessage());
+            // Retornar chaves não encontradas com valor null
+            foreach ($chaves_buscar as $chave) {
+                if (!isset($resultado[$chave])) {
+                    $resultado[$chave] = null;
+                }
+            }
+        }
+    }
+    
+    return $resultado;
+}
+
+/**
+ * Salvar configuração
  * @param string $chave Chave da configuração
  * @param mixed $valor Valor da configuração
+ * @param string $descricao Descrição da configuração
  * @return bool
  */
-function definir_configuracao($chave, $valor) {
-    $existe = buscar_um("SELECT id FROM configuracoes WHERE chave = ?", [$chave]);
-    
-    if ($existe) {
-        return atualizar_registro('configuracoes', ['valor' => $valor], ['chave' => $chave]);
-    } else {
-        $id = inserir_registro('configuracoes', ['chave' => $chave, 'valor' => $valor]);
-        return $id > 0;
+function salvar_configuracao($chave, $valor, $descricao = null) {
+    try {
+        // Verificar se já existe
+        $existe = buscar_um("SELECT id FROM configuracoes WHERE chave = ?", [$chave]);
+        
+        if ($existe) {
+            // Atualizar existente
+            $params = [$valor, $chave];
+            $sql = "UPDATE configuracoes SET valor = ?";
+            
+            if ($descricao !== null) {
+                $sql .= ", descricao = ?";
+                $params = [$valor, $descricao, $chave];
+            }
+            
+            $sql .= " WHERE chave = ?";
+            
+            $sucesso = executar($sql, $params);
+        } else {
+            // Inserir novo
+            $sucesso = executar(
+                "INSERT INTO configuracoes (chave, valor, descricao) VALUES (?, ?, ?)",
+                [$chave, $valor, $descricao]
+            );
+        }
+        
+        // Limpar cache
+        static $configuracoes_cache = [];
+        unset($configuracoes_cache[$chave]);
+        
+        return $sucesso;
+        
+    } catch (Exception $e) {
+        error_log("Erro ao salvar configuração '{$chave}': " . $e->getMessage());
+        return false;
     }
+}
+
+/**
+ * Obter configurações da EFI Bank
+ * @return array Array com todas as configurações da EFI
+ */
+function obter_configuracoes_efi() {
+    $chaves_efi = [
+        'efi_client_id',
+        'efi_client_secret',
+        'efi_certificado_path',
+        'efi_certificate_password',
+        'efi_sandbox',
+        'efi_pix_key',
+        'efi_webhook_secret',
+        'efi_debug',
+        'efi_ativo',
+        'efi_ambiente'
+    ];
+    
+    return obter_configuracoes($chaves_efi);
+}
+
+/**
+ * Verificar se EFI Bank está configurado e ativo
+ * @return bool
+ */
+function efi_esta_ativo() {
+    $configs = obter_configuracoes(['efi_ativo', 'efi_client_id', 'efi_client_secret']);
+    
+    return $configs['efi_ativo'] === '1' 
+        && !empty($configs['efi_client_id']) 
+        && !empty($configs['efi_client_secret']);
+}
+
+/**
+ * Obter configurações PIX
+ * @return array Array com configurações PIX
+ */
+function obter_configuracoes_pix() {
+    $chaves_pix = [
+        'pix_ativo',
+        'pix_chave',
+        'pix_nome',
+        'pix_cidade',
+        'efi_pix_key'
+    ];
+    
+    return obter_configuracoes($chaves_pix);
 }
 
 /**
@@ -425,7 +572,6 @@ function obter_mensagem() {
     }
     return null;
 }
-
 
 
 ?> 

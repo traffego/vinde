@@ -12,27 +12,47 @@ if (!defined('SISTEMA_INSCRICOES')) {
  */
 
 /**
- * Obtém configurações do ambiente EFI
- * @return array Configurações do ambiente
+ * Obtém configurações do ambiente EFI a partir do banco de dados
+ * @return array|false Configurações do ambiente ou false se não configurado
  */
 function obter_config_efi() {
-    $ambiente = EFI_AMBIENTE;
-    
-    if ($ambiente === 'producao') {
-        return [
-            'client_id' => EFI_CLIENT_ID_PROD,
-            'client_secret' => EFI_CLIENT_SECRET_PROD,
-            'certificado' => EFI_CERTIFICADO_PROD,
-            'api_url' => EFI_API_URL_PROD
-        ];
-    } else {
-        return [
-            'client_id' => EFI_CLIENT_ID_HOM,
-            'client_secret' => EFI_CLIENT_SECRET_HOM,
-            'certificado' => EFI_CERTIFICADO_HOM,
-            'api_url' => EFI_API_URL_HOM
-        ];
+    // Verificar se EFI está ativo
+    if (!efi_esta_ativo()) {
+        return false;
     }
+    
+    // Obter configurações do banco
+    $config_efi = obter_configuracoes_efi();
+    
+    // Verificar se as configurações básicas estão definidas
+    if (empty($config_efi['efi_client_id']) || empty($config_efi['efi_client_secret'])) {
+        error_log("EFI: Credenciais não configuradas");
+        return false;
+    }
+    
+    // Verificar se certificado existe
+    if (empty($config_efi['efi_certificado_path']) || !file_exists($config_efi['efi_certificado_path'])) {
+        error_log("EFI: Certificado não encontrado ou não configurado");
+        return false;
+    }
+    
+    // Determinar URLs da API baseado no ambiente
+    $is_sandbox = $config_efi['efi_sandbox'] === '1';
+    $api_url = $is_sandbox 
+        ? 'https://api-pix-h.gerencianet.com.br' 
+        : 'https://api-pix.gerencianet.com.br';
+    
+    return [
+        'client_id' => $config_efi['efi_client_id'],
+        'client_secret' => $config_efi['efi_client_secret'],
+        'certificado' => $config_efi['efi_certificado_path'],
+        'certificate_password' => $config_efi['efi_certificate_password'] ?? '',
+        'api_url' => $api_url,
+        'pix_key' => $config_efi['efi_pix_key'] ?? '',
+        'webhook_secret' => $config_efi['efi_webhook_secret'] ?? '',
+        'debug' => $config_efi['efi_debug'] === '1',
+        'sandbox' => $is_sandbox
+    ];
 }
 
 /**
@@ -42,6 +62,12 @@ function obter_config_efi() {
  */
 function efi_obter_token() {
     $config = obter_config_efi();
+    
+    // Verificar se a configuração foi obtida com sucesso
+    if (!$config) {
+        error_log("EFI: Configuração não disponível ou EFI inativo");
+        return false;
+    }
     
     // Verificar se certificado existe
     if (!file_exists($config['certificado'])) {
@@ -55,6 +81,12 @@ function efi_obter_token() {
     
     // Payload conforme documentação
     $postData = json_encode(['grant_type' => 'client_credentials']);
+    
+    // Log de debug se ativo
+    if ($config['debug']) {
+        error_log("EFI Debug: Obtendo token - URL: $url");
+        error_log("EFI Debug: Ambiente: " . ($config['sandbox'] ? 'Sandbox' : 'Produção'));
+    }
     
     // Inicializar cURL conforme exemplo oficial
     $curl = curl_init();
@@ -70,7 +102,7 @@ function efi_obter_token() {
         ],
         // Certificado P12 conforme documentação
         CURLOPT_SSLCERT => $config['certificado'],
-        CURLOPT_SSLCERTPASSWD => EFI_SENHA_CERTIFICADO,
+        CURLOPT_SSLCERTPASSWD => $config['certificate_password'],
         CURLOPT_SSLCERTTYPE => 'P12',
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
@@ -99,17 +131,17 @@ function efi_obter_token() {
     
     $data = json_decode($response, true);
     
-    if (!isset($data['access_token'])) {
-        error_log("EFI: Token não encontrado na resposta: " . $response);
-        registrar_log('efi_auth_error', "Token não encontrado: " . $response);
+    if (!$data || !isset($data['access_token'])) {
+        error_log("EFI: Token não encontrado na resposta");
+        registrar_log('efi_auth_error', "Token não encontrado na resposta: " . $response);
         return false;
     }
     
-    // Cache do token (válido por 1 hora conforme documentação)
-    $_SESSION['efi_token'] = $data['access_token'];
-    $_SESSION['efi_token_expires'] = time() + ($data['expires_in'] ?? 3600);
+    if ($config['debug']) {
+        error_log("EFI Debug: Token obtido com sucesso");
+    }
     
-    registrar_log('efi_auth_success', 'Token obtido com sucesso - Expires in: ' . ($data['expires_in'] ?? 3600) . 's');
+    registrar_log('efi_auth_success', "Token obtido com sucesso - Ambiente: " . ($config['sandbox'] ? 'Sandbox' : 'Produção'));
     
     return $data['access_token'];
 }
@@ -127,7 +159,15 @@ function efi_obter_token_valido() {
     }
     
     // Obter novo token
-    return efi_obter_token();
+    $token = efi_obter_token();
+    
+    if ($token) {
+        // Cache do token (válido por 1 hora conforme documentação)
+        $_SESSION['efi_token'] = $token;
+        $_SESSION['efi_token_expires'] = time() + 3600; // 1 hora
+    }
+    
+    return $token;
 }
 
 /**
@@ -145,12 +185,24 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
     }
     
     $config = obter_config_efi();
+    
+    if (!$config) {
+        return false;
+    }
+    
     $url = $config['api_url'] . $endpoint;
     
     $headers = [
         'Authorization: Bearer ' . $token,
         'Content-Type: application/json'
     ];
+    
+    if ($config['debug']) {
+        error_log("EFI Debug: Fazendo requisição {$method} para: {$url}");
+        if ($data) {
+            error_log("EFI Debug: Dados: " . json_encode($data));
+        }
+    }
     
     $curl = curl_init();
     
@@ -159,7 +211,7 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_SSLCERT => $config['certificado'],
-        CURLOPT_SSLCERTPASSWD => EFI_SENHA_CERTIFICADO,
+        CURLOPT_SSLCERTPASSWD => $config['certificate_password'],
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 30
@@ -191,24 +243,29 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
     curl_close($curl);
     
     if ($error) {
-        error_log("EFI API cURL Error: " . $error);
+        error_log("EFI cURL Error: " . $error);
         return false;
     }
     
-    $responseData = json_decode($response, true);
+    $data_response = json_decode($response, true);
+    
+    if ($config['debug']) {
+        error_log("EFI Debug: Resposta HTTP {$httpCode}: " . $response);
+    }
     
     if ($httpCode >= 400) {
         error_log("EFI API Error HTTP {$httpCode}: " . $response);
+        registrar_log('efi_api_error', "HTTP {$httpCode} em {$endpoint}: " . $response);
         return false;
     }
     
-    return $responseData;
+    return $data_response;
 }
 
 /**
- * Cria cobrança PIX imediata
- * Seguindo documentação oficial: https://dev.efipay.com.br/docs/api-pix/cobrancas-imediatas
- * @param string $txid ID da transação (único, max 35 chars)
+ * Cria cobrança PIX via EFI Bank
+ * Seguindo documentação oficial: https://dev.efipay.com.br/docs/api-pix/cob
+ * @param string $txid ID único da transação (max 35 chars)
  * @param float $valor Valor da cobrança
  * @param string $descricao Descrição da cobrança (max 140 chars)
  * @param string $nome_pagador Nome do pagador
@@ -217,6 +274,20 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
  * @return array|false Dados da cobrança ou false em caso de erro
  */
 function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_pagador, $expiracao = 3600) {
+    // Obter configurações EFI
+    $config = obter_config_efi();
+    
+    if (!$config) {
+        error_log("EFI: Configuração não disponível para criar cobrança");
+        return false;
+    }
+    
+    // Verificar se a chave PIX está configurada
+    if (empty($config['pix_key'])) {
+        error_log("EFI: Chave PIX não configurada");
+        return false;
+    }
+    
     // Validações conforme documentação EFI
     if (strlen($txid) > 35) {
         error_log("EFI: TXID muito longo (max 35 chars): " . $txid);
@@ -235,7 +306,7 @@ function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_p
         'valor' => [
             'original' => number_format($valor, 2, '.', '')
         ],
-        'chave' => PIX_CHAVE,
+        'chave' => $config['pix_key'],
         'solicitacaoPagador' => $descricao
     ];
     
@@ -258,13 +329,18 @@ function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_p
         }
     }
     
+    if ($config['debug']) {
+        error_log("EFI Debug: Criando cobrança PIX - TXID: {$txid} | Valor: R$ {$valor}");
+    }
+    
     $endpoint = "/v2/cob/{$txid}";
     $resposta = efi_fazer_requisicao($endpoint, 'PUT', $dados);
     
     if ($resposta) {
         registrar_log('efi_cobranca_criada', 
             "TXID: {$txid} | Valor: R$ {$valor} | Status: " . ($resposta['status'] ?? 'N/A') . 
-            " | Loc ID: " . ($resposta['loc']['id'] ?? 'N/A')
+            " | Loc ID: " . ($resposta['loc']['id'] ?? 'N/A') .
+            " | Ambiente: " . ($config['sandbox'] ? 'Sandbox' : 'Produção')
         );
     } else {
         registrar_log('efi_cobranca_erro', "Falha ao criar cobrança - TXID: {$txid} | Valor: R$ {$valor}");
@@ -462,6 +538,182 @@ function efi_testar_configuracao() {
     }
     
     return $resultados;
+}
+
+/**
+ * Função principal para criar PIX completo via EFI Bank
+ * Esta função integra criação de cobrança + geração de QR Code
+ * @param array $dados_pagamento Array com dados do pagamento
+ * @return array|false Resultado completo ou false em erro
+ */
+function efi_criar_pix_completo($dados_pagamento) {
+    // Verificar se EFI está configurado e ativo
+    if (!efi_esta_ativo()) {
+        return ['erro' => 'EFI Bank não está ativo ou configurado'];
+    }
+    
+    // Validar dados obrigatórios
+    $campos_obrigatorios = ['valor', 'descricao', 'participante_id', 'evento_nome'];
+    foreach ($campos_obrigatorios as $campo) {
+        if (empty($dados_pagamento[$campo])) {
+            return ['erro' => "Campo obrigatório não informado: {$campo}"];
+        }
+    }
+    
+    try {
+        // Gerar TXID único baseado no participante e timestamp
+        $txid = 'VINDE' . str_pad($dados_pagamento['participante_id'], 6, '0', STR_PAD_LEFT) . substr(time(), -6);
+        
+        // Criar cobrança PIX na EFI Bank
+        $cobranca = efi_criar_cobranca_pix(
+            $txid,
+            $dados_pagamento['valor'],
+            $dados_pagamento['descricao'],
+            $dados_pagamento['nome_pagador'] ?? '',
+            $dados_pagamento['cpf_pagador'] ?? '',
+            $dados_pagamento['expiracao'] ?? 3600
+        );
+        
+        if (!$cobranca) {
+            return ['erro' => 'Falha ao criar cobrança PIX na EFI Bank'];
+        }
+        
+        // Verificar se a cobrança foi criada com sucesso
+        if (!isset($cobranca['loc']['id'])) {
+            return ['erro' => 'Cobrança criada mas Location ID não encontrado'];
+        }
+        
+        $loc_id = $cobranca['loc']['id'];
+        
+        // Gerar QR Code
+        $qrcode = efi_gerar_qrcode($loc_id);
+        
+        if (!$qrcode) {
+            return ['erro' => 'Falha ao gerar QR Code PIX'];
+        }
+        
+        // Calcular data de expiração
+        $expiracao_segundos = $dados_pagamento['expiracao'] ?? 3600;
+        $expires_at = date('Y-m-d H:i:s', time() + $expiracao_segundos);
+        
+        // Retornar dados completos para salvar no banco
+        $resultado = [
+            'sucesso' => true,
+            'pix_txid' => $txid,
+            'pix_loc_id' => $loc_id,
+            'pix_qrcode_data' => $qrcode['qrcode'] ?? '',
+            'pix_qrcode_url' => $qrcode['linkVisualizacao'] ?? '',
+            'pix_expires_at' => $expires_at,
+            'efi_response' => $cobranca,
+            'qr_response' => $qrcode,
+            'status' => $cobranca['status'] ?? 'ATIVA'
+        ];
+        
+        // Log de sucesso
+        registrar_log('efi_pix_completo', 
+            "PIX criado com sucesso - TXID: {$txid} | Participante: {$dados_pagamento['participante_id']} | Valor: R$ {$dados_pagamento['valor']}"
+        );
+        
+        return $resultado;
+        
+    } catch (Exception $e) {
+        error_log("EFI: Erro ao criar PIX completo: " . $e->getMessage());
+        registrar_log('efi_pix_erro', "Erro ao criar PIX: " . $e->getMessage());
+        return ['erro' => 'Erro interno ao processar PIX: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Função para consultar status de pagamento PIX
+ * @param string $txid ID da transação
+ * @return array|false Status do pagamento ou false em erro
+ */
+function efi_verificar_pagamento_pix($txid) {
+    if (!efi_esta_ativo()) {
+        return false;
+    }
+    
+    try {
+        $cobranca = efi_consultar_cobranca($txid);
+        
+        if (!$cobranca) {
+            return false;
+        }
+        
+        $status_pago = isset($cobranca['pix']) && !empty($cobranca['pix']);
+        
+        $resultado = [
+            'txid' => $txid,
+            'status' => $cobranca['status'] ?? 'N/A',
+            'pago' => $status_pago,
+            'valor_original' => $cobranca['valor']['original'] ?? 0,
+            'data_criacao' => $cobranca['calendario']['criacao'] ?? null,
+            'data_expiracao' => null
+        ];
+        
+        // Calcular data de expiração se disponível
+        if (isset($cobranca['calendario']['criacao']) && isset($cobranca['calendario']['expiracao'])) {
+            $criacao = strtotime($cobranca['calendario']['criacao']);
+            $expiracao_segundos = $cobranca['calendario']['expiracao'];
+            $resultado['data_expiracao'] = date('Y-m-d H:i:s', $criacao + $expiracao_segundos);
+        }
+        
+        // Dados do pagamento se foi realizado
+        if ($status_pago && isset($cobranca['pix'][0])) {
+            $pix_info = $cobranca['pix'][0];
+            $resultado['pix_info'] = [
+                'end_to_end_id' => $pix_info['endToEndId'] ?? '',
+                'valor_pago' => $pix_info['valor'] ?? 0,
+                'data_pagamento' => $pix_info['horario'] ?? null,
+                'info_pagador' => $pix_info['infoPagador'] ?? ''
+            ];
+        }
+        
+        return $resultado;
+        
+    } catch (Exception $e) {
+        error_log("EFI: Erro ao verificar pagamento PIX {$txid}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Função utilitária para registrar logs do sistema
+ * @param string $tipo Tipo do log
+ * @param string $mensagem Mensagem do log
+ * @param string $txid TXID relacionado (opcional)
+ */
+function registrar_log($tipo, $mensagem, $txid = null) {
+    try {
+        // Verificar se a tabela de logs existe
+        $table_exists = buscar_um("SHOW TABLES LIKE 'efi_logs'");
+        
+        if (!$table_exists) {
+            // Criar tabela se não existir
+            executar("
+                CREATE TABLE IF NOT EXISTS efi_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    tipo VARCHAR(50) NOT NULL,
+                    mensagem TEXT NOT NULL,
+                    txid VARCHAR(35) NULL,
+                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_tipo (tipo),
+                    INDEX idx_txid (txid),
+                    INDEX idx_criado_em (criado_em)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+        }
+        
+        // Inserir log
+        executar("
+            INSERT INTO efi_logs (tipo, mensagem, txid) 
+            VALUES (?, ?, ?)
+        ", [$tipo, $mensagem, $txid]);
+        
+    } catch (Exception $e) {
+        // Se falhar ao inserir no banco, pelo menos registrar no error_log
+        error_log("Falha ao registrar log EFI: " . $e->getMessage() . " | Log original: [{$tipo}] {$mensagem}");
+    }
 }
 
 ?> 
