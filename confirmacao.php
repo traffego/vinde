@@ -1,30 +1,112 @@
 <?php
 require_once 'includes/init.php';
+require_once 'includes/auth_participante.php';
 
-$participante_id = $_GET['participante'] ?? '';
+// Verificar se usuário está logado
+if (!participante_esta_logado()) {
+    redirecionar(SITE_URL . '/participante/login.php');
+}
 
-// Buscar dados do participante e evento
+$inscricao_id = $_GET['inscricao'] ?? '';
+
+// Buscar dados da inscrição, participante e evento
+$inscricao = [];
 $participante = [];
 $evento = [];
 $pagamento = [];
 
-if ($participante_id) {
-    $dados = buscar_um("
-        SELECT p.*, e.*, pag.status as pagamento_status, pag.valor, pag.pago_em
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        WHERE p.id = ?
-    ", [$participante_id]);
+if ($inscricao_id) {
+    // Verificar se tabela inscricoes existe (compatibilidade)
+    $tabela_inscricoes_existe = buscar_um("
+        SELECT COUNT(*) as count 
+        FROM INFORMATION_SCHEMA.TABLES 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'inscricoes'
+    ");
+    
+    if ($tabela_inscricoes_existe['count'] > 0) {
+        // Sistema novo - usar tabela inscricoes
+        $dados = buscar_um("
+            SELECT 
+                i.*,
+                p.nome as participante_nome,
+                p.cpf as participante_cpf,
+                p.email as participante_email,
+                p.whatsapp as participante_whatsapp,
+                p.qr_token,
+                e.nome as evento_nome,
+                e.descricao as evento_descricao,
+                e.data_inicio,
+                e.data_fim,
+                e.horario_inicio,
+                e.horario_fim,
+                e.local,
+                e.endereco,
+                e.cidade,
+                e.estado,
+                e.valor,
+                e.imagem,
+                e.slug,
+                e.programacao,
+                e.max_participantes,
+                pag.status as pagamento_status,
+                pag.valor as pagamento_valor,
+                pag.pago_em
+            FROM inscricoes i
+            JOIN participantes p ON i.participante_id = p.id
+            JOIN eventos e ON i.evento_id = e.id
+            LEFT JOIN pagamentos pag ON pag.inscricao_id = i.id
+            WHERE i.id = ? AND i.participante_id = ?
+        ", [$inscricao_id, participante_obter_id()]);
+        
+    } else {
+        // Sistema antigo - usar participante_id direto
+        $dados = buscar_um("
+            SELECT 
+                p.id as inscricao_id,
+                p.id as participante_id,
+                p.evento_id,
+                p.status,
+                'aprovada' as status_inscricao,
+                p.nome as participante_nome,
+                p.cpf as participante_cpf,
+                p.email as participante_email,
+                p.whatsapp as participante_whatsapp,
+                p.qr_token,
+                e.nome as evento_nome,
+                e.descricao as evento_descricao,
+                e.data_inicio,
+                e.data_fim,
+                e.horario_inicio,
+                e.horario_fim,
+                e.local,
+                e.endereco,
+                e.cidade,
+                e.estado,
+                e.valor,
+                e.imagem,
+                e.slug,
+                e.programacao,
+                e.max_participantes,
+                pag.status as pagamento_status,
+                pag.valor as pagamento_valor,
+                pag.pago_em
+            FROM participantes p
+            JOIN eventos e ON p.evento_id = e.id
+            LEFT JOIN pagamentos pag ON p.id = pag.participante_id
+            WHERE p.id = ?
+        ", [$inscricao_id]);
+    }
     
     if ($dados) {
+        $inscricao = $dados;
         $participante = $dados;
         $evento = $dados;
         $pagamento = $dados;
     }
 }
 
-if (!$participante) {
+if (!$inscricao) {
     obter_cabecalho('Confirmação não encontrada');
     ?>
     <div class="container">
@@ -39,15 +121,33 @@ if (!$participante) {
     exit;
 }
 
-// Verificar se o pagamento foi confirmado (ou se é evento gratuito)
-$pagamento_ok = ($pagamento['pagamento_status'] === 'pago') || ($pagamento['valor'] <= 0);
+// Verificar se a inscrição está confirmada
+$inscricao_confirmada = false;
 
-if (!$pagamento_ok) {
-    // Redirecionar de volta para pagamento se ainda não foi pago
-    redirecionar(SITE_URL . '/pagamento.php?participante=' . $participante_id);
+if (isset($inscricao['status'])) {
+    // Sistema novo - verificar status da inscrição
+    $inscricao_confirmada = in_array($inscricao['status'], ['pendente', 'aprovada']);
+} else {
+    // Sistema antigo - sempre confirmada se chegou até aqui
+    $inscricao_confirmada = true;
 }
 
-obter_cabecalho('Confirmação - ' . $evento['nome'], 'confirmacao');
+// Verificar se o pagamento foi confirmado (ou se é evento gratuito)
+$pagamento_ok = ($pagamento['pagamento_status'] === 'pago') || ($evento['valor'] <= 0);
+
+if (!$pagamento_ok && $evento['valor'] > 0) {
+    // Redirecionar de volta para pagamento se ainda não foi pago
+    redirecionar(SITE_URL . '/pagamento.php?inscricao=' . $inscricao_id);
+}
+
+// Gerar QR Token se não existir
+if (empty($participante['qr_token'])) {
+    $qr_token = bin2hex(random_bytes(16));
+    atualizar_registro('participantes', ['qr_token' => $qr_token], ['id' => $participante['participante_id']]);
+    $participante['qr_token'] = $qr_token;
+}
+
+obter_cabecalho('Confirmação - ' . $evento['evento_nome'], 'confirmacao');
 ?>
 
 <div class="sympla-page">
@@ -76,7 +176,7 @@ obter_cabecalho('Confirmação - ' . $evento['nome'], 'confirmacao');
                 <div class="event-header">
                     <div class="event-image">
                         <?php if (!empty($evento['imagem'])): ?>
-                            <img src="<?= SITE_URL ?>/uploads/<?= $evento['imagem'] ?>" alt="<?= htmlspecialchars($evento['nome']) ?>">
+                            <img src="<?= SITE_URL ?>/uploads/<?= $evento['imagem'] ?>" alt="<?= htmlspecialchars($evento['evento_nome']) ?>">
                         <?php else: ?>
                             <div class="event-placeholder">
                                 <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
@@ -86,7 +186,7 @@ obter_cabecalho('Confirmação - ' . $evento['nome'], 'confirmacao');
                         <?php endif; ?>
                     </div>
                     <div class="event-info">
-                        <h2><?= htmlspecialchars($evento['nome']) ?></h2>
+                        <h2><?= htmlspecialchars($evento['evento_nome']) ?></h2>
                         <div class="event-details">
                             <div class="detail-item">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -112,11 +212,11 @@ obter_cabecalho('Confirmação - ' . $evento['nome'], 'confirmacao');
                     <h3>Dados do participante</h3>
                     <div class="participant-info">
                         <div class="participant-avatar">
-                            <span><?= strtoupper(substr($participante['nome'], 0, 1)) ?></span>
+                            <span><?= strtoupper(substr($participante['participante_nome'], 0, 1)) ?></span>
                         </div>
                         <div class="participant-details">
-                            <strong><?= htmlspecialchars($participante['nome']) ?></strong>
-                            <span><?= htmlspecialchars($participante['email']) ?></span>
+                            <strong><?= htmlspecialchars($participante['participante_nome']) ?></strong>
+                            <span><?= htmlspecialchars($participante['participante_email']) ?></span>
                         </div>
                         <div class="participant-status">
                             <span class="status-badge confirmed">Confirmado</span>
@@ -252,6 +352,12 @@ obter_cabecalho('Confirmação - ' . $evento['nome'], 'confirmacao');
                             </svg>
                             Ver mais eventos
                         </a>
+                        <a href="<?= SITE_URL ?>/participante/" class="btn-action secondary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                            Minha área
+                        </a>
                         <button onclick="window.print()" class="btn-action secondary">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
@@ -286,11 +392,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function gerarQRCode() {
     const dadosQR = {
         tipo: 'checkin',
-        participante_id: <?= $participante_id ?>,
+        inscricao_id: <?= $inscricao_id ?>,
+        participante_id: <?= $participante['participante_id'] ?? $inscricao_id ?>,
         token: '<?= $participante['qr_token'] ?>',
-        evento_id: <?= $evento['id'] ?>,
-        nome: '<?= htmlspecialchars($participante['nome']) ?>',
-        evento: '<?= htmlspecialchars($evento['nome']) ?>'
+        evento_id: <?= $evento['evento_id'] ?? $evento['id'] ?>,
+        nome: '<?= htmlspecialchars($participante['participante_nome']) ?>',
+        evento: '<?= htmlspecialchars($evento['evento_nome']) ?>'
     };
     
     const qrData = JSON.stringify(dadosQR);
@@ -323,15 +430,15 @@ function baixarQRCode() {
 function compartilharWhatsApp() {
     const texto = `🎉 Inscrição Confirmada!
 
-📅 Evento: <?= htmlspecialchars($evento['nome']) ?>
-👤 Participante: <?= htmlspecialchars($participante['nome']) ?>
+📅 Evento: <?= htmlspecialchars($evento['evento_nome']) ?>
+👤 Participante: <?= htmlspecialchars($participante['participante_nome']) ?>
 📍 Local: <?= htmlspecialchars($evento['local']) ?>
 📅 Data: <?= formatar_data($evento['data_inicio']) ?>
 
 ✅ Minha inscrição foi confirmada com sucesso!
 
 🎫 Acesse o link para ver meu QR Code:
-<?= SITE_URL ?>/confirmacao.php?participante=<?= $participante_id ?>
+<?= SITE_URL ?>/confirmacao.php?inscricao=<?= $inscricao_id ?>
 
 Nos vemos lá! 🙏`;
 
@@ -359,16 +466,16 @@ function toggleProgram() {
 <?php
 $mensagem_whatsapp = "🎉 Inscrição Confirmada!
 
-Olá {$participante['nome']},
+Olá {$participante['participante_nome']},
 
 Sua inscrição foi confirmada com sucesso!
 
-📅 Evento: {$evento['nome']}
+📅 Evento: {$evento['evento_nome']}
 📍 Local: {$evento['local']}
 📅 Data: " . formatar_data($evento['data_inicio']) . "
 
 🎫 Seu QR Code de acesso:
-" . SITE_URL . "/confirmacao.php?participante={$participante_id}
+" . SITE_URL . "/confirmacao.php?inscricao={$inscricao_id}
 
 ⏰ Chegue com 30min de antecedência
 📱 Salve este link no seu celular
@@ -377,7 +484,7 @@ Qualquer dúvida, entre em contato!
 
 Paz e Bem! 🙏";
 
-simular_whatsapp($participante['whatsapp'], $mensagem_whatsapp);
+simular_whatsapp($participante['participante_whatsapp'], $mensagem_whatsapp);
 ?>
 </script>
 
