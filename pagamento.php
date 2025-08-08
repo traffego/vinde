@@ -328,18 +328,22 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     </div>
                 <?php endif; ?>
 
-                <?php if (!empty($pagamento['pix_qrcode_url'])): ?>
+                <?php if (!empty($pagamento['pix_qrcode_url']) || !empty($pagamento['pix_qrcode_data'])): ?>
                     <div class="qr-code-container">
-                        <img src="<?= htmlspecialchars($pagamento['pix_qrcode_url']) ?>" 
-                             alt="QR Code PIX" 
-                             id="qr-code-img"
-                             onerror="document.getElementById('qr-code-img').style.display='none';var w=document.getElementById('qr-canvas-wrapper');if(w){w.style.display='inline-block';}gerarQrPixCanvas();">
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
-                    <div class="qr-code-container" style="display: <?= empty($pagamento['pix_qrcode_url']) ? 'inline-block' : 'none' ?>;" id="qr-canvas-wrapper">
-                        <canvas id="qr-canvas-pix"></canvas>
+                        <?php if (!empty($pagamento['pix_qrcode_url'])): ?>
+                            <img 
+                                src="<?= htmlspecialchars($pagamento['pix_qrcode_url']) ?>" 
+                                alt="QR Code PIX" 
+                                id="qr-code-img"
+                                onerror="this.style.display='none';var w=document.getElementById('qr-canvas-wrapper');if(w){w.style.display='inline-block';}gerarQrPixCanvas();"
+                                style="<?= strpos($pagamento['pix_qrcode_url'], 'data:image') === 0 ? '' : '' ?>"
+                            >
+                        <?php endif; ?>
+                        <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
+                            <div id="qr-canvas-wrapper" style="display: <?= empty($pagamento['pix_qrcode_url']) ? 'inline-block' : 'none' ?>;">
+                                <canvas id="qr-canvas-pix"></canvas>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
 

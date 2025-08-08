@@ -625,9 +625,12 @@ function efi_criar_pix_completo($dados_pagamento) {
             return ['erro' => 'Falha ao gerar QR Code PIX'];
         }
         
-        // Verificar se o payload PIX é válido
+        // Verificar se o payload PIX é válido e preparar a imagem do QR (sempre base64 da EFI)
         $payload_pix = $qrcode['qrcode'] ?? '';
-        $qr_url = $qrcode['linkVisualizacao'] ?? '';
+        if (empty($qrcode['imagemQrcode'])) {
+            return ['erro' => 'Imagem do QR Code (base64) não retornada pela EFI'];
+        }
+        $qr_url = 'data:image/png;base64,' . $qrcode['imagemQrcode'];
         
         // Validar se o payload PIX está correto
         $payload_valido = !empty($payload_pix) && 
