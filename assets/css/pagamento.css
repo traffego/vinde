@@ -49,11 +49,11 @@
 }
 
 .qr-code-container {
-    background: white;
-    padding: 5px; /* reduzido de 20px para 5px */
-    border-radius: 12px;
-    border: 2px solid #e5e7eb;
-    margin: 20px 0;
+    background: transparent;
+    padding: 0; /* sem área branca */
+    border-radius: 0;
+    border: none; /* sem borda */
+    margin: 10px 0;
     display: inline-block;
 }
 
