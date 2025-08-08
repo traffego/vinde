@@ -111,8 +111,27 @@ if (efi_esta_ativo()) {
         }
     }
 } else {
-    // EFI Bank não está ativo - sistema não pode funcionar sem ele
-    $erro = 'Sistema de pagamento não configurado. Entre em contato com o suporte.';
+    // EFI Bank não está ativo - verificar configurações
+    $erro = 'Sistema de pagamento PIX não configurado. ';
+    
+    // Verificar configurações específicas para orientar o administrador
+    $config_efi = obter_configuracoes_efi();
+    if (empty($config_efi['efi_client_id']) || empty($config_efi['efi_client_secret'])) {
+        $erro .= 'Credenciais EFI Bank não configuradas. ';
+    }
+    if (empty($config_efi['efi_certificado_path']) || !file_exists($config_efi['efi_certificado_path'])) {
+        $erro .= 'Certificado EFI Bank não encontrado. ';
+    }
+    if (empty($config_efi['efi_pix_key'])) {
+        $erro .= 'Chave PIX não configurada. ';
+    }
+    if ($config_efi['efi_ativo'] !== '1') {
+        $erro .= 'EFI Bank não está ativo. ';
+    }
+    
+    $erro .= 'Entre em contato com o suporte técnico.';
+    
+    error_log("EFI Bank não está ativo - Detalhes: " . json_encode($config_efi));
 }
 
 // Processar confirmação manual de pagamento (para teste)

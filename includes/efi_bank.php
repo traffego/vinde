@@ -39,8 +39,8 @@ function obter_config_efi() {
     // Determinar URLs da API baseado no ambiente
     $is_sandbox = $config_efi['efi_sandbox'] === '1';
     $api_url = $is_sandbox 
-        ? 'https://api-pix-h.gerencianet.com.br' 
-        : 'https://api-pix.gerencianet.com.br';
+        ? 'https://pix-h.api.efipay.com.br' 
+        : 'https://pix.api.efipay.com.br';
     
     return [
         'client_id' => $config_efi['efi_client_id'],
@@ -121,6 +121,10 @@ function efi_obter_token() {
         error_log("EFI cURL Error: " . $error);
         registrar_log_efi('efi_auth_error', "cURL Error: " . $error);
         return false;
+    }
+    
+    if ($config['debug']) {
+        error_log("EFI Debug: Resposta HTTP {$httpCode}: " . substr($response, 0, 200) . (strlen($response) > 200 ? '...' : ''));
     }
     
     if ($httpCode !== 200) {
@@ -212,9 +216,13 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_SSLCERT => $config['certificado'],
         CURLOPT_SSLCERTPASSWD => $config['certificate_password'],
+        CURLOPT_SSLCERTTYPE => 'P12',
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_TIMEOUT => 30
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_MAXREDIRS => 0
     ];
     
     switch (strtoupper($method)) {
@@ -714,6 +722,47 @@ function registrar_log_efi($tipo, $mensagem, $txid = null) {
         // Se falhar ao inserir no banco, pelo menos registrar no error_log
         error_log("Falha ao registrar log EFI: " . $e->getMessage() . " | Log original: [{$tipo}] {$mensagem}");
     }
+}
+
+/**
+ * Verificar se as configurações mínimas estão presentes
+ * @return array Resultado da verificação com detalhes
+ */
+function efi_verificar_configuracoes() {
+    $config_efi = obter_configuracoes_efi();
+    $problemas = [];
+    
+    // Verificar campos obrigatórios
+    $campos_obrigatorios = [
+        'efi_client_id' => 'Client ID',
+        'efi_client_secret' => 'Client Secret', 
+        'efi_certificado_path' => 'Caminho do certificado',
+        'efi_pix_key' => 'Chave PIX'
+    ];
+    
+    foreach ($campos_obrigatorios as $campo => $nome) {
+        if (empty($config_efi[$campo])) {
+            $problemas[] = "$nome não configurado";
+        }
+    }
+    
+    // Verificar se certificado existe
+    if (!empty($config_efi['efi_certificado_path'])) {
+        if (!file_exists($config_efi['efi_certificado_path'])) {
+            $problemas[] = "Arquivo de certificado não encontrado: " . $config_efi['efi_certificado_path'];
+        }
+    }
+    
+    // Verificar se EFI está ativo
+    if ($config_efi['efi_ativo'] !== '1') {
+        $problemas[] = "EFI Bank não está ativo";
+    }
+    
+    return [
+        'configurado' => empty($problemas),
+        'problemas' => $problemas,
+        'ambiente' => $config_efi['efi_sandbox'] === '1' ? 'sandbox' : 'producao'
+    ];
 }
 
 ?> 

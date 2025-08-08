@@ -30,7 +30,31 @@ $txid = $input['txid'];
 $participante_id = (int) $input['participante_id'];
 
 try {
-    // Verificar status usando PIX simples
+    // Verificar status usando EFI Bank se estiver ativo
+    if (efi_esta_ativo()) {
+        $status_pagamento = efi_verificar_pagamento_pix($txid);
+        
+        if ($status_pagamento) {
+            // Converter resposta EFI para formato esperado
+            $resultado = [
+                'status' => $status_pagamento['pago'] ? 'paid' : 'pending',
+                'paid_at' => $status_pagamento['pix_info']['data_pagamento'] ?? null,
+                'message' => $status_pagamento['pago'] ? 'Pagamento confirmado' : 'Aguardando pagamento',
+                'txid' => $txid,
+                'valor' => $status_pagamento['valor_original'] ?? 0
+            ];
+            
+            // Se foi pago via EFI, processar baixa automática
+            if ($status_pagamento['pago']) {
+                efi_processar_baixa_automatica($txid, $participante_id);
+            }
+            
+            echo json_encode($resultado);
+            exit;
+        }
+    }
+    
+    // Fallback para PIX simples
     $status_pagamento = verificar_pagamento_pix_simples($txid);
     
     if (!$status_pagamento) {
