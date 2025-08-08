@@ -62,9 +62,10 @@ header('Content-Type: text/html; charset=utf-8');
             echo "<h4>Análise do QR Code Data:</h4>";
             echo "<div class='info'>";
             echo "<strong>Tamanho:</strong> " . strlen($qr_data) . " caracteres<br>";
-            echo "<strong>Começa com '00020126':</strong> " . (strpos($qr_data, '00020126') === 0 ? 'Sim ✅' : 'Não ❌') . "<br>";
+            echo "<strong>Formato PIX válido:</strong> " . ((strpos($qr_data, '00020101') === 0 || strpos($qr_data, '00020126') === 0) ? 'Sim ✅' : 'Não ❌') . "<br>";
             echo "<strong>Contém 'BR.GOV.BCB.PIX':</strong> " . (strpos($qr_data, 'BR.GOV.BCB.PIX') !== false ? 'Sim ✅' : 'Não ❌') . "<br>";
             echo "<strong>Termina com CRC (4 dígitos):</strong> " . (preg_match('/[0-9A-F]{4}$/', $qr_data) ? 'Sim ✅' : 'Não ❌') . "<br>";
+            echo "<strong>Payload válido geral:</strong> " . ((strlen($qr_data) > 50 && (strpos($qr_data, '00020101') === 0 || strpos($qr_data, '00020126') === 0) && strpos($qr_data, 'BR.GOV.BCB.PIX') !== false) ? 'Sim ✅' : 'Não ❌') . "<br>";
             echo "</div>";
             
             echo "<h4>Payload PIX (para cópia):</h4>";
@@ -134,8 +135,8 @@ header('Content-Type: text/html; charset=utf-8');
                 // Testar qual funciona melhor
                 echo "<h4>Validação dos Payloads:</h4>";
                 echo "<div class='info'>";
-                echo "<strong>EFI Bank válido:</strong> " . (strlen($qr_data) > 50 && strpos($qr_data, '00020126') === 0 ? 'Provavelmente ✅' : 'Duvidoso ❌') . "<br>";
-                echo "<strong>PIX Simples válido:</strong> " . (strlen($payload_simples) > 50 && strpos($payload_simples, '00020126') === 0 ? 'Provavelmente ✅' : 'Duvidoso ❌') . "<br>";
+                echo "<strong>EFI Bank válido:</strong> " . ((strlen($qr_data) > 50 && (strpos($qr_data, '00020101') === 0 || strpos($qr_data, '00020126') === 0) && strpos($qr_data, 'BR.GOV.BCB.PIX') !== false) ? 'Sim ✅' : 'Não ❌') . "<br>";
+                echo "<strong>PIX Simples válido:</strong> " . ((strlen($payload_simples) > 50 && (strpos($payload_simples, '00020101') === 0 || strpos($payload_simples, '00020126') === 0) && strpos($payload_simples, 'BR.GOV.BCB.PIX') !== false) ? 'Sim ✅' : 'Não ❌') . "<br>";
                 echo "</div>";
                 
             } else {
@@ -173,7 +174,7 @@ header('Content-Type: text/html; charset=utf-8');
                 $qr_real = $pagamento_recente['pix_qrcode_data'];
                 echo "<div class='info'>";
                 echo "<strong>Tamanho:</strong> " . strlen($qr_real) . " caracteres<br>";
-                echo "<strong>Válido PIX:</strong> " . (strlen($qr_real) > 50 && strpos($qr_real, '00020126') === 0 ? 'Provavelmente ✅' : 'Duvidoso ❌') . "<br>";
+                echo "<strong>Válido PIX:</strong> " . ((strlen($qr_real) > 50 && (strpos($qr_real, '00020101') === 0 || strpos($qr_real, '00020126') === 0) && strpos($qr_real, 'BR.GOV.BCB.PIX') !== false) ? 'Sim ✅' : 'Não ❌') . "<br>";
                 echo "</div>";
                 
             } else {

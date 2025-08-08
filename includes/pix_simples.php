@@ -7,6 +7,38 @@ if (!defined('SISTEMA_INSCRICOES')) {
 }
 
 /**
+ * Função para calcular CRC16 CCITT
+ * @param string $data Dados para calcular CRC
+ * @return string CRC16 em hexadecimal
+ */
+function crc16($data) {
+    $crc = 0xFFFF;
+    for ($i = 0; $i < strlen($data); $i++) {
+        $crc ^= ord($data[$i]) << 8;
+        for ($j = 0; $j < 8; $j++) {
+            if ($crc & 0x8000) {
+                $crc = ($crc << 1) ^ 0x1021;
+            } else {
+                $crc = $crc << 1;
+            }
+            $crc &= 0xFFFF;
+        }
+    }
+    return strtoupper(dechex($crc));
+}
+
+/**
+ * Função para formatar campo PIX
+ * @param string $id ID do campo
+ * @param string $valor Valor do campo
+ * @return string Campo formatado
+ */
+function formatarCampo($id, $valor) {
+    $tamanho = str_pad(strlen($valor), 2, '0', STR_PAD_LEFT);
+    return $id . $tamanho . $valor;
+}
+
+/**
  * Gera payload PIX para QR Code estático
  * @param string $chave_pix Chave PIX (CPF, CNPJ, email, telefone ou chave aleatória)
  * @param float $valor Valor da transação
@@ -17,29 +49,6 @@ if (!defined('SISTEMA_INSCRICOES')) {
  * @return string Payload PIX
  */
 function gerar_payload_pix($chave_pix, $valor, $nome_recebedor, $cidade, $descricao = '', $txid = '') {
-    // Função para calcular CRC16 CCITT
-    function crc16($data) {
-        $crc = 0xFFFF;
-        for ($i = 0; $i < strlen($data); $i++) {
-            $crc ^= ord($data[$i]) << 8;
-            for ($j = 0; $j < 8; $j++) {
-                if ($crc & 0x8000) {
-                    $crc = ($crc << 1) ^ 0x1021;
-                } else {
-                    $crc = $crc << 1;
-                }
-                $crc &= 0xFFFF;
-            }
-        }
-        return strtoupper(dechex($crc));
-    }
-    
-    // Função para formatar campo PIX
-    function formatarCampo($id, $valor) {
-        $tamanho = str_pad(strlen($valor), 2, '0', STR_PAD_LEFT);
-        return $id . $tamanho . $valor;
-    }
-    
     // Construir payload
     $payload = '';
     

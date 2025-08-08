@@ -625,7 +625,8 @@ function efi_criar_pix_completo($dados_pagamento) {
         // Validar se o payload PIX está correto
         $payload_valido = !empty($payload_pix) && 
                          strlen($payload_pix) > 50 && 
-                         strpos($payload_pix, '00020126') === 0;
+                         (strpos($payload_pix, '00020101') === 0 || strpos($payload_pix, '00020126') === 0) &&
+                         strpos($payload_pix, 'BR.GOV.BCB.PIX') !== false;
         
         // Se o payload da EFI Bank não for válido, tentar gerar PIX simples como fallback
         if (!$payload_valido) {
