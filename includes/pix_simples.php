@@ -24,7 +24,8 @@ function crc16($data) {
             $crc &= 0xFFFF;
         }
     }
-    return strtoupper(dechex($crc));
+    // CRC deve ter 4 caracteres em hexadecimal
+    return strtoupper(str_pad(dechex($crc), 4, '0', STR_PAD_LEFT));
 }
 
 /**
@@ -49,14 +50,21 @@ function formatarCampo($id, $valor) {
  * @return string Payload PIX
  */
 function gerar_payload_pix($chave_pix, $valor, $nome_recebedor, $cidade, $descricao = '', $txid = '') {
+    // Normalizar strings (ASCII, sem acentos) e limitar tamanhos conforme EMVCo
+    $nome_recebedor = substr(iconv('UTF-8', 'ASCII//TRANSLIT', strtoupper($nome_recebedor)), 0, 25);
+    $cidade = substr(iconv('UTF-8', 'ASCII//TRANSLIT', strtoupper($cidade)), 0, 15);
+    $descricao = substr(iconv('UTF-8', 'ASCII//TRANSLIT', $descricao), 0, 60);
+    $txid = substr(preg_replace('/[^A-Z0-9]/', '', strtoupper($txid)), 0, 25);
+
     // Construir payload
     $payload = '';
     
     // Payload Format Indicator
     $payload .= formatarCampo('00', '01');
     
-    // Point of Initiation Method (12 = QR reutilizável, 11 = QR único)
-    $payload .= formatarCampo('01', '12');
+    // Point of Initiation Method: 11 = estático (copia e cola), 12 = dinâmico (via API)
+    // Para o modo simples (sem API EFI), usamos 11
+    $payload .= formatarCampo('01', '11');
     
     // Merchant Account Information
     $conta_info = '';
@@ -82,14 +90,14 @@ function gerar_payload_pix($chave_pix, $valor, $nome_recebedor, $cidade, $descri
     $payload .= formatarCampo('58', 'BR');
     
     // Merchant Name
-    $payload .= formatarCampo('59', substr($nome_recebedor, 0, 25));
+    $payload .= formatarCampo('59', $nome_recebedor);
     
     // Merchant City
-    $payload .= formatarCampo('60', substr($cidade, 0, 15));
+    $payload .= formatarCampo('60', $cidade);
     
     // Additional Data Field Template
     if (!empty($txid)) {
-        $adicional = formatarCampo('05', substr($txid, 0, 25)); // Reference Label
+        $adicional = formatarCampo('05', $txid); // Reference Label (TXID)
         $payload .= formatarCampo('62', $adicional);
     }
     

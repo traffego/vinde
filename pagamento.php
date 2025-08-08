@@ -189,12 +189,13 @@ if (empty($pagamento['pix_qrcode_data']) ||
     
     // Fallback para PIX simples se EFI Bank não funcionou
     if (empty($pagamento['pix_qrcode_data'])) {
-        $descricao = "Inscricao: " . substr($evento['nome'], 0, 20) . " - " . substr($participante['nome'], 0, 15);
+        $descricao = sprintf('INSCRICAO %s - %s', substr($evento['nome'], 0, 20), substr($participante['nome'], 0, 15));
+        $descricao = preg_replace('/[^A-Z0-9 \-]/', '', strtoupper(iconv('UTF-8','ASCII//TRANSLIT',$descricao)));
         $cobranca_simples = criar_cobranca_pix_simples($inscricao_id, $valor, $descricao);
         
         if ($cobranca_simples) {
             $dados_pagamento = [
-                'pix_txid' => $txid,
+                'pix_txid' => $cobranca_simples['txid'] ?? $txid,
                 'pix_qrcode_data' => $cobranca_simples['payload'],
                 'pix_qrcode_url' => $cobranca_simples['qrcode_url'],
                 'pix_expires_at' => $cobranca_simples['expires_at']
