@@ -19,7 +19,7 @@
     display: grid;
     grid-template-columns: 1fr 350px;
     gap: 40px;
-    align-items: start;
+    align-items: start; /* não alinhar pelas alturas, cada coluna define sua própria altura */
 }
 
 @media (max-width: 768px) {
@@ -32,9 +32,11 @@
 .pagamento-main {
     background: white;
     border-radius: 12px;
-    padding: 20px; /* reduzido para aproximar do último botão */
+    padding: 16px 20px 8px 20px; /* menor bottom padding */
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     align-self: start; /* evita esticar até a altura da outra coluna */
+    height: auto !important;
+    min-height: 0 !important;
 }
 
 /* remover espaço extra do último bloco interno */

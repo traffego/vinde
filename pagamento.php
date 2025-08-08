@@ -385,7 +385,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     </div>
                 <?php endif; ?>
 
-                <div class="instrucoes-pix">
+                <div class="instrucoes-pix" style="margin-bottom: 8px;">
                     <h4>Como pagar:</h4>
                     <ol>
                         <li>Abra o app do seu banco</li>
@@ -396,7 +396,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     </ol>
                         </div>
                         
-                <div class="verificacao-status" style="margin-bottom: 0;">
+                <div class="verificacao-status" style="margin: 8px 0 0 0;">
                     <button type="button" class="btn-verificar" onclick="verificarPagamento()">
                         🔄 Verificar Pagamento
                     </button>
