@@ -132,19 +132,24 @@ try {
 
 // Garantir que exista um registro de pagamento associado a esta inscrição
 if (empty($pagamento['id'])) {
-    $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
-    $pagamento_id = inserir_registro('pagamentos', [
-        'participante_id' => $participante_logado['id'],
-        'inscricao_id' => $inscricao_id,
-        'valor' => $evento['valor'],
-        'status' => 'pendente',
-        'metodo' => 'pix',
-        'pix_txid' => $txid
-    ]);
-    $pagamento['id'] = $pagamento_id;
-    $pagamento['status'] = 'pendente';
-    $pagamento['valor'] = $evento['valor'];
-    $pagamento['pix_txid'] = $txid;
+    try {
+        $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
+        $pagamento_id = inserir_registro('pagamentos', [
+            'participante_id' => $participante_logado['id'],
+            'inscricao_id' => $inscricao_id,
+            'valor' => $evento['valor'],
+            'status' => 'pendente',
+            'metodo' => 'pix',
+            'pix_txid' => $txid
+        ]);
+        $pagamento['id'] = $pagamento_id;
+        $pagamento['status'] = 'pendente';
+        $pagamento['valor'] = $evento['valor'];
+        $pagamento['pix_txid'] = $txid;
+    } catch (Exception $e) {
+        error_log('PAGAMENTO ERRO: Falha ao criar registro de pagamento: ' . $e->getMessage());
+        $erro = 'Erro ao criar registro de pagamento. Tente novamente em instantes.';
+    }
 }
 
 // Verificar se pagamento já foi processado
@@ -161,13 +166,14 @@ if ($evento['valor'] <= 0) {
 
 // Processar geração/renovação de PIX sempre que status não for pago
 // Isso garante que sempre há um PIX válido e atualizado disponível
-$deve_gerar_pix = ($pagamento['status'] !== 'pago') && (
+$deve_gerar_pix = empty($erro) && ($pagamento['status'] !== 'pago') && (
     empty($pagamento['pix_qrcode_data']) || 
     ($pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) < time()) ||
     true // Sempre gerar novo PIX quando não está pago
 );
 
 if ($deve_gerar_pix) {
+    try {
     
     // Gerar novo PIX sempre com TXID único (máximo 35 caracteres para EFI)
     $timestamp = date('YmdHis'); // 14 caracteres
@@ -265,6 +271,10 @@ if ($deve_gerar_pix) {
         
         error_log("ERRO: EFI Bank não configurado corretamente - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO') . " | Certificado: " . ($certificado_existe ? 'SIM' : 'NÃO'));
         $erro = "Sistema de pagamento não configurado. Entre em contato com o suporte.";
+    }
+    } catch (Exception $e) {
+        error_log('PAGAMENTO ERRO: Exceção ao gerar PIX: ' . $e->getMessage());
+        $erro = 'Erro interno ao gerar o PIX. Tente novamente.';
     }
 }
 
