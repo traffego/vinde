@@ -1779,7 +1779,10 @@ async function registrarWebhookEfi() {
         if (resp.ok && data.sucesso) {
             alert('✅ ' + (data.mensagem || 'Webhook registrado com sucesso.'));
         } else {
-            alert('⚠️ ' + (data.mensagem || 'Falha ao registrar webhook.'));
+            const det = [];
+            if (data.http_code) det.push('HTTP ' + data.http_code);
+            if (data.erro) det.push(typeof data.erro === 'string' ? data.erro : JSON.stringify(data.erro));
+            alert('⚠️ ' + (data.mensagem || 'Falha ao registrar webhook.') + (det.length ? '\n\nDetalhes: ' + det.join(' | ') : ''));
         }
     } catch (e) {
         alert('Erro ao registrar webhook: ' + (e.message || e));

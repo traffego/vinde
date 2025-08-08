@@ -36,10 +36,15 @@ try {
     $resultado = efi_registrar_webhook_configurado();
 
     if (!empty($resultado['sucesso'])) {
-        echo json_encode(['sucesso' => true, 'mensagem' => 'Webhook registrado com sucesso na Efí']);
+        echo json_encode(['sucesso' => true, 'mensagem' => $resultado['mensagem'] ?? 'Webhook registrado com sucesso na Efí']);
     } else {
         http_response_code(400);
-        echo json_encode(['sucesso' => false, 'mensagem' => $resultado['mensagem'] ?? 'Falha ao registrar webhook']);
+        echo json_encode([
+            'sucesso' => false,
+            'mensagem' => $resultado['mensagem'] ?? 'Falha ao registrar webhook',
+            'http_code' => $resultado['http_code'] ?? null,
+            'erro' => $resultado['erro'] ?? null
+        ]);
     }
 } catch (Exception $e) {
     error_log('Erro ao registrar webhook EFI: ' . $e->getMessage());

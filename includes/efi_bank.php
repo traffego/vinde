@@ -202,6 +202,10 @@ function efi_obter_token_valido() {
  * @return array|false Resposta da API ou false em caso de erro
  */
 function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
+    // Expor informações da última chamada para diagnóstico
+    global $EFI_LAST_HTTP_CODE, $EFI_LAST_ERROR_MESSAGE;
+    $EFI_LAST_HTTP_CODE = null;
+    $EFI_LAST_ERROR_MESSAGE = null;
     $token = efi_obter_token_valido();
     
     if (!$token) {
@@ -269,10 +273,12 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
     $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
     $error = curl_error($curl);
     curl_close($curl);
+    $EFI_LAST_HTTP_CODE = $httpCode;
     
     if ($error) {
         error_log("EFI cURL Error: " . $error);
         registrar_log_efi('efi_curl_error', "Erro cURL: " . $error . " | Endpoint: " . $endpoint);
+        $EFI_LAST_ERROR_MESSAGE = $error;
         return false;
     }
     
@@ -285,6 +291,7 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
     if ($httpCode >= 400) {
         error_log("EFI API Error HTTP {$httpCode}: " . $response);
         registrar_log_efi('efi_api_error', "HTTP {$httpCode} em {$endpoint}: " . $response);
+        $EFI_LAST_ERROR_MESSAGE = $response;
         return false;
     }
     
@@ -556,7 +563,16 @@ function efi_registrar_webhook_configurado() {
         return ['sucesso' => false, 'mensagem' => 'URL do webhook inválida. Configure a chave efi_webhook_url com a URL completa (https://...)'];
     }
     $ok = efi_configurar_webhook($url);
-    return $ok ? ['sucesso' => true] : ['sucesso' => false, 'mensagem' => 'Falha ao registrar webhook. Verifique logs EFI e credenciais.'];
+    if ($ok) {
+        return ['sucesso' => true, 'mensagem' => 'Webhook registrado com sucesso'];
+    }
+    global $EFI_LAST_HTTP_CODE, $EFI_LAST_ERROR_MESSAGE;
+    return [
+        'sucesso' => false,
+        'mensagem' => 'Falha ao registrar webhook. Verifique logs EFI e credenciais.',
+        'http_code' => $EFI_LAST_HTTP_CODE,
+        'erro' => $EFI_LAST_ERROR_MESSAGE
+    ];
 }
 
 /**
