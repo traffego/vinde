@@ -30,9 +30,28 @@ function obter_config_efi() {
         return false;
     }
     
-    // Verificar se certificado existe
+    // Normalizar caminho do certificado e verificar existência
+    if (!empty($config_efi['efi_certificado_path'])) {
+        $certPath = $config_efi['efi_certificado_path'];
+        // Se caminho relativo, tentar a partir da pasta includes/..
+        if (!file_exists($certPath)) {
+            $candidate = realpath(__DIR__ . '/../' . ltrim($certPath, './'));
+            if ($candidate && file_exists($candidate)) {
+                $certPath = $candidate;
+            }
+        }
+        // Segunda tentativa: a partir da raiz do projeto (dirname(__DIR__))
+        if (!file_exists($certPath)) {
+            $candidate2 = realpath(dirname(__DIR__) . '/' . ltrim($certPath, './'));
+            if ($candidate2 && file_exists($candidate2)) {
+                $certPath = $candidate2;
+            }
+        }
+        $config_efi['efi_certificado_path'] = $certPath;
+    }
+    
     if (empty($config_efi['efi_certificado_path']) || !file_exists($config_efi['efi_certificado_path'])) {
-        error_log("EFI: Certificado não encontrado ou não configurado");
+        error_log("EFI: Certificado não encontrado ou não configurado em: " . ($config_efi['efi_certificado_path'] ?? '(vazio)'));
         return false;
     }
     
@@ -49,6 +68,7 @@ function obter_config_efi() {
         'certificate_password' => $config_efi['efi_certificate_password'] ?? '',
         'api_url' => $api_url,
         'pix_key' => $config_efi['efi_pix_key'] ?? '',
+        'webhook_url' => $config_efi['efi_webhook_url'] ?? '',
         'webhook_secret' => $config_efi['efi_webhook_secret'] ?? '',
         'debug' => $config_efi['efi_debug'] === '1',
         'sandbox' => $is_sandbox
@@ -527,13 +547,16 @@ function efi_configurar_webhook($webhook_url) {
  * Registra o webhook usando a URL salva em configuracoes (efi_webhook_url)
  */
 function efi_registrar_webhook_configurado() {
-    $cfg = obter_configuracoes_efi();
-    $url = $cfg['efi_webhook_url'] ?? '';
-    if (empty($url)) {
-        return ['sucesso' => false, 'mensagem' => 'efi_webhook_url não configurado'];
+    $cfg = obter_config_efi();
+    if (!$cfg) {
+        return ['sucesso' => false, 'mensagem' => 'EFI inativo ou credenciais/certificado ausentes'];
+    }
+    $url = $cfg['webhook_url'] ?? '';
+    if (empty($url) || stripos($url, 'http') !== 0) {
+        return ['sucesso' => false, 'mensagem' => 'URL do webhook inválida. Configure a chave efi_webhook_url com a URL completa (https://...)'];
     }
     $ok = efi_configurar_webhook($url);
-    return $ok ? ['sucesso' => true] : ['sucesso' => false, 'mensagem' => 'Falha ao registrar webhook'];
+    return $ok ? ['sucesso' => true] : ['sucesso' => false, 'mensagem' => 'Falha ao registrar webhook. Verifique logs EFI e credenciais.'];
 }
 
 /**
