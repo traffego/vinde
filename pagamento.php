@@ -173,8 +173,7 @@ if ($evento['valor'] <= 0) {
 // Isso garante que sempre há um PIX válido e atualizado disponível
 $deve_gerar_pix = empty($erro) && ($pagamento['status'] !== 'pago') && (
     empty($pagamento['pix_qrcode_data']) || 
-    ($pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) < time()) ||
-    true // Sempre gerar novo PIX quando não está pago
+    ($pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) <= time())
 );
 
 if ($deve_gerar_pix) {
