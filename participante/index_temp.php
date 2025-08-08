@@ -7,20 +7,9 @@ requer_login_participante();
 
 $participante = obter_participante_logado();
 
-// Verificar se sistema foi migrado
-$tabela_inscricoes_existe = false;
+// Sistema temporário - buscar eventos diretamente
+$eventos = [];
 try {
-    $teste_tabela = buscar_um("SHOW TABLES LIKE 'inscricoes'");
-    $tabela_inscricoes_existe = $teste_tabela !== false;
-} catch (Exception $e) {
-    $tabela_inscricoes_existe = false;
-}
-
-if ($tabela_inscricoes_existe && function_exists('obter_inscricoes_participante')) {
-    // Sistema novo - usar tabela inscricoes
-    $eventos = obter_inscricoes_participante($participante['id']);
-} else {
-    // Sistema antigo - buscar diretamente na tabela participantes
     $eventos = buscar_todos("
         SELECT 
             p.*,
@@ -39,15 +28,16 @@ if ($tabela_inscricoes_existe && function_exists('obter_inscricoes_participante'
             p.evento_id,
             p.status,
             p.checkin_timestamp,
-            e.nome as nome,
-            e.data_inicio,
-            e.local
+            e.nome as nome
         FROM participantes p 
         INNER JOIN eventos e ON p.evento_id = e.id 
         LEFT JOIN pagamentos pg ON p.id = pg.participante_id 
         WHERE p.cpf = ? 
         ORDER BY e.data_inicio DESC
     ", [$participante['cpf']]);
+} catch (Exception $e) {
+    error_log("Erro ao buscar eventos do participante: " . $e->getMessage());
+    $eventos = [];
 }
 
 // Função para formatar status
@@ -87,7 +77,6 @@ function formatar_status_pagamento($status, $valor) {
     <title>Meus Eventos - Área do Participante</title>
     <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         .participante-area {
             min-height: 100vh;
@@ -129,11 +118,6 @@ function formatar_status_pagamento($status, $valor) {
         .user-name {
             font-weight: 600;
             color: var(--cor-texto-principal);
-        }
-
-        .user-actions {
-            font-size: 14px;
-            color: var(--cor-texto-secundario);
         }
 
         .btn-logout {
@@ -297,81 +281,16 @@ function formatar_status_pagamento($status, $valor) {
             opacity: 0.5;
         }
 
-        /* Modal QR Code */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
-            padding: 20px;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 16px;
-            max-width: 400px;
-            width: 100%;
-            margin: auto;
-            margin-top: 10vh;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .modal-header {
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
             margin-bottom: 20px;
         }
 
-        .modal-title {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--cor-texto-principal);
-            margin-bottom: 8px;
-        }
-
-        .qr-container {
-            margin: 20px 0;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-        }
-
-        .qr-info {
-            margin-top: 16px;
-            padding: 16px;
-            background: #e3f2fd;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #1976d2;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 12px;
-            margin-top: 24px;
-        }
-
-        .btn-close {
-            flex: 1;
-            background: #6c757d;
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .btn-download {
-            flex: 1;
-            background: var(--cor-primaria);
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
+        .alert-warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
         }
 
         @media (max-width: 768px) {
@@ -403,6 +322,11 @@ function formatar_status_pagamento($status, $valor) {
     </header>
 
     <main class="main-content">
+        <!-- Aviso sobre sistema temporário -->
+        <div class="alert alert-warning">
+            <strong>📋 Sistema Temporário:</strong> Funcionando em modo de compatibilidade até a migração do banco ser executada.
+        </div>
+
         <div class="page-header">
             <h1 class="page-title">Meus Eventos</h1>
             <p class="page-subtitle">Aqui estão todos os eventos nos quais você está inscrito</p>
@@ -420,9 +344,9 @@ function formatar_status_pagamento($status, $valor) {
                 <?php foreach ($eventos as $evento): ?>
                     <div class="evento-card">
                         <div class="evento-image">
-                            <?php if ($evento['imagem']): ?>
+                            <?php if (!empty($evento['imagem'])): ?>
                                 <img src="<?= SITE_URL ?>/uploads/<?= htmlspecialchars($evento['imagem']) ?>" 
-                                     alt="<?= htmlspecialchars($evento['nome']) ?>"
+                                     alt="<?= htmlspecialchars($evento['evento_nome']) ?>"
                                      style="width: 100%; height: 100%; object-fit: cover;">
                             <?php else: ?>
                                 🎉
@@ -430,7 +354,7 @@ function formatar_status_pagamento($status, $valor) {
                         </div>
                         
                         <div class="evento-content">
-                            <h3 class="evento-title"><?= htmlspecialchars($evento['nome']) ?></h3>
+                            <h3 class="evento-title"><?= htmlspecialchars($evento['evento_nome']) ?></h3>
                             
                             <div class="evento-info">
                                 <div class="evento-info-item">
@@ -451,18 +375,18 @@ function formatar_status_pagamento($status, $valor) {
                             
                             <div class="evento-status">
                                 <?= formatar_status($evento['status']) ?>
-                                <?= formatar_status_pagamento($evento['pagamento_status'], $evento['valor']) ?>
+                                <?= formatar_status_pagamento($evento['pagamento_status'] ?? 'pendente', $evento['valor']) ?>
                                 <?php if ($evento['checkin_timestamp']): ?>
                                     <span class="status-badge status-presente">Check-in: <?= date('d/m/Y H:i', strtotime($evento['checkin_timestamp'])) ?></span>
                                 <?php endif; ?>
                             </div>
                             
                             <div class="evento-actions">
-                                <button class="btn-qr" onclick="mostrarQR(<?= $evento['participante_id'] ?>, <?= $evento['evento_id'] ?>, '<?= htmlspecialchars($evento['nome']) ?>')">
+                                <button class="btn-qr" onclick="alert('QR Code será implementado após migração do banco')">
                                     📱 Ver QR Code
                                 </button>
-                                <a href="<?= SITE_URL ?>/evento.php?slug=<?= $evento['slug'] ?>" class="btn-secondary" target="_blank">
-                                    ℹ️ Detalhes
+                                <a href="<?= SITE_URL ?>/" class="btn-secondary" target="_blank">
+                                    ℹ️ Ver Eventos
                                 </a>
                             </div>
                         </div>
@@ -471,95 +395,5 @@ function formatar_status_pagamento($status, $valor) {
             </div>
         <?php endif; ?>
     </main>
-
-    <!-- Modal QR Code -->
-    <div id="qrModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 class="modal-title" id="qrModalTitle">QR Code para Check-in</h3>
-                <p id="qrModalSubtitle"></p>
-            </div>
-            <div class="qr-container">
-                <div id="qrcode"></div>
-            </div>
-            <div class="qr-info">
-                <strong>Como usar:</strong><br>
-                Apresente este QR Code na entrada do evento para fazer seu check-in.
-            </div>
-            <div class="modal-actions">
-                <button class="btn-close" onclick="fecharModal()">Fechar</button>
-                <button class="btn-download" onclick="baixarQR()">Baixar QR</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let qrCanvas = null;
-        let currentEventName = '';
-
-        async function mostrarQR(participanteId, eventoId, eventoNome) {
-            try {
-                // Buscar dados do QR
-                const response = await fetch('qr.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        participante_id: participanteId,
-                        evento_id: eventoId
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Limpar QR anterior
-                    document.getElementById('qrcode').innerHTML = '';
-                    
-                    // Gerar novo QR
-                    qrCanvas = await QRCode.toCanvas(result.qr_data, {
-                        width: 200,
-                        margin: 2,
-                        color: {
-                            dark: '#333333',
-                            light: '#FFFFFF'
-                        }
-                    });
-                    
-                    document.getElementById('qrcode').appendChild(qrCanvas);
-                    document.getElementById('qrModalTitle').textContent = 'QR Code para Check-in';
-                    document.getElementById('qrModalSubtitle').textContent = eventoNome;
-                    currentEventName = eventoNome;
-                    
-                    document.getElementById('qrModal').style.display = 'flex';
-                } else {
-                    alert('Erro ao gerar QR Code: ' + result.message);
-                }
-            } catch (error) {
-                alert('Erro ao carregar QR Code');
-            }
-        }
-
-        function fecharModal() {
-            document.getElementById('qrModal').style.display = 'none';
-        }
-
-        function baixarQR() {
-            if (qrCanvas) {
-                const link = document.createElement('a');
-                link.download = `qr-checkin-${currentEventName.replace(/[^a-zA-Z0-9]/g, '-')}.png`;
-                link.href = qrCanvas.toDataURL();
-                link.click();
-            }
-        }
-
-        // Fechar modal clicando fora
-        document.getElementById('qrModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                fecharModal();
-            }
-        });
-    </script>
 </body>
 </html> 
