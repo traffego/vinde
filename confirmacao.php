@@ -49,7 +49,7 @@ if ($inscricao_id) {
                     e.imagem,
                     e.slug,
                     e.programacao,
-                    e.max_participantes,
+                    e.limite_participantes,
                     pag.status as pagamento_status,
                     pag.valor as pagamento_valor,
                     pag.pago_em
@@ -133,7 +133,7 @@ if ($inscricao_id) {
                 e.imagem,
                 e.slug,
                 e.programacao,
-                e.max_participantes,
+                e.limite_participantes,
                 pag.status as pagamento_status,
                 pag.valor as pagamento_valor,
                 pag.pago_em
