@@ -158,6 +158,7 @@ function obter_cabecalho_admin($titulo = 'Painel Administrativo', $pagina = 'das
     <title>{$titulo} - Vinde Admin</title>
     <link rel='stylesheet' href='" . SITE_URL . "/assets/css/style.css'>
     <link rel='stylesheet' href='" . SITE_URL . "/assets/css/admin.css'>
+    <link rel='stylesheet' href='" . SITE_URL . "/assets/css/crud.css'>
     <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>
 </head>
 <body class='admin-body pagina-{$pagina}'>

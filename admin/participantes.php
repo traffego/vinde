@@ -17,10 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erro = 'Token de segurança inválido.';
     } else {
         switch ($acao) {
+            case 'criar':
             case 'editar':
                 $resultado = salvar_participante($_POST, $participante_id);
                 if ($resultado['sucesso']) {
                     $sucesso = $resultado['mensagem'];
+                    if ($acao === 'criar') {
+                        redirecionar(SITE_URL . '/admin/participantes.php?acao=editar&id=' . $resultado['id']);
+                    }
                 } else {
                     $erro = $resultado['mensagem'];
                 }
@@ -53,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Buscar dados para edição
 $participante = [];
-if ($acao === 'editar' && $participante_id) {
+if (($acao === 'editar' || $acao === 'visualizar') && $participante_id) {
     $participante = buscar_um("
         SELECT p.*, e.nome as evento_nome, e.slug as evento_slug, e.data_inicio,
                pag.status as pagamento_status, pag.valor, pag.pago_em
@@ -148,9 +152,9 @@ $eventos = buscar_todos("SELECT id, nome FROM eventos ORDER BY data_inicio DESC"
 $cidades = buscar_todos("SELECT DISTINCT cidade FROM participantes WHERE cidade IS NOT NULL ORDER BY cidade");
 
 /**
- * Salvar participante (editar)
+ * Salvar participante (criar ou editar)
  */
-function salvar_participante($dados, $participante_id) {
+function salvar_participante($dados, $participante_id = null) {
     try {
         // Validações
         $erros = [];
@@ -163,12 +167,20 @@ function salvar_participante($dados, $participante_id) {
             $erros[] = 'Idade deve ser um número válido';
         }
         if (empty($dados['cidade'])) $erros[] = 'Cidade é obrigatória';
+        if (empty($dados['evento_id']) && !$participante_id) $erros[] = 'Evento é obrigatório';
         
         // Verificar se CPF já existe em outro participante
-        $cpf_existente = buscar_um("
-            SELECT id FROM participantes 
-            WHERE cpf = ? AND id != ? AND status != 'cancelado'
-        ", [limpar_cpf($dados['cpf']), $participante_id]);
+        if ($participante_id) {
+            $cpf_existente = buscar_um("
+                SELECT id FROM participantes 
+                WHERE cpf = ? AND id != ? AND status != 'cancelado'
+            ", [limpar_cpf($dados['cpf']), $participante_id]);
+        } else {
+            $cpf_existente = buscar_um("
+                SELECT id FROM participantes 
+                WHERE cpf = ? AND status != 'cancelado'
+            ", [limpar_cpf($dados['cpf'])]);
+        }
         
         if ($cpf_existente) {
             $erros[] = 'Já existe outro participante com este CPF';
@@ -191,11 +203,31 @@ function salvar_participante($dados, $participante_id) {
             'status' => $dados['status'] ?? 'inscrito'
         ];
         
-        $sucesso = atualizar_registro('participantes', $participante_dados, ['id' => $participante_id]);
+        // Adicionar evento_id apenas na criação
+        if (!$participante_id && !empty($dados['evento_id'])) {
+            $participante_dados['evento_id'] = intval($dados['evento_id']);
+            $participante_dados['qr_token'] = gerar_string_aleatoria(32);
+        }
+        
+        if ($participante_id) {
+            // Editar
+            $sucesso = atualizar_registro('participantes', $participante_dados, ['id' => $participante_id]);
+            $acao_log = 'participante_editado';
+            $id_resultado = $participante_id;
+        } else {
+            // Criar
+            $id_resultado = inserir_registro('participantes', $participante_dados);
+            $sucesso = $id_resultado > 0;
+            $acao_log = 'participante_criado';
+        }
         
         if ($sucesso) {
-            registrar_log('participante_editado', "Participante: {$dados['nome']} (ID: {$participante_id})");
-            return ['sucesso' => true, 'mensagem' => 'Participante atualizado com sucesso!'];
+            registrar_log($acao_log, "Participante: {$dados['nome']} (ID: {$id_resultado})");
+            return [
+                'sucesso' => true, 
+                'mensagem' => $participante_id ? 'Participante atualizado com sucesso!' : 'Participante criado com sucesso!',
+                'id' => $id_resultado
+            ];
         } else {
             return ['sucesso' => false, 'mensagem' => 'Erro ao salvar participante'];
         }
@@ -209,6 +241,7 @@ function salvar_participante($dados, $participante_id) {
 // Definir título da página
 $titulos = [
     'listar' => 'Participantes',
+    'criar' => 'Novo Participante',
     'editar' => 'Editar Participante',
     'visualizar' => 'Visualizar Participante'
 ];
@@ -297,6 +330,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             
             <button type="submit" class="btn btn-primary">Filtrar</button>
             <a href="<?= SITE_URL ?>/admin/participantes.php" class="btn btn-outline">Limpar</a>
+            <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
         </form>
     </div>
 
@@ -449,7 +483,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
 
 <?php else: ?>
     
-    <!-- Formulário de Edição -->
+    <!-- Formulário de Criação/Edição -->
     <div class="admin-form">
         
         <?php if ($erro): ?>
@@ -464,19 +498,39 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             </div>
         <?php endif; ?>
         
-        <!-- Informações do Evento -->
-        <div class="info-card">
-            <h3>📅 Evento: <?= htmlspecialchars($participante['evento_nome'] ?? 'N/A') ?></h3>
-            <p><strong>Data:</strong> <?= formatar_data($participante['data_inicio'] ?? '') ?></p>
-            <p><strong>Status Pagamento:</strong> 
-                <span class="status-badge-admin status-<?= $participante['pagamento_status'] ?? 'pendente' ?>">
-                    <?= ucfirst($participante['pagamento_status'] ?? 'pendente') ?>
-                </span>
-            </p>
-        </div>
+        <?php if ($acao === 'editar' && !empty($participante)): ?>
+            <!-- Informações do Evento -->
+            <div class="info-card">
+                <h3>📅 Evento: <?= htmlspecialchars($participante['evento_nome'] ?? 'N/A') ?></h3>
+                <p><strong>Data:</strong> <?= formatar_data($participante['data_inicio'] ?? '') ?></p>
+                <p><strong>Status Pagamento:</strong> 
+                    <span class="status-badge-admin status-<?= $participante['pagamento_status'] ?? 'pendente' ?>">
+                        <?= ucfirst($participante['pagamento_status'] ?? 'pendente') ?>
+                    </span>
+                </p>
+            </div>
+        <?php endif; ?>
         
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
+            
+            <?php if ($acao === 'criar'): ?>
+                <!-- Seleção de Evento (apenas na criação) -->
+                <h3>Evento</h3>
+                <div class="form-row">
+                    <div class="form-group-admin">
+                        <label class="form-label-admin">Evento *</label>
+                        <select name="evento_id" class="form-select-admin required" required>
+                            <option value="">Selecione um evento</option>
+                            <?php foreach ($eventos as $ev): ?>
+                                <option value="<?= $ev['id'] ?>" <?= ($_POST['evento_id'] ?? '') == $ev['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($ev['nome']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            <?php endif; ?>
             
             <!-- Dados Pessoais -->
             <h3>Dados Pessoais</h3>
@@ -559,15 +613,19 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             <!-- Ações -->
             <div class="form-actions">
                 <a href="<?= SITE_URL ?>/admin/participantes.php" class="btn btn-outline">Cancelar</a>
-                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                <button type="submit" class="btn btn-primary">
+                    <?= $acao === 'criar' ? 'Criar Participante' : 'Salvar Alterações' ?>
+                </button>
                 
-                <!-- Botões especiais -->
-                <a href="<?= SITE_URL ?>/confirmacao.php?participante=<?= $participante['id'] ?? '' ?>" 
-                   target="_blank" class="btn btn-success">Ver QR Code</a>
-                   
-                <?php if ($participante['whatsapp'] ?? ''): ?>
-                    <a href="https://wa.me/<?= limpar_telefone($participante['whatsapp'] ?? '') ?>" 
-                       target="_blank" class="btn btn-outline">📱 WhatsApp</a>
+                <?php if ($acao === 'editar' && !empty($participante['id'])): ?>
+                    <!-- Botões especiais -->
+                    <a href="<?= SITE_URL ?>/confirmacao.php?participante=<?= $participante['id'] ?>" 
+                       target="_blank" class="btn btn-success">Ver QR Code</a>
+                       
+                    <?php if ($participante['whatsapp'] ?? ''): ?>
+                        <a href="https://wa.me/<?= limpar_telefone($participante['whatsapp']) ?>" 
+                           target="_blank" class="btn btn-outline">📱 WhatsApp</a>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
         </form>
