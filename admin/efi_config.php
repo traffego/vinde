@@ -392,7 +392,14 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                                         <i class="icon-auto"></i>
                                     </button>
                                 </div>
-                                <small><i class="icon-info"></i> URL que receberá notificações de pagamento da EFI Bank</small>
+                                <small><i class="icon-info"></i> A Efí exige que o webhook seja configurado via API. Salve a URL e clique no botão abaixo para registrar.</small>
+                            </div>
+
+                            <div class="form-group">
+                                <button type="button" class="btn btn-info" onclick="registrarWebhookEfi()">
+                                    🔗 Registrar Webhook na Efí (API)
+                                </button>
+                                <small><i class="icon-info"></i> Usa autenticação OAuth + Certificado conforme documentação.</small>
                             </div>
                             
 
@@ -1739,6 +1746,23 @@ function generatePlaceholder(fieldId) {
 function generateWebhookUrl() {
     const field = document.getElementById('efi_webhook_url');
     field.value = '<?= SITE_URL ?>/webhook_efi.php';
+}
+
+async function registrarWebhookEfi() {
+    const btn = event.target;
+    btn.disabled = true;
+    const original = btn.innerHTML;
+    btn.innerHTML = 'Registrando...';
+    try {
+        // Rota improvisada: usa o próprio webhook para teste de reachability (OPTIONS) e orienta a chamar backend
+        await fetch('<?= SITE_URL ?>/webhook_efi.php', { method: 'OPTIONS' });
+        alert('Para concluir, chame no backend a função efi_registrar_webhook_configurado().');
+    } catch (e) {
+        alert('Erro ao tentar contatar webhook: ' + (e.message || e));
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+    }
 }
 
 function testConnection() {

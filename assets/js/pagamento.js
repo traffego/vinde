@@ -182,13 +182,13 @@ function validarCodigoPix() {
 }
 
 // Função para verificar status do pagamento
-function verificarPagamento() {
+function verificarPagamento(btnEl) {
     const spinner = document.getElementById('loading-spinner');
-    const btn = event.target;
-    
-    spinner.style.display = 'block';
-    btn.disabled = true;
-    
+    const btn = btnEl || document.getElementById('btn-verificar-pagamento');
+
+    if (spinner) spinner.style.display = 'block';
+    if (btn) btn.disabled = true;
+
     fetch(window.SITE_URL + '/api/verificar_pagamento.php', {
         method: 'POST',
         headers: {
@@ -201,8 +201,8 @@ function verificarPagamento() {
     })
     .then(response => response.json())
     .then(data => {
-        spinner.style.display = 'none';
-        btn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btn) btn.disabled = false;
         
         if (data.success && data.pago) {
             // Pagamento confirmado - redirecionar
@@ -213,15 +213,15 @@ function verificarPagamento() {
         }
     })
     .catch(error => {
-        spinner.style.display = 'none';
-        btn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        if (btn) btn.disabled = false;
         alert('Erro ao verificar pagamento. Tente novamente.');
     });
 }
 
 // Verificação automática a cada 30 segundos
 setInterval(function() {
-    verificarPagamento();
+    verificarPagamento(null);
 }, 30000);
 
 // Geração local do QR Code PIX a partir do payload

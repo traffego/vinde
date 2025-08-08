@@ -505,6 +505,7 @@ function obter_configuracoes_efi() {
         'efi_certificate_password',
         'efi_sandbox',
         'efi_pix_key',
+        'efi_webhook_url',
         'efi_webhook_secret',
         'efi_debug',
         'efi_ativo',

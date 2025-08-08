@@ -524,6 +524,19 @@ function efi_configurar_webhook($webhook_url) {
 }
 
 /**
+ * Registra o webhook usando a URL salva em configuracoes (efi_webhook_url)
+ */
+function efi_registrar_webhook_configurado() {
+    $cfg = obter_configuracoes_efi();
+    $url = $cfg['efi_webhook_url'] ?? '';
+    if (empty($url)) {
+        return ['sucesso' => false, 'mensagem' => 'efi_webhook_url não configurado'];
+    }
+    $ok = efi_configurar_webhook($url);
+    return $ok ? ['sucesso' => true] : ['sucesso' => false, 'mensagem' => 'Falha ao registrar webhook'];
+}
+
+/**
  * Testa configuração da EFI Bank
  * @return array Resultado dos testes
  */
