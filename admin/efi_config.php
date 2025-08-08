@@ -409,7 +409,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                             </div>
 
                             <div class="form-group">
-                                <button type="button" class="btn btn-info" onclick="registrarWebhookEfi()">
+                                <button type="button" class="btn btn-info" onclick="registrarWebhookEfi()" id="btn-registrar-webhook">
                                     🔗 Registrar Webhook na Efí (API)
                                 </button>
                                 <small><i class="icon-info"></i> Usa autenticação OAuth + Certificado conforme documentação.</small>
@@ -1762,16 +1762,27 @@ function generateWebhookUrl() {
 }
 
 async function registrarWebhookEfi() {
-    const btn = event.target;
+    const btn = document.getElementById('btn-registrar-webhook');
     btn.disabled = true;
     const original = btn.innerHTML;
     btn.innerHTML = 'Registrando...';
     try {
-        // Rota improvisada: usa o próprio webhook para teste de reachability (OPTIONS) e orienta a chamar backend
-        await fetch('<?= SITE_URL ?>/webhook_efi.php', { method: 'OPTIONS' });
-        alert('Para concluir, chame no backend a função efi_registrar_webhook_configurado().');
+        const resp = await fetch('<?= SITE_URL ?>/admin/api/registrar_webhook.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (resp.ok && data.sucesso) {
+            alert('✅ ' + (data.mensagem || 'Webhook registrado com sucesso.'));
+        } else {
+            alert('⚠️ ' + (data.mensagem || 'Falha ao registrar webhook.'));
+        }
     } catch (e) {
-        alert('Erro ao tentar contatar webhook: ' + (e.message || e));
+        alert('Erro ao registrar webhook: ' + (e.message || e));
     } finally {
         btn.disabled = false;
         btn.innerHTML = original;
