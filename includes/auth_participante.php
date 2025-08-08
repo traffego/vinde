@@ -342,6 +342,34 @@ function criar_inscricao_participante($participante_id, $evento_id) {
             ];
         }
 
+        // Se existe inscrição cancelada para este evento/participante, reabrir ao invés de criar nova
+        $inscricao_cancelada = buscar_um("SELECT id FROM inscricoes WHERE participante_id = ? AND evento_id = ? AND status = 'cancelada'", [$participante_id, $evento_id]);
+        if ($inscricao_cancelada) {
+            $inscricao_id = $inscricao_cancelada['id'];
+            executar("UPDATE inscricoes SET status = 'pendente', data_inscricao = NOW(), valor_pago = ? WHERE id = ?", [$evento['valor'], $inscricao_id]);
+
+            $pagamento_existente = buscar_um("SELECT id FROM pagamentos WHERE inscricao_id = ? AND status = 'pendente' ORDER BY id DESC LIMIT 1", [$inscricao_id]);
+            if (!$pagamento_existente && $evento['valor'] > 0) {
+                $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
+                $pagamento_dados = [
+                    'participante_id' => $participante_id,
+                    'inscricao_id' => $inscricao_id,
+                    'valor' => $evento['valor'],
+                    'status' => 'pendente',
+                    'metodo' => 'pix',
+                    'pix_txid' => $txid
+                ];
+                inserir_registro('pagamentos', $pagamento_dados);
+            }
+
+            return [
+                'sucesso' => true,
+                'mensagem' => 'Inscrição reaberta. Redirecionando para pagamento.',
+                'inscricao_id' => $inscricao_id,
+                'redirect_to' => SITE_URL . '/pagamento.php?inscricao=' . $inscricao_id
+            ];
+        }
+
         // Criar nova inscrição
         $inscricao_dados = [
             'participante_id' => $participante_id,
