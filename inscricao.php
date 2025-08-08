@@ -58,60 +58,11 @@ function processar_inscricao($evento_id, $participante_id) {
             return ['sucesso' => false, 'mensagem' => 'As vagas se esgotaram durante o processo. Tente outro evento.'];
         }
         
-        // Criar inscrição
+        // Criar inscrição e deixar que a função já decida o próximo passo (pagamento ou confirmação)
         $resultado = criar_inscricao_participante($participante_id, $evento_id);
-        
-        if (!$resultado['sucesso']) {
-            return $resultado;
-        }
-        
-        $inscricao_id = $resultado['inscricao_id'];
-        $valor = $resultado['evento_valor'];
-        
-        // Criar registro de pagamento se há valor
-        if ($valor > 0) {
-            // Buscar informações do participante para pagamento
-            $participante = buscar_um("SELECT nome, cpf FROM participantes WHERE id = ?", [$participante_id]);
-            
-            // Gerar TXID único para pagamento
-            $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
-            
-            // Criar pagamento
-            $pagamento_dados = [
-                'participante_id' => $participante_id,
-                'inscricao_id' => $inscricao_id,
-                'valor' => $valor,
-                'status' => 'pendente',
-                'metodo' => 'pix',
-                'pix_txid' => $txid
-            ];
-            
-            $pagamento_id = inserir_registro('pagamentos', $pagamento_dados);
-            
-            if (!$pagamento_id) {
-                return ['sucesso' => false, 'mensagem' => 'Erro ao processar pagamento. Tente novamente.'];
-            }
-            
-            // Redirecionar para pagamento
-            return [
-                'sucesso' => true, 
-                'inscricao_id' => $inscricao_id,
-                'pagamento_id' => $pagamento_id,
-                'redirect_to' => SITE_URL . '/pagamento.php?inscricao=' . $inscricao_id
-            ];
-        } else {
-            // Evento gratuito - marcar inscrição como aprovada
-            atualizar_registro('inscricoes', ['status' => 'aprovada'], ['id' => $inscricao_id]);
-            
-            // Log da ação
-            registrar_log('inscricao_aprovada_gratuita', "Inscrição ID: {$inscricao_id} - Evento gratuito");
-            
-            return [
-                'sucesso' => true,
-                'inscricao_id' => $inscricao_id, 
-                'redirect_to' => SITE_URL . '/confirmacao.php?inscricao=' . $inscricao_id
-            ];
-        }
+
+        // Propaga diretamente o resultado (inclui redirect_to adequado)
+        return $resultado;
         
     } catch (Exception $e) {
         error_log("Erro ao processar inscrição: " . $e->getMessage());
