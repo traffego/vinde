@@ -25,6 +25,7 @@ function limpar_cpf($cpf) {
  * @return string
  */
 function limpar_telefone($telefone) {
+    if (empty($telefone)) return '';
     return preg_replace('/[^0-9]/', '', $telefone);
 }
 
@@ -88,7 +89,9 @@ function validar_idade($idade, $minima = 12) {
  * @return string
  */
 function formatar_cpf($cpf) {
+    if (empty($cpf)) return '';
     $cpf = preg_replace('/[^0-9]/', '', $cpf);
+    if (strlen($cpf) !== 11) return $cpf;
     return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $cpf);
 }
 
@@ -105,6 +108,7 @@ function formatarCpf($cpf) {
  * @return string
  */
 function formatar_telefone($telefone) {
+    if (empty($telefone)) return '';
     $telefone = preg_replace('/[^0-9]/', '', $telefone);
     if (strlen($telefone) == 11) {
         return preg_replace('/(\d{2})(\d{5})(\d{4})/', '($1) $2-$3', $telefone);

@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $participante = [];
 if ($acao === 'editar' && $participante_id) {
     $participante = buscar_um("
-        SELECT p.*, e.nome as evento_nome, e.slug as evento_slug,
+        SELECT p.*, e.nome as evento_nome, e.slug as evento_slug, e.data_inicio,
                pag.status as pagamento_status, pag.valor, pag.pago_em
         FROM participantes p
         JOIN eventos e ON p.evento_id = e.id
@@ -466,11 +466,11 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         
         <!-- Informações do Evento -->
         <div class="info-card">
-            <h3>📅 Evento: <?= htmlspecialchars($participante['evento_nome']) ?></h3>
-            <p><strong>Data:</strong> <?= formatar_data($participante['data_inicio']) ?></p>
+            <h3>📅 Evento: <?= htmlspecialchars($participante['evento_nome'] ?? 'N/A') ?></h3>
+            <p><strong>Data:</strong> <?= formatar_data($participante['data_inicio'] ?? '') ?></p>
             <p><strong>Status Pagamento:</strong> 
-                <span class="status-badge-admin status-<?= $participante['pagamento_status'] ?>">
-                    <?= ucfirst($participante['pagamento_status']) ?>
+                <span class="status-badge-admin status-<?= $participante['pagamento_status'] ?? 'pendente' ?>">
+                    <?= ucfirst($participante['pagamento_status'] ?? 'pendente') ?>
                 </span>
             </p>
         </div>
@@ -484,13 +484,13 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <div class="form-group-admin">
                     <label class="form-label-admin">Nome Completo *</label>
                     <input type="text" name="nome" class="form-input-admin required" 
-                           value="<?= htmlspecialchars($participante['nome']) ?>" required>
+                           value="<?= htmlspecialchars($participante['nome'] ?? '') ?>" required>
                 </div>
                 
                 <div class="form-group-admin">
                     <label class="form-label-admin">Idade *</label>
                     <input type="number" name="idade" class="form-input-admin required" 
-                           min="1" max="120" value="<?= $participante['idade'] ?>" required>
+                           min="1" max="120" value="<?= $participante['idade'] ?? '' ?>" required>
                 </div>
             </div>
             
@@ -498,16 +498,16 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <div class="form-group-admin">
                     <label class="form-label-admin">CPF *</label>
                     <input type="text" name="cpf" class="form-input-admin required" 
-                           value="<?= formatarCpf($participante['cpf']) ?>" required data-mask="cpf">
+                           value="<?= formatarCpf($participante['cpf'] ?? '') ?>" required data-mask="cpf">
                 </div>
                 
                 <div class="form-group-admin">
                     <label class="form-label-admin">Status</label>
                     <select name="status" class="form-select-admin">
-                        <option value="inscrito" <?= $participante['status'] === 'inscrito' ? 'selected' : '' ?>>Inscrito</option>
-                        <option value="pago" <?= $participante['status'] === 'pago' ? 'selected' : '' ?>>Pago</option>
-                        <option value="presente" <?= $participante['status'] === 'presente' ? 'selected' : '' ?>>Presente</option>
-                        <option value="cancelado" <?= $participante['status'] === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
+                        <option value="inscrito" <?= ($participante['status'] ?? '') === 'inscrito' ? 'selected' : '' ?>>Inscrito</option>
+                        <option value="pago" <?= ($participante['status'] ?? '') === 'pago' ? 'selected' : '' ?>>Pago</option>
+                        <option value="presente" <?= ($participante['status'] ?? '') === 'presente' ? 'selected' : '' ?>>Presente</option>
+                        <option value="cancelado" <?= ($participante['status'] ?? '') === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
                     </select>
                 </div>
             </div>
@@ -518,13 +518,13 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <div class="form-group-admin">
                     <label class="form-label-admin">WhatsApp *</label>
                     <input type="tel" name="whatsapp" class="form-input-admin required" 
-                           value="<?= formatarTelefone($participante['whatsapp']) ?>" required data-mask="telefone">
+                           value="<?= formatarTelefone($participante['whatsapp'] ?? '') ?>" required data-mask="telefone">
                 </div>
                 
                 <div class="form-group-admin">
                     <label class="form-label-admin">Email *</label>
                     <input type="email" name="email" class="form-input-admin required" 
-                           value="<?= htmlspecialchars($participante['email']) ?>" required>
+                           value="<?= htmlspecialchars($participante['email'] ?? '') ?>" required>
                 </div>
             </div>
             
@@ -532,7 +532,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <div class="form-group-admin">
                     <label class="form-label-admin">Instagram</label>
                     <input type="text" name="instagram" class="form-input-admin" 
-                           value="<?= htmlspecialchars($participante['instagram']) ?>" placeholder="@usuario">
+                           value="<?= htmlspecialchars($participante['instagram'] ?? '') ?>" placeholder="@usuario">
                 </div>
             </div>
             
@@ -542,15 +542,15 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <div class="form-group-admin">
                     <label class="form-label-admin">Cidade *</label>
                     <input type="text" name="cidade" class="form-input-admin required" 
-                           value="<?= htmlspecialchars($participante['cidade']) ?>" required>
+                           value="<?= htmlspecialchars($participante['cidade'] ?? '') ?>" required>
                 </div>
                 
                 <div class="form-group-admin">
                     <label class="form-label-admin">Estado</label>
                     <select name="estado" class="form-select-admin">
-                        <option value="SP" <?= $participante['estado'] === 'SP' ? 'selected' : '' ?>>São Paulo</option>
-                        <option value="RJ" <?= $participante['estado'] === 'RJ' ? 'selected' : '' ?>>Rio de Janeiro</option>
-                        <option value="MG" <?= $participante['estado'] === 'MG' ? 'selected' : '' ?>>Minas Gerais</option>
+                        <option value="SP" <?= ($participante['estado'] ?? '') === 'SP' ? 'selected' : '' ?>>São Paulo</option>
+                        <option value="RJ" <?= ($participante['estado'] ?? '') === 'RJ' ? 'selected' : '' ?>>Rio de Janeiro</option>
+                        <option value="MG" <?= ($participante['estado'] ?? '') === 'MG' ? 'selected' : '' ?>>Minas Gerais</option>
                         <!-- Adicionar outros estados conforme necessário -->
                     </select>
                 </div>
@@ -562,11 +562,11 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <button type="submit" class="btn btn-primary">Salvar Alterações</button>
                 
                 <!-- Botões especiais -->
-                <a href="<?= SITE_URL ?>/confirmacao.php?participante=<?= $participante['id'] ?>" 
+                <a href="<?= SITE_URL ?>/confirmacao.php?participante=<?= $participante['id'] ?? '' ?>" 
                    target="_blank" class="btn btn-success">Ver QR Code</a>
                    
-                <?php if ($participante['whatsapp']): ?>
-                    <a href="https://wa.me/<?= limpar_telefone($participante['whatsapp']) ?>" 
+                <?php if ($participante['whatsapp'] ?? ''): ?>
+                    <a href="https://wa.me/<?= limpar_telefone($participante['whatsapp'] ?? '') ?>" 
                        target="_blank" class="btn btn-outline">📱 WhatsApp</a>
                 <?php endif; ?>
             </div>
