@@ -307,7 +307,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
         <p>Complete seu pagamento para confirmar a inscrição</p>
         </div>
 
-    <?php if ($erro): ?>
+    <?php if ($erro && $debug_mode): ?>
         <div class="alert alert-error">
             <?= htmlspecialchars($erro) ?>
         </div>
@@ -356,9 +356,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                 <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
                     <div class="pix-code-section">
                         <p><strong>Ou copie o código PIX:</strong></p>
-                        <div class="pix-code" id="pix-code" title="Clique para selecionar todo o código">
-                            <?= htmlspecialchars(trim($pagamento['pix_qrcode_data'])) ?>
-                        </div>
+                        <div class="pix-code" id="pix-code" title="Clique para selecionar todo o código"><?php echo htmlspecialchars(trim($pagamento['pix_qrcode_data'])); ?></div>
                         
                         <?php if ($debug_mode): ?>
                         <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 11px;">
@@ -377,14 +375,8 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                         <?php endif; ?>
                         
                         <div class="pix-actions">
-                            <button type="button" class="btn-copiar" onclick="copiarPix(this)" id="btn-copiar-pix">
-                                📋 Copiar Código PIX
-                            </button>
-                            <button type="button" class="btn-copiar" onclick="validarCodigoPix()" style="background: #17a2b8; margin-left: 10px;">
-                                ✅ Validar Código
-                            </button>
+                            <button type="button" class="btn-copiar" onclick="copiarPix(this)" id="btn-copiar-pix">📋 Copiar Código PIX</button>
                         </div>
-                        <div id="pix-validation-result" style="margin-top: 10px; font-size: 12px;"></div>
                     </div>
                 <?php else: ?>
                     <div class="alert alert-warning" style="margin: 20px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
