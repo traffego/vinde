@@ -36,21 +36,8 @@ define('PIX_CHAVE', '10ba6099-17e3-4b0a-a53a-363e17bfe295'); // Sua chave PIX ca
 define('PIX_NOME', 'SAOFRANCISCODEASSIS');
 define('PIX_CIDADE', 'QUEIMADOS');
 
-// Credenciais EFI Bank
-define('EFI_CLIENT_ID_PROD', 'Client_Id_69b6f548a62cf4ac775464356f7404594c475ed6'); // Client ID Produção
-define('EFI_CLIENT_SECRET_PROD', 'Client_Secret_895e44b677cf998ff1bdf0296b4ae21094969ad6'); // Client Secret Produção
-define('EFI_CLIENT_ID_HOM', 'Client_Id_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'); // Client ID Homologação
-define('EFI_CLIENT_SECRET_HOM', 'Client_Secret_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'); // Client Secret Homologação
-define('EFI_CERTIFICADO_PROD', __DIR__ . '/../producao-814055-vindeCertificado.p12'); // Certificado Produção
-define('EFI_CERTIFICADO_HOM', __DIR__ . '/../certificados/certificado_hom.p12'); // Certificado Homologação
-define('EFI_SENHA_CERTIFICADO', ''); // Senha do certificado (se houver)
-
-// URLs da API EFI
-define('EFI_API_URL_PROD', 'https://pix.api.efipay.com.br');
-define('EFI_API_URL_HOM', 'https://pix-h.api.efipay.com.br');
-
-// Ambiente EFI (desenvolvimento | producao)
-define('EFI_AMBIENTE', 'producao');
+// As credenciais e parâmetros da EFI agora vêm da tabela `configuracoes` via funções utilitárias.
+// Não definir constantes de credenciais diretamente aqui para evitar divergência com o banco.
 
 // Configurações WhatsApp
 define('WHATSAPP_CONTATO', '5511999999999');

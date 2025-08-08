@@ -125,9 +125,10 @@ function validar_qr_checkin($qr_data) {
         // Verificar se o participante existe e o token está correto
         $participante = buscar_um("
             SELECT p.*, e.nome as evento_nome, e.data_inicio, e.local
-            FROM participantes p
-            JOIN eventos e ON p.evento_id = e.id
-            WHERE p.id = ? AND p.qr_token = ? AND p.evento_id = ?
+            FROM inscricoes i
+            JOIN participantes p ON i.participante_id = p.id
+            JOIN eventos e ON i.evento_id = e.id
+            WHERE p.id = ? AND p.qr_token = ? AND i.evento_id = ? AND i.status != 'cancelada'
         ", [$dados['participante_id'], $dados['token'], $dados['evento_id']]);
         
         if (!$participante) {
@@ -136,8 +137,11 @@ function validar_qr_checkin($qr_data) {
         
         // Verificar se o pagamento foi confirmado
         $pagamento = buscar_um("
-            SELECT status, valor FROM pagamentos WHERE participante_id = ?
-        ", [$dados['participante_id']]);
+            SELECT pg.status, pg.valor 
+            FROM pagamentos pg 
+            JOIN inscricoes i ON pg.inscricao_id = i.id 
+            WHERE i.participante_id = ? AND i.evento_id = ?
+        ", [$dados['participante_id'], $dados['evento_id']]);
         
         if ($pagamento && $pagamento['valor'] > 0 && $pagamento['status'] !== 'pago') {
             return ['valido' => false, 'erro' => 'Pagamento não confirmado'];
@@ -173,9 +177,12 @@ function processar_checkin($participante_id, $operador_nome = null) {
         // Verificar se o participante existe e pode fazer check-in
         $participante = buscar_um("
             SELECT p.*, e.nome as evento_nome, e.data_inicio, e.local
-            FROM participantes p
-            JOIN eventos e ON p.evento_id = e.id
-            WHERE p.id = ?
+            FROM inscricoes i
+            JOIN participantes p ON i.participante_id = p.id
+            JOIN eventos e ON i.evento_id = e.id
+            WHERE p.id = ? AND i.status != 'cancelada'
+            ORDER BY i.data_inscricao DESC
+            LIMIT 1
         ", [$participante_id]);
         
         if (!$participante) {
@@ -230,7 +237,8 @@ function gerar_qr_checkin_basico($participante_id) {
     $participante = buscar_um("
         SELECT p.*, e.nome as evento_nome 
         FROM participantes p 
-        JOIN eventos e ON p.evento_id = e.id 
+        JOIN inscricoes i ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id 
         WHERE p.id = ?
     ", [$participante_id]);
     
@@ -277,15 +285,15 @@ function qr_code_expirado($qr_data, $minutos_validade = 30) {
  * Estatísticas de check-in por evento
  */
 function obter_estatisticas_checkin($evento_id) {
+    // total_inscritos: inscrições não canceladas
+    // total_pagos: pagamentos com status 'pago'
+    // total_presentes: participantes com status 'presente' e com inscrição no evento
     $stats = buscar_um("
         SELECT 
-            COUNT(*) as total_inscritos,
-            SUM(CASE WHEN status = 'presente' THEN 1 ELSE 0 END) as total_presentes,
-            SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) as total_pagos,
-            SUM(CASE WHEN status = 'inscrito' THEN 1 ELSE 0 END) as total_pendentes
-        FROM participantes 
-        WHERE evento_id = ? AND status != 'cancelado'
-    ", [$evento_id]);
+            (SELECT COUNT(*) FROM inscricoes i WHERE i.evento_id = ? AND i.status != 'cancelada') AS total_inscritos,
+            (SELECT COUNT(*) FROM pagamentos pg JOIN inscricoes i2 ON pg.inscricao_id = i2.id WHERE i2.evento_id = ? AND pg.status = 'pago') AS total_pagos,
+            (SELECT COUNT(*) FROM inscricoes i3 JOIN participantes p3 ON i3.participante_id = p3.id WHERE i3.evento_id = ? AND i3.status != 'cancelada' AND p3.status = 'presente') AS total_presentes
+    ", [$evento_id, $evento_id, $evento_id]);
     
     if ($stats) {
         $stats['percentual_presenca'] = $stats['total_inscritos'] > 0 
@@ -300,7 +308,7 @@ function obter_estatisticas_checkin($evento_id) {
  * Obter histórico de check-ins por data
  */
 function obter_historico_checkins($evento_id, $data = null) {
-    $where = "p.evento_id = ? AND p.status = 'presente'";
+    $where = "i.evento_id = ? AND p.status = 'presente'";
     $params = [$evento_id];
     
     if ($data) {
@@ -310,8 +318,9 @@ function obter_historico_checkins($evento_id, $data = null) {
     
     return buscar_todos("
         SELECT p.nome, p.checkin_timestamp, p.checkin_operador, e.nome as evento_nome
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
         WHERE {$where}
         ORDER BY p.checkin_timestamp DESC
     ", $params);

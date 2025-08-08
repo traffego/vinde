@@ -16,9 +16,9 @@ if ($acao === 'excluir' && $evento_id && $_SERVER['REQUEST_METHOD'] === 'GET') {
         $erro = 'Token de segurança inválido.';
     } else {
         try {
-            // Verificar se há participantes inscritos
-            $participantes = contar_registros('participantes', ['evento_id' => $evento_id, 'status' => 'inscrito']);
-            $pagos = contar_registros('participantes', ['evento_id' => $evento_id, 'status' => 'pago']);
+            // Verificar se há inscrições e pagamentos vinculados (novo modelo)
+            $participantes = buscar_um("SELECT COUNT(*) AS total FROM inscricoes WHERE evento_id = ? AND status != 'cancelada'", [$evento_id])['total'] ?? 0;
+            $pagos = buscar_um("SELECT COUNT(*) AS total FROM pagamentos pg JOIN inscricoes i ON pg.inscricao_id = i.id WHERE i.evento_id = ? AND pg.status = 'pago'", [$evento_id])['total'] ?? 0;
             
             if ($participantes > 0 || $pagos > 0) {
                 $erro = "Não é possível excluir este evento. Há {$participantes} participantes inscritos e {$pagos} com pagamento confirmado. Cancele as inscrições primeiro.";
@@ -110,10 +110,10 @@ $total_paginas = ceil($total_eventos / $por_pagina);
 
 $eventos = buscar_todos("
     SELECT e.*, 
-           COUNT(p.id) as total_inscritos,
-           (e.limite_participantes - COUNT(p.id)) as vagas_restantes
+           COUNT(i.id) AS total_inscritos,
+           (e.limite_participantes - COUNT(i.id)) AS vagas_restantes
     FROM eventos e
-    LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+    LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente','aprovada')
     WHERE {$where_clause}
     GROUP BY e.id
     ORDER BY e.criado_em DESC

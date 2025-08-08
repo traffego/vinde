@@ -171,9 +171,10 @@ function processar_inscricao($dados, $evento_id) {
                 'pix_txid' => $txid
             ];
             
-            // Verificar se EFI Bank está ativo e certificado disponível
+            // Verificar se EFI Bank está ativo e certificado disponível (config do banco)
             $efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
-            $certificado_existe = file_exists(EFI_CERTIFICADO_PROD);
+            $config_efi = obter_configuracoes_efi();
+            $certificado_existe = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
             
             if ($efi_ativo && $certificado_existe) {
                 // Usar EFI Bank

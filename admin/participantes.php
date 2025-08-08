@@ -82,14 +82,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Buscar dados para edição
 $participante = [];
 if (($acao === 'editar' || $acao === 'visualizar') && $participante_id) {
+    // Buscar participante e a última inscrição (se existir)
     $participante = buscar_um("
-        SELECT p.*, e.nome as evento_nome, e.slug as evento_slug, e.data_inicio,
-               pag.status as pagamento_status, pag.valor, pag.pago_em
+        SELECT 
+            p.*,
+            li.id as inscricao_id_display,
+            e.nome as evento_nome, 
+            e.slug as evento_slug, 
+            e.data_inicio,
+            pag.status as pagamento_status, 
+            pag.valor, 
+            pag.pago_em
         FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
+        LEFT JOIN (
+            SELECT i.* 
+            FROM inscricoes i 
+            WHERE i.participante_id = ? 
+            ORDER BY i.data_inscricao DESC 
+            LIMIT 1
+        ) li ON li.participante_id = p.id
+        LEFT JOIN eventos e ON e.id = li.evento_id
+        LEFT JOIN pagamentos pag ON pag.inscricao_id = li.id
         WHERE p.id = ?
-    ", [$participante_id]);
+    ", [$participante_id, $participante_id]);
     
     if (!$participante) {
         exibir_erro_404();
@@ -118,12 +133,12 @@ if (!empty($filtros['busca'])) {
 }
 
 if (!empty($filtros['evento'])) {
-    $where_conditions[] = 'p.evento_id = ?';
+    $where_conditions[] = 'i.evento_id = ?';
     $params[] = $filtros['evento'];
 }
 
 if (!empty($filtros['status'])) {
-    $where_conditions[] = 'p.status = ?';
+    $where_conditions[] = 'i.status = ?';
     $params[] = $filtros['status'];
 }
 
@@ -133,12 +148,12 @@ if (!empty($filtros['cidade'])) {
 }
 
 if (!empty($filtros['data_inicio'])) {
-    $where_conditions[] = 'p.criado_em >= ?';
+    $where_conditions[] = 'i.data_inscricao >= ?';
     $params[] = $filtros['data_inicio'] . ' 00:00:00';
 }
 
 if (!empty($filtros['data_fim'])) {
-    $where_conditions[] = 'p.criado_em <= ?';
+    $where_conditions[] = 'i.data_inscricao <= ?';
     $params[] = $filtros['data_fim'] . ' 23:59:59';
 }
 
@@ -151,21 +166,30 @@ $offset = ($pagina - 1) * $por_pagina;
 
 $total_participantes = buscar_um("
     SELECT COUNT(*) as total 
-    FROM participantes p
-    JOIN eventos e ON p.evento_id = e.id
+    FROM inscricoes i
+    JOIN participantes p ON i.participante_id = p.id
+    JOIN eventos e ON i.evento_id = e.id
     WHERE {$where_clause}
 ", $params)['total'];
 
 $total_paginas = ceil($total_participantes / $por_pagina);
 
 $participantes = buscar_todos("
-    SELECT p.*, e.nome as evento_nome, e.slug as evento_slug, e.data_inicio,
-           pag.status as pagamento_status, pag.valor, pag.pago_em
-    FROM participantes p
-    JOIN eventos e ON p.evento_id = e.id
-    LEFT JOIN pagamentos pag ON p.id = pag.participante_id
+    SELECT 
+        i.id AS inscricao_id,
+        p.id,
+        p.nome, p.cpf, p.whatsapp, p.email, p.instagram, p.idade, p.cidade, p.estado,
+        e.id AS evento_id, e.nome AS evento_nome, e.slug AS evento_slug, e.data_inicio,
+        i.status AS status_inscricao,
+        pg.status AS pagamento_status, pg.valor, pg.pago_em,
+        i.data_inscricao AS criado_em,
+        p.checkin_timestamp
+    FROM inscricoes i
+    JOIN participantes p ON i.participante_id = p.id
+    JOIN eventos e ON i.evento_id = e.id
+    LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
     WHERE {$where_clause}
-    ORDER BY p.criado_em DESC
+    ORDER BY i.data_inscricao DESC
     LIMIT {$por_pagina} OFFSET {$offset}
 ", $params);
 
@@ -389,7 +413,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                     <th>Participante</th>
                     <th>Evento</th>
                     <th>Contato</th>
-                    <th>Status</th>
+            <th>Status</th>
                     <th>Pagamento</th>
                     <th>Data Inscrição</th>
                     <th>Ações</th>
@@ -437,10 +461,10 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                                 </div>
                             </td>
                             <td>
-                                <span class="status-badge-admin status-<?= $p['status'] ?>">
-                                    <?= ucfirst($p['status']) ?>
+                                <span class="status-badge-admin status-<?= $p['status_inscricao'] ?>">
+                                    <?= ucfirst($p['status_inscricao']) ?>
                                 </span>
-                                <?php if ($p['status'] === 'presente' && $p['checkin_timestamp']): ?>
+                                <?php if ($p['status_inscricao'] === 'presente' && $p['checkin_timestamp']): ?>
                                     <br><small>Check-in: <?= formatar_data_hora($p['checkin_timestamp']) ?></small>
                                 <?php endif; ?>
                             </td>

@@ -23,11 +23,17 @@ $participantes = [];
 
 if ($evento_selecionado) {
     $participantes = buscar_todos("
-        SELECT p.*, e.nome as evento_nome, pag.status as pagamento_status
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        WHERE p.evento_id = ?
+        SELECT 
+            p.*, 
+            e.nome as evento_nome, 
+            pg.status as pagamento_status,
+            i.status AS status_inscricao,
+            i.id AS inscricao_id
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
+        LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+        WHERE i.evento_id = ? AND i.status != 'cancelada'
         ORDER BY p.status DESC, p.nome ASC
     ", [$evento_selecionado]);
 }

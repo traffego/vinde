@@ -6,7 +6,9 @@ requer_login();
 
 // Buscar estatísticas para o dashboard
 $total_eventos = contar_registros('eventos', ['status' => STATUS_ATIVO]);
-$total_participantes = contar_registros('participantes', ['status' => PARTICIPANTE_INSCRITO]);
+// No novo modelo, contabilizamos inscrições ativas (pendente/aprovada)
+$inscricoes_ativas_row = buscar_um("SELECT COUNT(*) AS total FROM inscricoes WHERE status IN ('pendente','aprovada')");
+$total_participantes = $inscricoes_ativas_row['total'] ?? 0;
 $total_pagamentos_pendentes = contar_registros('pagamentos', ['status' => PAGAMENTO_PENDENTE]);
 
 // Receita total
@@ -19,9 +21,9 @@ $receita_total = $receita_query['total'] ?? 0;
 
 // Eventos próximos
 $eventos_proximos = buscar_todos("
-    SELECT e.*, COUNT(p.id) as total_inscritos
+    SELECT e.*, COUNT(i.id) AS total_inscritos
     FROM eventos e
-    LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+    LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente','aprovada')
     WHERE e.status = 'ativo' 
     AND e.data_inicio >= CURDATE()
     GROUP BY e.id
@@ -31,10 +33,15 @@ $eventos_proximos = buscar_todos("
 
 // Inscrições recentes
 $inscricoes_recentes = buscar_todos("
-    SELECT p.*, e.nome as evento_nome
-    FROM participantes p
-    INNER JOIN eventos e ON p.evento_id = e.id
-    ORDER BY p.criado_em DESC
+    SELECT 
+        p.nome,
+        e.nome AS evento_nome,
+        i.status,
+        i.data_inscricao AS criado_em
+    FROM inscricoes i
+    JOIN participantes p ON i.participante_id = p.id
+    JOIN eventos e ON i.evento_id = e.id
+    ORDER BY i.data_inscricao DESC
     LIMIT 10
 ");
 
@@ -117,7 +124,7 @@ obter_cabecalho_admin('Dashboard', 'dashboard');
                                     </p>
                                 </div>
                                 <div class="evento-acoes">
-                                    <a href="<?= SITE_URL ?>/admin/participantes.php?evento_id=<?= $evento['id'] ?>" 
+                                    <a href="<?= SITE_URL ?>/admin/participantes.php?evento=<?= $evento['id'] ?>" 
                                        class="btn-mini">Ver Participantes</a>
                                 </div>
                             </div>

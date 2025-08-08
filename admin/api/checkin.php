@@ -79,13 +79,21 @@ function processarCheckinQR($input) {
         return ['success' => false, 'message' => 'Dados incompletos'];
     }
     
-    // Buscar participante e validar token
+    // Buscar participante, inscrição ativa e validar token
     $participante = buscar_um("
-        SELECT p.*, e.nome as evento_nome, e.data_inicio, pag.status as pagamento_status, pag.valor
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        WHERE p.id = ? AND p.qr_token = ?
+        SELECT 
+            p.*, 
+            e.nome as evento_nome, 
+            e.data_inicio, 
+            pg.status as pagamento_status, 
+            pg.valor
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
+        LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+        WHERE p.id = ? AND p.qr_token = ? AND i.status != 'cancelada'
+        ORDER BY i.data_inscricao DESC
+        LIMIT 1
     ", [$participante_id, $token]);
     
     if (!$participante) {
@@ -121,13 +129,20 @@ function processarCheckinManual($input) {
     
     $participante_id = (int)$input['participante_id'];
     
-    // Buscar participante
+    // Buscar participante com última inscrição ativa
     $participante = buscar_um("
-        SELECT p.*, e.nome as evento_nome, pag.status as pagamento_status, pag.valor
-        FROM participantes p
-        JOIN eventos e ON p.evento_id = e.id
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        WHERE p.id = ?
+        SELECT 
+            p.*, 
+            e.nome as evento_nome, 
+            pg.status as pagamento_status, 
+            pg.valor
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
+        LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+        WHERE p.id = ? AND i.status != 'cancelada'
+        ORDER BY i.data_inscricao DESC
+        LIMIT 1
     ", [$participante_id]);
     
     if (!$participante) {

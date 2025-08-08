@@ -105,11 +105,11 @@ try {
         'pix_expires_at' => $dados['pix_expires_at'],
         'criado_em' => $dados['pagamento_criado']
     ];
-
-    if ($debug_mode) {
+        
+        if ($debug_mode) {
         error_log("PAGAMENTO DEBUG: Dados encontrados - Inscrição: {$inscricao['id']}, Status: {$inscricao['status']}, Pagamento: {$pagamento['status']}");
     }
-
+    
 } catch (Exception $e) {
     if ($debug_mode) {
         error_log("PAGAMENTO DEBUG: Erro ao buscar dados - " . $e->getMessage());
@@ -149,9 +149,10 @@ if (empty($pagamento['pix_qrcode_data']) ||
     $txid = $pagamento['pix_txid'] ?: 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
     $valor = $evento['valor'];
     
-    // Verificar se EFI Bank está ativo
+    // Verificar se EFI Bank está ativo (configurações vindas do banco)
     $efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
-    $certificado_existe = file_exists(EFI_CERTIFICADO_PROD);
+    $config_efi = obter_configuracoes_efi();
+    $certificado_existe = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
     
     if ($efi_ativo && $certificado_existe) {
         // Usar EFI Bank
@@ -202,7 +203,7 @@ if (empty($pagamento['pix_qrcode_data']) ||
             atualizar_registro('pagamentos', $dados_pagamento, ['id' => $pagamento['id']]);
             $pagamento = array_merge($pagamento, $dados_pagamento);
             
-            if ($debug_mode) {
+        if ($debug_mode) {
                 error_log("PAGAMENTO DEBUG: PIX simples gerado - TXID: {$txid}");
             }
         }
@@ -437,12 +438,12 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     <div class="pagamento-header">
         <h1>Finalizar Pagamento</h1>
         <p>Complete seu pagamento para confirmar a inscrição</p>
-    </div>
+        </div>
 
     <?php if ($erro): ?>
-        <div class="alert alert-error">
+                <div class="alert alert-error">
             <?= htmlspecialchars($erro) ?>
-        </div>
+    </div>
     <?php endif; ?>
 
     <div class="pagamento-layout">
@@ -487,17 +488,17 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                         <li>Confirme o pagamento</li>
                         <li>Aguarde a confirmação automática</li>
                     </ol>
-                </div>
-
+                        </div>
+                        
                 <div class="verificacao-status">
                     <button type="button" class="btn-verificar" onclick="verificarPagamento()">
                         🔄 Verificar Pagamento
                     </button>
                     <div class="loading-spinner" id="loading-spinner"></div>
-                </div>
-            </div>
-        </div>
-
+                            </div>
+                        </div>
+                    </div>
+                    
         <div class="pagamento-sidebar">
             <div class="resumo-pagamento">
                 <h3>Resumo da Inscrição</h3>
@@ -510,8 +511,8 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                 <div class="resumo-item">
                     <span>Data:</span>
                     <span><?= date('d/m/Y', strtotime($evento['data_inicio'])) ?></span>
-                </div>
-                
+                        </div>
+                        
                 <?php if ($evento['horario_inicio']): ?>
                     <div class="resumo-item">
                         <span>Horário:</span>
@@ -522,19 +523,19 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                 <div class="resumo-item">
                     <span>Local:</span>
                     <span><?= htmlspecialchars($evento['local']) ?></span>
-                </div>
-                
+                    </div>
+                    
                 <div class="resumo-item">
                     <span>Participante:</span>
                     <span><?= htmlspecialchars($participante['nome']) ?></span>
-                </div>
-                
+                    </div>
+                    
                 <div class="resumo-item">
                     <span>Status:</span>
                     <span class="status-badge status-<?= $inscricao['status'] ?>">
                         <?= ucfirst($inscricao['status']) ?>
                     </span>
-                </div>
+                    </div>
                 
                 <div class="resumo-item">
                     <span>Valor Total:</span>

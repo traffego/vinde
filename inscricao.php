@@ -142,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $resultado = processar_inscricao($evento_id, $participante_logado['id']);
         
-        if ($resultado['sucesso']) {
+            if ($resultado['sucesso']) {
             if (isset($resultado['redirect_to'])) {
                 redirecionar($resultado['redirect_to']);
             } else {
@@ -210,9 +210,9 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                     <div class="step-header">
                         <div class="step-number">2</div>
                         <div class="step-title">Confirmar Inscrição</div>
-                    </div>
-                    
-                    <div class="step-content">
+                        </div>
+                        
+                        <div class="step-content">
                         <div class="inscricao-resumo">
                             <p>Você está prestes a se inscrever no evento:</p>
                             <h3><?= htmlspecialchars($evento['nome']) ?></h3>
@@ -238,10 +238,10 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                                 <?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?>
                             </button>
                         </form>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-
+                    
             <!-- Sidebar com dados do evento -->
             <div class="checkout-sidebar">
                 <div class="evento-card">
@@ -264,8 +264,8 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                                         a <?= date('d/m/Y', strtotime($evento['data_fim'])) ?>
                                     <?php endif; ?>
                                 </span>
-                            </div>
-                            
+                                </div>
+                                
                             <?php if ($evento['horario_inicio']): ?>
                                 <div class="detalhe-item">
                                     <span class="detalhe-label">🕐 Horário:</span>
@@ -281,23 +281,23 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                             <div class="detalhe-item">
                                 <span class="detalhe-label">📍 Local:</span>
                                 <span class="detalhe-valor"><?= htmlspecialchars($evento['local']) ?></span>
-                            </div>
-                            
+                    </div>
+                    
                             <div class="detalhe-item">
                                 <span class="detalhe-label">🎫 Vagas:</span>
                                 <span class="detalhe-valor"><?= $evento['vagas_restantes'] ?> restantes</span>
-                            </div>
-                            
+                    </div>
+                    
                             <?php if ($evento['valor'] > 0): ?>
                                 <div class="detalhe-item valor-destaque">
                                     <span class="detalhe-label">💰 Valor:</span>
                                     <span class="detalhe-valor">R$ <?= number_format($evento['valor'], 2, ',', '.') ?></span>
-                                </div>
+            </div>
                             <?php else: ?>
                                 <div class="detalhe-item gratuito-destaque">
                                     <span class="detalhe-label">🎁 Valor:</span>
                                     <span class="detalhe-valor">Gratuito</span>
-                                </div>
+                        </div>
                             <?php endif; ?>
                         </div>
                     </div>

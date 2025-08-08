@@ -26,38 +26,84 @@ if ($inscricao_id) {
     
     if ($tabela_inscricoes_existe['count'] > 0) {
         // Sistema novo - usar tabela inscricoes
-        $dados = buscar_um("
-            SELECT 
-                i.*,
-                p.nome as participante_nome,
-                p.cpf as participante_cpf,
-                p.email as participante_email,
-                p.whatsapp as participante_whatsapp,
-                p.qr_token,
-                e.nome as evento_nome,
-                e.descricao as evento_descricao,
-                e.data_inicio,
-                e.data_fim,
-                e.horario_inicio,
-                e.horario_fim,
-                e.local,
-                e.endereco,
-                e.cidade,
-                e.estado,
-                e.valor,
-                e.imagem,
-                e.slug,
-                e.programacao,
-                e.max_participantes,
-                pag.status as pagamento_status,
-                pag.valor as pagamento_valor,
-                pag.pago_em
-            FROM inscricoes i
-            JOIN participantes p ON i.participante_id = p.id
-            JOIN eventos e ON i.evento_id = e.id
-            LEFT JOIN pagamentos pag ON pag.inscricao_id = i.id
-            WHERE i.id = ? AND i.participante_id = ?
-        ", [$inscricao_id, $_SESSION['participante_id']]);
+        try {
+            $dados = buscar_um("
+                SELECT 
+                    i.*,
+                    p.nome as participante_nome,
+                    p.cpf as participante_cpf,
+                    p.email as participante_email,
+                    p.whatsapp as participante_whatsapp,
+                    p.qr_token,
+                    e.nome as evento_nome,
+                    e.descricao as evento_descricao,
+                    e.data_inicio,
+                    e.data_fim,
+                    e.horario_inicio,
+                    e.horario_fim,
+                    e.local,
+                    e.endereco,
+                    e.cidade,
+                    e.estado,
+                    e.valor,
+                    e.imagem,
+                    e.slug,
+                    e.programacao,
+                    e.max_participantes,
+                    pag.status as pagamento_status,
+                    pag.valor as pagamento_valor,
+                    pag.pago_em
+                FROM inscricoes i
+                JOIN participantes p ON i.participante_id = p.id
+                JOIN eventos e ON i.evento_id = e.id
+                LEFT JOIN pagamentos pag ON pag.inscricao_id = i.id
+                WHERE i.id = ? AND i.participante_id = ?
+            ", [$inscricao_id, $_SESSION['participante_id']]);
+            
+            // Se não encontrou dados, verificar se inscrição existe mas não pertence ao usuário
+            if (!$dados) {
+                $inscricao_existe = buscar_um("
+                    SELECT i.*, p.nome as participante_nome 
+                    FROM inscricoes i 
+                    JOIN participantes p ON i.participante_id = p.id 
+                    WHERE i.id = ?
+                ", [$inscricao_id]);
+                
+                if ($inscricao_existe) {
+                    registrar_log('confirmacao_erro', "Tentativa de acesso a inscrição de outro participante - Inscrição: {$inscricao_id}, Participante logado: {$_SESSION['participante_id']}, Participante da inscrição: {$inscricao_existe['participante_id']}");
+                    obter_cabecalho('Acesso Negado');
+                    ?>
+                    <div class="container">
+                        <div class="error-page">
+                            <h1>⚠️ Acesso Negado</h1>
+                            <p>Esta confirmação não pertence a você ou não existe.</p>
+                            <p>Verifique o link e tente novamente.</p>
+                            <a href="<?= SITE_URL ?>/participante/" class="btn btn-primary">Meus Eventos</a>
+                        </div>
+                    </div>
+                    <?php
+                    obter_rodape();
+                    exit;
+                } else {
+                    registrar_log('confirmacao_erro', "Inscrição não encontrada - ID: {$inscricao_id}");
+                }
+            }
+        } catch (Exception $e) {
+            registrar_log('confirmacao_erro_sql', "Erro na query de confirmação: " . $e->getMessage() . " - Inscrição: {$inscricao_id}, Participante: {$_SESSION['participante_id']}");
+            obter_cabecalho('Erro na Confirmação');
+            ?>
+            <div class="container">
+                <div class="error-page">
+                    <h1>❌ Erro na Confirmação</h1>
+                    <p>Ocorreu um erro ao buscar os dados da confirmação.</p>
+                    <p>Tente novamente em alguns minutos.</p>
+                    <a href="<?= SITE_URL ?>/participante/" class="btn btn-primary">Meus Eventos</a>
+                </div>
+            </div>
+            <?php
+            obter_rodape();
+            exit;
+        }
         
     } else {
         // Sistema antigo - usar participante_id direto
@@ -394,10 +440,10 @@ function gerarQRCode() {
         tipo: 'checkin',
         inscricao_id: <?= $inscricao_id ?>,
         participante_id: <?= $participante['participante_id'] ?? $inscricao_id ?>,
-        token: '<?= $participante['qr_token'] ?>',
+        token: '<?= $participante['qr_token'] ?? '' ?>',
         evento_id: <?= $evento['evento_id'] ?? $evento['id'] ?>,
-        nome: '<?= htmlspecialchars($participante['participante_nome']) ?>',
-        evento: '<?= htmlspecialchars($evento['evento_nome']) ?>'
+        nome: '<?= htmlspecialchars($participante['participante_nome'] ?? '') ?>',
+        evento: '<?= htmlspecialchars($evento['evento_nome'] ?? '') ?>'
     };
     
     const qrData = JSON.stringify(dadosQR);

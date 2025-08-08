@@ -209,7 +209,7 @@ try {
                     }
                     echo "<tr>";
                     foreach ($inscricao as $valor) {
-                        echo "<td>" . htmlspecialchars($valor) . "</td>";
+                        echo "<td>" . htmlspecialchars($valor ?? '') . "</td>";
                     }
                     echo "</tr>";
                 }

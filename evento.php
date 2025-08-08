@@ -443,10 +443,10 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
             <?php
             $eventos_relacionados = buscar_todos("
                 SELECT e.*, 
-                       COUNT(p.id) as total_inscritos,
-                       (e.limite_participantes - COUNT(p.id)) as vagas_restantes
+                       COUNT(i.id) as total_inscritos,
+                       (e.limite_participantes - COUNT(i.id)) as vagas_restantes
                 FROM eventos e
-                LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+                LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente','aprovada')
                 WHERE e.status = 'ativo' 
                 AND e.data_inicio >= CURDATE()
                 AND e.id != ?

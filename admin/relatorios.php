@@ -17,12 +17,13 @@ if ($formato && $evento_id) {
 // Buscar eventos para seleção
 $eventos = buscar_todos("
     SELECT e.id, e.nome, e.data_inicio, e.local,
-           COUNT(p.id) as total_participantes,
-           SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) as total_presentes,
-           SUM(CASE WHEN pag.status = 'pago' THEN pag.valor ELSE 0 END) as total_arrecadado
+           COUNT(i.id) AS total_participantes,
+           SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) AS total_presentes,
+           SUM(CASE WHEN pg.status = 'pago' THEN pg.valor ELSE 0 END) AS total_arrecadado
     FROM eventos e
-    LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
-    LEFT JOIN pagamentos pag ON p.id = pag.participante_id
+    LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status != 'cancelada'
+    LEFT JOIN participantes p ON i.participante_id = p.id
+    LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
     GROUP BY e.id
     ORDER BY e.data_inicio DESC
 ");
@@ -36,13 +37,18 @@ if ($evento_id) {
     $evento_info = buscar_um("SELECT * FROM eventos WHERE id = ?", [$evento_id]);
     
     $participantes = buscar_todos("
-        SELECT p.*, 
-               pag.status as pagamento_status, pag.valor, pag.pago_em,
-               e.nome as evento_nome
-        FROM participantes p
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        JOIN eventos e ON p.evento_id = e.id
-        WHERE p.evento_id = ? AND p.status != 'cancelado'
+        SELECT 
+            p.id,
+            p.nome, p.cpf, p.whatsapp, p.email, p.idade, p.cidade, p.estado,
+            i.status AS status_inscricao,
+            i.data_inscricao AS criado_em,
+            pg.status AS pagamento_status, pg.valor, pg.pago_em,
+            e.nome AS evento_nome
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
+        LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+        WHERE i.evento_id = ? AND i.status != 'cancelada'
         ORDER BY p.nome
     ", [$evento_id]);
     
@@ -81,10 +87,15 @@ function gerar_relatorio($evento_id, $tipo, $formato) {
  */
 function gerar_relatorio_participantes($evento, $formato) {
     $participantes = buscar_todos("
-        SELECT p.*, pag.status as pagamento_status, pag.valor, pag.pago_em
-        FROM participantes p
-        LEFT JOIN pagamentos pag ON p.id = pag.participante_id
-        WHERE p.evento_id = ? AND p.status != 'cancelado'
+        SELECT 
+            p.nome, p.cpf, p.whatsapp, p.email, p.idade, p.cidade, p.estado,
+            i.status AS status_inscricao,
+            pg.status as pagamento_status, pg.valor, pg.pago_em,
+            i.data_inscricao AS criado_em
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+        WHERE i.evento_id = ? AND i.status != 'cancelada'
         ORDER BY p.nome
     ", [$evento['id']]);
     
@@ -454,8 +465,9 @@ obter_cabecalho_admin('Relatórios', 'relatorios');
                 <?php
                 $checkins_hoje = buscar_todos("
                     SELECT p.nome, p.checkin_timestamp, p.checkin_operador
-                    FROM participantes p
-                    WHERE p.evento_id = ? AND p.status = 'presente'
+                    FROM inscricoes i
+                    JOIN participantes p ON i.participante_id = p.id
+                    WHERE i.evento_id = ? AND i.status != 'cancelada' AND p.status = 'presente'
                     AND DATE(p.checkin_timestamp) = CURDATE()
                     ORDER BY p.checkin_timestamp DESC
                     LIMIT 20
