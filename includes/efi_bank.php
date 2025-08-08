@@ -618,6 +618,46 @@ function efi_criar_pix_completo($dados_pagamento) {
             return ['erro' => 'Falha ao gerar QR Code PIX'];
         }
         
+        // Verificar se o payload PIX é válido
+        $payload_pix = $qrcode['qrcode'] ?? '';
+        $qr_url = $qrcode['linkVisualizacao'] ?? '';
+        
+        // Validar se o payload PIX está correto
+        $payload_valido = !empty($payload_pix) && 
+                         strlen($payload_pix) > 50 && 
+                         strpos($payload_pix, '00020126') === 0;
+        
+        // Se o payload da EFI Bank não for válido, tentar gerar PIX simples como fallback
+        if (!$payload_valido) {
+            error_log("EFI: Payload PIX inválido, tentando fallback PIX simples");
+            registrar_log_efi('efi_payload_invalido', "Payload EFI inválido, gerando fallback - TXID: {$txid}");
+            
+            // Obter configurações PIX simples
+            $config_pix = obter_configuracoes_pix();
+            
+            // Se não tiver configurações PIX básicas, configurar automaticamente
+            if (empty($config_pix['pix_chave'])) {
+                efi_configurar_pix_basico();
+                $config_pix = obter_configuracoes_pix(); // Recarregar configurações
+            }
+            
+            if (!empty($config_pix['pix_chave']) && function_exists('gerar_payload_pix')) {
+                $payload_fallback = gerar_payload_pix(
+                    $config_pix['pix_chave'],
+                    $dados_pagamento['valor'],
+                    $config_pix['pix_nome'] ?? 'VINDE',
+                    $config_pix['pix_cidade'] ?? 'SAO PAULO',
+                    $dados_pagamento['descricao'],
+                    substr($txid, 0, 25) // TXID para PIX simples pode ser menor
+                );
+                
+                if (!empty($payload_fallback)) {
+                    $payload_pix = $payload_fallback;
+                    registrar_log_efi('efi_fallback_usado', "PIX simples usado como fallback - TXID: {$txid}");
+                }
+            }
+        }
+        
         // Calcular data de expiração
         $expiracao_segundos = $dados_pagamento['expiracao'] ?? 3600;
         $expires_at = date('Y-m-d H:i:s', time() + $expiracao_segundos);
@@ -627,12 +667,13 @@ function efi_criar_pix_completo($dados_pagamento) {
             'sucesso' => true,
             'pix_txid' => $txid,
             'pix_loc_id' => $loc_id,
-            'pix_qrcode_data' => $qrcode['qrcode'] ?? '',
-            'pix_qrcode_url' => $qrcode['linkVisualizacao'] ?? '',
+            'pix_qrcode_data' => $payload_pix,
+            'pix_qrcode_url' => $qr_url,
             'pix_expires_at' => $expires_at,
             'efi_response' => $cobranca,
             'qr_response' => $qrcode,
-            'status' => $cobranca['status'] ?? 'ATIVA'
+            'status' => $cobranca['status'] ?? 'ATIVA',
+            'payload_source' => $payload_valido ? 'efi_bank' : 'pix_simples'
         ];
         
         // Log de sucesso
@@ -822,6 +863,32 @@ function efi_gerar_txid_valido($prefixo = 'VINDE', $participante_id = null) {
     }
     
     return substr($txid, 0, 35); // Máximo 35 caracteres
+}
+
+/**
+ * Configura automaticamente configurações PIX básicas usando dados da EFI Bank
+ * @return bool Sucesso da operação
+ */
+function efi_configurar_pix_basico() {
+    try {
+        $config_efi = obter_configuracoes_efi();
+        
+        if (empty($config_efi['efi_pix_key'])) {
+            return false;
+        }
+        
+        // Configurar chave PIX para o sistema de PIX simples também
+        salvar_configuracao('pix_chave', $config_efi['efi_pix_key'], 'Chave PIX configurada via EFI Bank');
+        salvar_configuracao('pix_nome', 'SAOFRANCISCODEASSIS', 'Nome para PIX (máximo 25 caracteres)');
+        salvar_configuracao('pix_cidade', 'QUEIMADOS', 'Cidade para PIX (máximo 15 caracteres)');
+        salvar_configuracao('pix_ativo', '1', 'PIX ativo no sistema');
+        
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Erro ao configurar PIX básico: " . $e->getMessage());
+        return false;
+    }
 }
 
 ?> 
