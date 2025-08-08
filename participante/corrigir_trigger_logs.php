@@ -118,8 +118,16 @@ try {
         
         echo "✅ <strong>Participante inserido com ID: " . $id . "</strong><br>";
         
-        // Verificar se o log foi criado
-        if ($existe['count'] > 0) {
+        // Verificar se o log foi criado (verificar se tabela logs existe)
+        $tabela_logs = executar_sql_debug("
+            SELECT COUNT(*) as count 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'logs_atividades'
+        ");
+        $tabela_logs_existe = $tabela_logs->fetch();
+        
+        if ($tabela_logs_existe['count'] > 0) {
             $log = executar_sql_debug("
                 SELECT * FROM logs_atividades 
                 WHERE acao = 'participante_cadastrado' 
