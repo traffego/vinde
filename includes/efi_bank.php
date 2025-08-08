@@ -583,11 +583,18 @@ function efi_criar_pix_completo($dados_pagamento) {
     }
     
     try {
-        // Gerar TXID único conforme padrão EFI Bank
-        $txid = efi_gerar_txid_valido('VINDE', $dados_pagamento['participante_id']);
-        
-        if ($dados_pagamento['debug'] ?? false) {
-            error_log("EFI Debug: TXID gerado: {$txid} (tamanho: " . strlen($txid) . ")");
+        // Usar TXID customizado se fornecido, senão gerar novo
+        if (!empty($dados_pagamento['txid_customizado'])) {
+            $txid = $dados_pagamento['txid_customizado'];
+            if ($dados_pagamento['debug'] ?? false) {
+                error_log("EFI Debug: Usando TXID customizado: {$txid} (tamanho: " . strlen($txid) . ")");
+            }
+        } else {
+            // Gerar TXID único conforme padrão EFI Bank
+            $txid = efi_gerar_txid_valido('VINDE', $dados_pagamento['participante_id']);
+            if ($dados_pagamento['debug'] ?? false) {
+                error_log("EFI Debug: TXID gerado automaticamente: {$txid} (tamanho: " . strlen($txid) . ")");
+            }
         }
         
         // Criar cobrança PIX na EFI Bank

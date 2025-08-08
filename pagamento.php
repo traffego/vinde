@@ -168,10 +168,11 @@ $deve_gerar_pix = ($pagamento['status'] !== 'pago') && (
 
 if ($deve_gerar_pix) {
     
-    // Gerar novo PIX sempre com TXID único
-    $timestamp = date('YmdHis');
-    $random_suffix = strtoupper(substr(md5(uniqid()), 0, 4)); // 4 caracteres aleatórios
-    $txid = 'VINDE' . $timestamp . str_pad($inscricao_id, 4, '0', STR_PAD_LEFT) . $random_suffix;
+    // Gerar novo PIX sempre com TXID único (máximo 35 caracteres para EFI)
+    $timestamp = date('YmdHis'); // 14 caracteres
+    $inscricao_padded = str_pad($inscricao_id, 4, '0', STR_PAD_LEFT); // 4 caracteres
+    $random_suffix = strtoupper(substr(md5(uniqid()), 0, 3)); // 3 caracteres
+    $txid = 'VINDE' . $timestamp . $inscricao_padded . $random_suffix; // 5+14+4+3 = 26 caracteres
     $valor = $evento['valor'];
     
     if ($debug_mode) {
@@ -183,8 +184,16 @@ if ($deve_gerar_pix) {
     $config_efi = obter_configuracoes_efi();
     $certificado_existe = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
     
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: EFI Status - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO'));
+        error_log("PAGAMENTO DEBUG: EFI Client ID: " . (!empty($config_efi['efi_client_id']) ? 'Configurado' : 'Vazio'));
+        error_log("PAGAMENTO DEBUG: EFI Client Secret: " . (!empty($config_efi['efi_client_secret']) ? 'Configurado' : 'Vazio'));
+        error_log("PAGAMENTO DEBUG: EFI Certificado: " . ($certificado_existe ? 'Existe' : 'Não encontrado'));
+        error_log("PAGAMENTO DEBUG: EFI Chave PIX: " . (!empty($config_efi['efi_pix_key']) ? $config_efi['efi_pix_key'] : 'Vazio'));
+    }
+    
     if ($efi_ativo && $certificado_existe) {
-        // Usar EFI Bank com função de alto nível e fallback automático
+        // Usar EFI Bank com função de alto nível
         $resultado_pix = efi_criar_pix_completo([
             'valor' => $valor,
             'descricao' => sprintf('Inscricao %s - %s', $evento['nome'], $participante['nome']),
@@ -193,7 +202,8 @@ if ($deve_gerar_pix) {
             'nome_pagador' => $participante['nome'],
             'cpf_pagador' => limpar_cpf($participante['cpf']),
             'expiracao' => 3600,
-            'debug' => $debug_mode
+            'debug' => $debug_mode,
+            'txid_customizado' => $txid // Usar nosso TXID gerado
         ]);
 
         if (!empty($resultado_pix['sucesso'])) {
@@ -234,39 +244,27 @@ if ($deve_gerar_pix) {
             }
         } else {
             if ($debug_mode) {
-                error_log("PAGAMENTO DEBUG: Falha ao gerar PIX via EFI Bank");
+                error_log("PAGAMENTO DEBUG: Falha ao gerar PIX via EFI Bank - resultado_pix: " . print_r($resultado_pix, true));
             }
             
-            // Se falhou na EFI, tentar gerar PIX simples como fallback
-            if (function_exists('criar_cobranca_pix_simples')) {
-                $pix_simples = criar_cobranca_pix_simples(
-                    $participante_logado['id'],
-                    $valor,
-                    sprintf('Inscricao %s - %s', $evento['nome'], $participante['nome'])
-                );
-                
-                if ($pix_simples) {
-                    $dados_pagamento_simples = [
-                        'pix_txid' => $pix_simples['txid'],
-                        'pix_qrcode_data' => $pix_simples['payload'],
-                        'pix_qrcode_url' => $pix_simples['qrcode_url'],
-                        'pix_expires_at' => $pix_simples['expires_at'],
-                        'status' => 'pendente',
-                        'atualizado_em' => date('Y-m-d H:i:s')
-                    ];
-                    
-                    atualizar_registro('pagamentos', $dados_pagamento_simples, ['id' => $pagamento['id']]);
-                    atualizar_registro('inscricoes', ['status' => 'pendente', 'atualizado_em' => date('Y-m-d H:i:s')], ['id' => $inscricao_id]);
-                    
-                    $pagamento = array_merge($pagamento, $dados_pagamento_simples);
-                    $novo_pix_gerado = true;
-                    
-                    if ($debug_mode) {
-                        error_log("PAGAMENTO DEBUG: PIX simples gerado como fallback - TXID: {$pix_simples['txid']}");
-                    }
-                }
+            // Log de erro crítico - não deve usar fallback em produção
+            error_log("ERRO CRÍTICO: EFI Bank falhou ao gerar PIX - TXID: {$txid} | Valor: R$ {$valor}");
+            $erro = "Erro ao gerar PIX. Tente novamente ou entre em contato com o suporte.";
+        }
+    } else {
+        // Log detalhado do motivo de não usar EFI
+        if ($debug_mode) {
+            if (!$efi_ativo) {
+                error_log("PAGAMENTO DEBUG: EFI Bank não está ativo nas configurações");
+            }
+            if (!$certificado_existe) {
+                error_log("PAGAMENTO DEBUG: Certificado EFI não encontrado: " . ($config_efi['efi_certificado_path'] ?? 'caminho não configurado'));
             }
         }
+        
+        error_log("ERRO: EFI Bank não configurado corretamente - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO') . " | Certificado: " . ($certificado_existe ? 'SIM' : 'NÃO'));
+        $erro = "Sistema de pagamento não configurado. Entre em contato com o suporte.";
+    }
     }
 }
 
