@@ -32,8 +32,13 @@
 .pagamento-main {
     background: white;
     border-radius: 12px;
-    padding: 30px;
+    padding: 20px; /* reduzido para aproximar do último botão */
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* remover espaço extra do último bloco interno */
+.pagamento-main > *:last-child {
+    margin-bottom: 0 !important;
 }
 
 .pagamento-sidebar {
@@ -107,7 +112,7 @@
     flex-wrap: wrap;
     gap: 10px;
     justify-content: center;
-    margin: 15px 0;
+    margin: 10px 0 0 0; /* sem margem inferior extra */
 }
 
 .pix-code-section {
@@ -227,7 +232,7 @@
 
 .verificacao-status {
     text-align: center;
-    margin: 30px 0;
+    margin: 16px 0 0 0; /* sem margem inferior */
 }
 
 .btn-verificar {
