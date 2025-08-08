@@ -99,15 +99,52 @@ try {
         // Log do PIX consultado
         log_webhook('consulta', $pix_completo, "PIX consultado: {$endToEndId}");
         
-        // Extrair TXID da cobrança
+        // Extrair TXID da cobrança - conforme documentação EFI Bank
         $txid = null;
+        
+        // 1. Verificar campo txid diretamente
         if (isset($pix_completo['txid'])) {
             $txid = $pix_completo['txid'];
-        } elseif (isset($pix_completo['infoPagador'])) {
-            // Tentar extrair TXID das informações do pagador
+        }
+        // 2. Verificar em devolucoes se existe
+        elseif (isset($pix_completo['devolucoes']) && !empty($pix_completo['devolucoes'])) {
+            foreach ($pix_completo['devolucoes'] as $devolucao) {
+                if (isset($devolucao['rtrId'])) {
+                    // Para devoluções, buscar cobrança original
+                    $txid = $devolucao['rtrId'];
+                    break;
+                }
+            }
+        }
+        // 3. Verificar infoPagador para TXIDs customizados
+        elseif (isset($pix_completo['infoPagador'])) {
             $info_pagador = $pix_completo['infoPagador'];
+            // Buscar padrão VINDE + timestamp + ID
             if (preg_match('/VINDE\d{20}/', $info_pagador, $matches)) {
                 $txid = $matches[0];
+            }
+        }
+        // 4. Último recurso: buscar no campo horario.solicitacao
+        elseif (isset($pix_completo['horario']['solicitacao'])) {
+            // Tentar encontrar uma cobrança criada próximo ao horário
+            $timestamp_pix = strtotime($pix_completo['horario']['solicitacao']);
+            $valor_pix = floatval($pix_completo['valor']);
+            
+            // Buscar cobrança por valor e timestamp próximo (margem de 1 hora)
+            $margem = 3600; // 1 hora
+            $inicio = date('Y-m-d H:i:s', $timestamp_pix - $margem);
+            $fim = date('Y-m-d H:i:s', $timestamp_pix + $margem);
+            
+            $cobranca_encontrada = buscar_um("
+                SELECT pix_txid FROM pagamentos 
+                WHERE valor = ? AND status = 'pendente' 
+                AND created_at BETWEEN ? AND ?
+                ORDER BY ABS(TIMESTAMPDIFF(SECOND, created_at, ?)) 
+                LIMIT 1
+            ", [$valor_pix, $inicio, $fim, date('Y-m-d H:i:s', $timestamp_pix)]);
+            
+            if ($cobranca_encontrada) {
+                $txid = $cobranca_encontrada['pix_txid'];
             }
         }
         

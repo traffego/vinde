@@ -37,6 +37,7 @@ function obter_config_efi() {
 
 /**
  * Autentica na API EFI e obtém token de acesso
+ * Seguindo documentação oficial: https://dev.efipay.com.br/docs/api-pix/credenciais
  * @return string|false Token de acesso ou false em caso de erro
  */
 function efi_obter_token() {
@@ -48,12 +49,14 @@ function efi_obter_token() {
         return false;
     }
     
+    // Basic Auth conforme documentação oficial
     $auth = base64_encode($config['client_id'] . ':' . $config['client_secret']);
     $url = $config['api_url'] . '/oauth/token';
     
+    // Payload conforme documentação
     $postData = json_encode(['grant_type' => 'client_credentials']);
     
-    // Inicializar cURL
+    // Inicializar cURL conforme exemplo oficial
     $curl = curl_init();
     
     curl_setopt_array($curl, [
@@ -65,11 +68,16 @@ function efi_obter_token() {
             'Authorization: Basic ' . $auth,
             'Content-Type: application/json'
         ],
+        // Certificado P12 conforme documentação
         CURLOPT_SSLCERT => $config['certificado'],
         CURLOPT_SSLCERTPASSWD => EFI_SENHA_CERTIFICADO,
+        CURLOPT_SSLCERTTYPE => 'P12',
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_TIMEOUT => 30
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_MAXREDIRS => 0
     ]);
     
     $response = curl_exec($curl);
@@ -79,11 +87,13 @@ function efi_obter_token() {
     
     if ($error) {
         error_log("EFI cURL Error: " . $error);
+        registrar_log('efi_auth_error', "cURL Error: " . $error);
         return false;
     }
     
     if ($httpCode !== 200) {
         error_log("EFI Auth Error HTTP {$httpCode}: " . $response);
+        registrar_log('efi_auth_error', "HTTP {$httpCode}: " . $response);
         return false;
     }
     
@@ -91,14 +101,15 @@ function efi_obter_token() {
     
     if (!isset($data['access_token'])) {
         error_log("EFI: Token não encontrado na resposta: " . $response);
+        registrar_log('efi_auth_error', "Token não encontrado: " . $response);
         return false;
     }
     
-    // Cache do token (válido por 1 hora)
+    // Cache do token (válido por 1 hora conforme documentação)
     $_SESSION['efi_token'] = $data['access_token'];
     $_SESSION['efi_token_expires'] = time() + ($data['expires_in'] ?? 3600);
     
-    registrar_log('efi_auth_success', 'Token obtido com sucesso');
+    registrar_log('efi_auth_success', 'Token obtido com sucesso - Expires in: ' . ($data['expires_in'] ?? 3600) . 's');
     
     return $data['access_token'];
 }
@@ -196,15 +207,27 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
 
 /**
  * Cria cobrança PIX imediata
- * @param string $txid ID da transação (único)
+ * Seguindo documentação oficial: https://dev.efipay.com.br/docs/api-pix/cobrancas-imediatas
+ * @param string $txid ID da transação (único, max 35 chars)
  * @param float $valor Valor da cobrança
- * @param string $descricao Descrição da cobrança
+ * @param string $descricao Descrição da cobrança (max 140 chars)
  * @param string $nome_pagador Nome do pagador
  * @param string $cpf_pagador CPF do pagador
  * @param int $expiracao Tempo de expiração em segundos (padrão: 3600)
  * @return array|false Dados da cobrança ou false em caso de erro
  */
 function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_pagador, $expiracao = 3600) {
+    // Validações conforme documentação EFI
+    if (strlen($txid) > 35) {
+        error_log("EFI: TXID muito longo (max 35 chars): " . $txid);
+        return false;
+    }
+    
+    if (strlen($descricao) > 140) {
+        $descricao = substr($descricao, 0, 140);
+    }
+    
+    // Estrutura conforme documentação oficial EFI
     $dados = [
         'calendario' => [
             'expiracao' => $expiracao
@@ -213,24 +236,38 @@ function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_p
             'original' => number_format($valor, 2, '.', '')
         ],
         'chave' => PIX_CHAVE,
-        'solicitacaoPagador' => $descricao,
-        'infoAdicionais' => [
-            [
-                'nome' => 'Pagador',
-                'valor' => $nome_pagador
-            ],
-            [
-                'nome' => 'CPF',
-                'valor' => $cpf_pagador
-            ]
-        ]
+        'solicitacaoPagador' => $descricao
     ];
+    
+    // Adicionar info do pagador apenas se fornecido
+    if (!empty($nome_pagador) || !empty($cpf_pagador)) {
+        $dados['infoAdicionais'] = [];
+        
+        if (!empty($nome_pagador)) {
+            $dados['infoAdicionais'][] = [
+                'nome' => 'Pagador',
+                'valor' => substr($nome_pagador, 0, 200) // Max 200 chars
+            ];
+        }
+        
+        if (!empty($cpf_pagador)) {
+            $dados['infoAdicionais'][] = [
+                'nome' => 'CPF',
+                'valor' => preg_replace('/[^0-9]/', '', $cpf_pagador)
+            ];
+        }
+    }
     
     $endpoint = "/v2/cob/{$txid}";
     $resposta = efi_fazer_requisicao($endpoint, 'PUT', $dados);
     
     if ($resposta) {
-        registrar_log('efi_cobranca_criada', "TXID: {$txid} | Valor: R$ {$valor}");
+        registrar_log('efi_cobranca_criada', 
+            "TXID: {$txid} | Valor: R$ {$valor} | Status: " . ($resposta['status'] ?? 'N/A') . 
+            " | Loc ID: " . ($resposta['loc']['id'] ?? 'N/A')
+        );
+    } else {
+        registrar_log('efi_cobranca_erro', "Falha ao criar cobrança - TXID: {$txid} | Valor: R$ {$valor}");
     }
     
     return $resposta;
