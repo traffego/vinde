@@ -107,37 +107,12 @@ if (efi_esta_ativo()) {
             }
         } else {
             $erro_msg = $resultado_efi['erro'] ?? 'Erro desconhecido ao gerar PIX via EFI Bank';
-            $erro = "Erro EFI Bank: " . $erro_msg;
-            
-            // Fallback para PIX manual se EFI Bank falhar
-            if (empty($pagamento['pix_codigo'])) {
-                $codigo_pix = gerar_codigo_pix($pagamento['valor'], $evento['nome'], $participante['nome']);
-                $qr_code_data = gerar_qr_code_data($codigo_pix);
-                
-                // Atualizar no banco
-                executar("UPDATE pagamentos SET pix_codigo = ?, pix_qr_code = ? WHERE id = ?", 
-                    [$codigo_pix, $qr_code_data, $pagamento['pagamento_id']]);
-                
-                $pagamento['pix_codigo'] = $codigo_pix;
-                $pagamento['pix_qr_code'] = $qr_code_data;
-                
-                $erro .= " Usando PIX manual como alternativa.";
-            }
+            $erro = "Erro EFI Bank: " . $erro_msg . " - Entre em contato com o suporte.";
         }
     }
 } else {
-    // EFI Bank não está ativo, usar PIX manual
-    if (empty($pagamento['pix_codigo'])) {
-        $codigo_pix = gerar_codigo_pix($pagamento['valor'], $evento['nome'], $participante['nome']);
-        $qr_code_data = gerar_qr_code_data($codigo_pix);
-        
-        // Atualizar no banco
-        executar("UPDATE pagamentos SET pix_codigo = ?, pix_qr_code = ? WHERE id = ?", 
-            [$codigo_pix, $qr_code_data, $pagamento['pagamento_id']]);
-        
-        $pagamento['pix_codigo'] = $codigo_pix;
-        $pagamento['pix_qr_code'] = $qr_code_data;
-    }
+    // EFI Bank não está ativo - sistema não pode funcionar sem ele
+    $erro = 'Sistema de pagamento não configurado. Entre em contato com o suporte.';
 }
 
 // Processar confirmação manual de pagamento (para teste)
@@ -275,7 +250,7 @@ if ($pagamento['pix_expires_at']) {
                         </div>
                     </div>
                     
-                    <?php if (!$expirou && $pagamento['pix_qrcode_url']): ?>
+                    <?php if (!$expirou && !empty($pagamento['pix_qrcode_url']) && !empty($pagamento['pix_qrcode_data'])): ?>
                     <div class="qr-display">
                         <div class="qr-container">
                             <img src="<?= $pagamento['pix_qrcode_url'] ?>" alt="QR Code PIX" class="qr-image">
@@ -602,9 +577,6 @@ let intervaloCronometro;
 let intervaloVerificacao;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Gerar QR Code
-    gerarQRCode();
-    
     // Iniciar cronômetro
     iniciarCronometro();
     
@@ -612,26 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
     iniciarVerificacaoPagamento();
 });
 
-function gerarQRCode() {
-    const codigoPix = <?= json_encode($pagamento['pix_codigo']) ?>;
-    const canvas = document.getElementById('qr-canvas');
-    
-    if (canvas && codigoPix) {
-        QRCode.toCanvas(canvas, codigoPix, {
-            width: 256,
-            margin: 2,
-            color: {
-                dark: '#1e40af',
-                light: '#ffffff'
-            }
-        }, function(error) {
-            if (error) {
-                console.error('Erro ao gerar QR Code:', error);
-                document.getElementById('qr-code').innerHTML = '<div class="qr-error">Erro ao gerar QR Code</div>';
-            }
-        });
-    }
-}
+// QR Code é fornecido pela EFI Bank - não precisa gerar aqui
 
 function iniciarCronometro() {
     intervaloCronometro = setInterval(function() {

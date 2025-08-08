@@ -38,8 +38,6 @@ function salvar_configuracoes($dados) {
             'site_email' => sanitizar_entrada($dados['site_email'] ?? ''),
             'whatsapp_contato' => sanitizar_entrada($dados['whatsapp_contato'] ?? ''),
             'pix_chave' => sanitizar_entrada($dados['pix_chave'] ?? ''),
-            'pix_nome' => sanitizar_entrada($dados['pix_nome'] ?? ''),
-            'pix_cidade' => sanitizar_entrada($dados['pix_cidade'] ?? ''),
             'smtp_host' => sanitizar_entrada($dados['smtp_host'] ?? ''),
             'smtp_port' => intval($dados['smtp_port'] ?? 587),
             'smtp_user' => sanitizar_entrada($dados['smtp_user'] ?? ''),
@@ -96,9 +94,7 @@ function obter_descricao_config($chave) {
         'site_nome' => 'Nome do site exibido no cabeçalho',
         'site_email' => 'Email principal do site',
         'whatsapp_contato' => 'WhatsApp para contato',
-        'pix_chave' => 'Chave PIX para pagamentos',
-        'pix_nome' => 'Nome para PIX',
-        'pix_cidade' => 'Cidade para PIX',
+        'pix_chave' => 'Chave PIX para pagamentos (usado apenas como backup)',
         'smtp_host' => 'Servidor SMTP para emails',
         'smtp_port' => 'Porta do servidor SMTP',
         'smtp_user' => 'Usuário SMTP',
@@ -179,30 +175,18 @@ obter_cabecalho_admin('Configurações do Sistema', 'configuracoes');
             </div>
         </div>
         
-        <!-- Configurações PIX -->
+        <!-- Configurações PIX (Backup) -->
         <div class="config-section">
-            <h3>💳 Configurações PIX</h3>
+            <h3>💳 Configurações PIX (Backup)</h3>
+            <p class="config-help">⚠️ O sistema usa a EFI Bank para pagamentos PIX. Esta chave é apenas backup.</p>
             
             <div class="form-row">
                 <div class="form-group-admin">
-                    <label class="form-label-admin">Chave PIX</label>
+                    <label class="form-label-admin">Chave PIX (Backup)</label>
                     <input type="text" name="pix_chave" class="form-input-admin" 
                            value="<?= htmlspecialchars($config_array['pix_chave'] ?? '') ?>"
                            placeholder="CPF, CNPJ, email ou telefone">
-                </div>
-                
-                <div class="form-group-admin">
-                    <label class="form-label-admin">Nome no PIX</label>
-                    <input type="text" name="pix_nome" class="form-input-admin" 
-                           value="<?= htmlspecialchars($config_array['pix_nome'] ?? 'VINDE EVENTOS') ?>">
-                </div>
-            </div>
-            
-            <div class="form-row">
-                <div class="form-group-admin">
-                    <label class="form-label-admin">Cidade PIX</label>
-                    <input type="text" name="pix_cidade" class="form-input-admin" 
-                           value="<?= htmlspecialchars($config_array['pix_cidade'] ?? 'SAO PAULO') ?>">
+                    <small class="form-help">Usado apenas em casos de emergência quando a EFI Bank não estiver disponível</small>
                 </div>
             </div>
         </div>

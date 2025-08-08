@@ -31,12 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     // Dados PIX
                     if (salvar_configuracao('efi_pix_key', $_POST['efi_pix_key'] ?? '', 'Chave PIX cadastrada na EFI Bank')) $configs_salvas++;
-                    if (salvar_configuracao('pix_nome', $_POST['pix_nome'] ?? '', 'Nome do beneficiário PIX')) $configs_salvas++;
-                    if (salvar_configuracao('pix_cidade', $_POST['pix_cidade'] ?? '', 'Cidade do beneficiário PIX')) $configs_salvas++;
                     
                     // Webhook
                     if (salvar_configuracao('efi_webhook_url', $_POST['efi_webhook_url'] ?? '', 'URL do webhook para notificações EFI Bank')) $configs_salvas++;
-                    if (salvar_configuracao('efi_webhook_secret', $_POST['efi_webhook_secret'] ?? '', 'Secret para validação do webhook EFI')) $configs_salvas++;
                     
                     // Processar upload de certificados
                     $upload_msgs = [];
@@ -364,25 +361,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                                 <small><i class="icon-info"></i> Chave PIX cadastrada na sua conta EFI Bank</small>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="pix_nome">
-                                    <i class="icon-user"></i> Nome do Recebedor
-                                </label>
-                                <input type="text" id="pix_nome" name="pix_nome" 
-                                       value="<?= htmlspecialchars($config_efi['pix_nome'] ?? '') ?>" required
-                                       placeholder="NOME DA PAROQUIA" maxlength="25">
-                                <small><i class="icon-info"></i> Aparece no PIX (máx. 25 caracteres, MAIÚSCULAS)</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="pix_cidade">
-                                    <i class="icon-location"></i> Cidade do Recebedor
-                                </label>
-                                <input type="text" id="pix_cidade" name="pix_cidade" 
-                                       value="<?= htmlspecialchars($config_efi['pix_cidade'] ?? '') ?>" required
-                                       placeholder="SAO PAULO" maxlength="15">
-                                <small><i class="icon-info"></i> Cidade no PIX (máx. 15 caracteres, MAIÚSCULAS)</small>
-                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -416,20 +395,7 @@ obter_cabecalho_admin($titulo_pagina, 'configuracoes');
                                 <small><i class="icon-info"></i> URL que receberá notificações de pagamento da EFI Bank</small>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="efi_webhook_secret">
-                                    <i class="icon-lock"></i> Secret do Webhook
-                                </label>
-                                <div class="input-group">
-                                    <input type="password" id="efi_webhook_secret" name="efi_webhook_secret" 
-                                           value="<?= htmlspecialchars($config_efi['efi_webhook_secret'] ?? '') ?>"
-                                           placeholder="Secret para validação (opcional)">
-                                    <button type="button" class="input-btn" onclick="togglePassword('efi_webhook_secret')">
-                                        <i class="icon-eye"></i>
-                                    </button>
-                                </div>
-                                <small><i class="icon-info"></i> Chave secreta para validar as notificações do webhook</small>
-                            </div>
+
                         </div>
                     </div>
                 </div>
