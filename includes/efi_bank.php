@@ -252,18 +252,26 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
     
     if ($error) {
         error_log("EFI cURL Error: " . $error);
+        registrar_log_efi('efi_curl_error', "Erro cURL: " . $error . " | Endpoint: " . $endpoint);
         return false;
     }
     
     $data_response = json_decode($response, true);
     
     if ($config['debug']) {
-        error_log("EFI Debug: Resposta HTTP {$httpCode}: " . $response);
+        error_log("EFI Debug: Resposta HTTP {$httpCode}: " . substr($response, 0, 500) . (strlen($response) > 500 ? '...' : ''));
     }
     
     if ($httpCode >= 400) {
         error_log("EFI API Error HTTP {$httpCode}: " . $response);
         registrar_log_efi('efi_api_error', "HTTP {$httpCode} em {$endpoint}: " . $response);
+        return false;
+    }
+    
+    // Verificar se a resposta é JSON válida
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("EFI: Resposta não é JSON válida: " . json_last_error_msg());
+        registrar_log_efi('efi_json_error', "JSON inválido em {$endpoint}: " . json_last_error_msg());
         return false;
     }
     
@@ -287,18 +295,21 @@ function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_p
     
     if (!$config) {
         error_log("EFI: Configuração não disponível para criar cobrança");
+        registrar_log_efi('efi_cobranca_erro', "Configuração não disponível");
         return false;
     }
     
     // Verificar se a chave PIX está configurada
     if (empty($config['pix_key'])) {
         error_log("EFI: Chave PIX não configurada");
+        registrar_log_efi('efi_cobranca_erro', "Chave PIX não configurada");
         return false;
     }
     
     // Validações conforme documentação EFI
     if (strlen($txid) > 35) {
         error_log("EFI: TXID muito longo (max 35 chars): " . $txid);
+        registrar_log_efi('efi_cobranca_erro', "TXID muito longo: " . $txid);
         return false;
     }
     
@@ -339,9 +350,12 @@ function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_p
     
     if ($config['debug']) {
         error_log("EFI Debug: Criando cobrança PIX - TXID: {$txid} | Valor: R$ {$valor}");
+        error_log("EFI Debug: Dados da cobrança: " . json_encode($dados));
     }
     
     $endpoint = "/v2/cob/{$txid}";
+    registrar_log_efi('efi_cobranca_tentativa', "TXID: {$txid} | Valor: R$ {$valor} | Endpoint: {$endpoint}");
+    
     $resposta = efi_fazer_requisicao($endpoint, 'PUT', $dados);
     
     if ($resposta) {
@@ -693,34 +707,44 @@ function efi_verificar_pagamento_pix($txid) {
  */
 function registrar_log_efi($tipo, $mensagem, $txid = null) {
     try {
-        // Verificar se a tabela de logs existe
-        $table_exists = buscar_um("SHOW TABLES LIKE 'efi_logs'");
+        // Log básico sempre no error_log do PHP
+        error_log("EFI Log [{$tipo}]: {$mensagem}" . ($txid ? " | TXID: {$txid}" : ""));
         
-        if (!$table_exists) {
-            // Criar tabela se não existir
-            executar_consulta("
-                CREATE TABLE IF NOT EXISTS efi_logs (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    tipo VARCHAR(50) NOT NULL,
-                    mensagem TEXT NOT NULL,
-                    txid VARCHAR(35) NULL,
-                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_tipo (tipo),
-                    INDEX idx_txid (txid),
-                    INDEX idx_criado_em (criado_em)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ");
+        // Tentar inserir no banco de dados
+        try {
+            // Verificar se a tabela existe
+            $table_exists = buscar_um("SHOW TABLES LIKE 'efi_logs'");
+            
+            if (!$table_exists) {
+                // Criar tabela se não existir
+                executar("
+                    CREATE TABLE IF NOT EXISTS efi_logs (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        tipo VARCHAR(50) NOT NULL,
+                        mensagem TEXT NOT NULL,
+                        txid VARCHAR(35) NULL,
+                        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_tipo (tipo),
+                        INDEX idx_txid (txid),
+                        INDEX idx_criado_em (criado_em)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            }
+            
+            // Inserir log
+            executar("
+                INSERT INTO efi_logs (tipo, mensagem, txid) 
+                VALUES (?, ?, ?)
+            ", [$tipo, $mensagem, $txid]);
+            
+        } catch (Exception $db_error) {
+            // Se falhar no banco, pelo menos registrar no error_log
+            error_log("Falha ao inserir log EFI no banco: " . $db_error->getMessage());
         }
         
-        // Inserir log
-        executar_consulta("
-            INSERT INTO efi_logs (tipo, mensagem, txid) 
-            VALUES (?, ?, ?)
-        ", [$tipo, $mensagem, $txid]);
-        
     } catch (Exception $e) {
-        // Se falhar ao inserir no banco, pelo menos registrar no error_log
-        error_log("Falha ao registrar log EFI: " . $e->getMessage() . " | Log original: [{$tipo}] {$mensagem}");
+        // Se tudo falhar, registrar erro no error_log
+        error_log("Erro crítico no sistema de logs EFI: " . $e->getMessage() . " | Log original: [{$tipo}] {$mensagem}");
     }
 }
 
