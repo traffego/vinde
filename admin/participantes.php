@@ -11,6 +11,40 @@ $evento_id = $_GET['evento'] ?? null;
 $erro = '';
 $sucesso = '';
 
+// Processar exclusão via GET (com CSRF token)
+if ($acao === 'excluir' && $participante_id && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (!verificar_csrf_token($_GET['csrf_token'] ?? '')) {
+        $erro = 'Token de segurança inválido.';
+    } else {
+        try {
+            // Buscar dados do participante para o log
+            $participante_data = buscar_um("SELECT nome, status FROM participantes WHERE id = ?", [$participante_id]);
+            
+            if (!$participante_data) {
+                $erro = 'Participante não encontrado.';
+            } else {
+                // Verificar se há pagamentos associados
+                $pagamentos = contar_registros('pagamentos', ['participante_id' => $participante_id]);
+                
+                if ($pagamentos > 0 && $participante_data['status'] === 'pago') {
+                    $erro = 'Não é possível excluir este participante. Há pagamentos confirmados associados. Altere o status para cancelado primeiro.';
+                } else {
+                    if (remover_registro('participantes', ['id' => $participante_id])) {
+                        registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
+                        exibir_mensagem('Participante excluído com sucesso!', 'success');
+                        redirecionar(SITE_URL . '/admin/participantes.php');
+                    } else {
+                        $erro = 'Erro ao excluir participante.';
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Erro ao excluir participante: " . $e->getMessage());
+            $erro = 'Erro interno ao excluir participante.';
+        }
+    }
+}
+
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verificar_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -27,16 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $erro = $resultado['mensagem'];
-                }
-                break;
-                
-            case 'excluir':
-                if ($participante_id && remover_registro('participantes', ['id' => $participante_id])) {
-                    registrar_log('participante_excluido', "Participante ID: {$participante_id}");
-                    exibir_mensagem('Participante excluído com sucesso!', 'success');
-                    redirecionar(SITE_URL . '/admin/participantes.php');
-                } else {
-                    $erro = 'Erro ao excluir participante.';
                 }
                 break;
                 
@@ -451,7 +475,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                                 
                                 <a href="?acao=excluir&id=<?= $p['id'] ?>&csrf_token=<?= gerar_csrf_token() ?>" 
                                    class="btn-table delete" 
-                                   onclick="return confirm('Tem certeza que deseja excluir este participante?')">Excluir</a>
+                                   onclick="return confirmarExclusaoParticipante(this, '<?= htmlspecialchars($p['nome']) ?>')">Excluir</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -695,6 +719,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 value = value.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
             }
             this.value = value;
+        });
+    });
+});
+
+// Confirmação de exclusão para participantes
+function confirmarExclusaoParticipante(elemento, nome) {
+    const confirmacao = confirm(
+        `Tem certeza que deseja excluir o participante "${nome}"?\n\n` +
+        `Esta ação não pode ser desfeita e irá remover:\n` +
+        `• Todos os dados do participante\n` +
+        `• Histórico de pagamentos\n` +
+        `• QR codes associados\n\n` +
+        `Digite "EXCLUIR" para confirmar:`
+    );
+    
+    if (confirmacao) {
+        const confirmacaoTexto = prompt('Digite "EXCLUIR" para confirmar a exclusão:');
+        if (confirmacaoTexto === 'EXCLUIR') {
+            // Adicionar loading
+            elemento.innerHTML = '⏳ Excluindo...';
+            elemento.style.pointerEvents = 'none';
+            return true;
+        } else {
+            alert('Exclusão cancelada. O texto de confirmação não confere.');
+            return false;
+        }
+    }
+    return false;
+}
+
+// Melhorar UX das tabelas
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight da linha ao passar o mouse
+    const linhas = document.querySelectorAll('.admin-table tbody tr');
+    linhas.forEach(linha => {
+        linha.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8fafc';
+        });
+        linha.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+    
+    // Auto-submit dos filtros após 500ms de inatividade
+    const filtros = document.querySelectorAll('.admin-filters input, .admin-filters select');
+    let timeoutId;
+    
+    filtros.forEach(filtro => {
+        filtro.addEventListener('input', function() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                this.form.submit();
+            }, 500);
         });
     });
 });

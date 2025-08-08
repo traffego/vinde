@@ -10,6 +10,37 @@ $evento_id = $_GET['id'] ?? null;
 $erro = '';
 $sucesso = '';
 
+// Processar exclusão via GET (com CSRF token)
+if ($acao === 'excluir' && $evento_id && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    if (!verificar_csrf_token($_GET['csrf_token'] ?? '')) {
+        $erro = 'Token de segurança inválido.';
+    } else {
+        try {
+            // Verificar se há participantes inscritos
+            $participantes = contar_registros('participantes', ['evento_id' => $evento_id, 'status' => 'inscrito']);
+            $pagos = contar_registros('participantes', ['evento_id' => $evento_id, 'status' => 'pago']);
+            
+            if ($participantes > 0 || $pagos > 0) {
+                $erro = "Não é possível excluir este evento. Há {$participantes} participantes inscritos e {$pagos} com pagamento confirmado. Cancele as inscrições primeiro.";
+            } else {
+                // Buscar nome do evento para o log
+                $evento_nome = buscar_um("SELECT nome FROM eventos WHERE id = ?", [$evento_id])['nome'] ?? "ID: {$evento_id}";
+                
+                if (remover_registro('eventos', ['id' => $evento_id])) {
+                    registrar_log('evento_excluido', "Evento: {$evento_nome} (ID: {$evento_id})");
+                    exibir_mensagem('Evento excluído com sucesso!', 'success');
+                    redirecionar(SITE_URL . '/admin/eventos.php');
+                } else {
+                    $erro = 'Erro ao excluir evento.';
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Erro ao excluir evento: " . $e->getMessage());
+            $erro = 'Erro interno ao excluir evento.';
+        }
+    }
+}
+
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verificar_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -26,16 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $erro = $resultado['mensagem'];
-                }
-                break;
-                
-            case 'excluir':
-                if ($evento_id && remover_registro('eventos', ['id' => $evento_id])) {
-                    registrar_log('evento_excluido', "Evento ID: {$evento_id}");
-                    exibir_mensagem('Evento excluído com sucesso!', 'success');
-                    redirecionar(SITE_URL . '/admin/eventos.php');
-                } else {
-                    $erro = 'Erro ao excluir evento.';
                 }
                 break;
         }
@@ -342,8 +363,7 @@ obter_cabecalho_admin($titulo_pagina, 'eventos');
                                    class="btn-table edit">Editar</a>
                                 <a href="?acao=excluir&id=<?= $ev['id'] ?>&csrf_token=<?= gerar_csrf_token() ?>" 
                                    class="btn-table delete" 
-                                   onclick="return confirm('Tem certeza que deseja excluir este evento?')"
-                                   data-name="<?= htmlspecialchars($ev['nome']) ?>">Excluir</a>
+                                   onclick="return confirmarExclusao(this, '<?= htmlspecialchars($ev['nome']) ?>')">Excluir</a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -668,6 +688,61 @@ obter_cabecalho_admin($titulo_pagina, 'eventos');
     </script>
 
 <?php endif; ?>
+
+<script>
+// Confirmação de exclusão mais elegante
+function confirmarExclusao(elemento, nome) {
+    const confirmacao = confirm(
+        `Tem certeza que deseja excluir o evento "${nome}"?\n\n` +
+        `Esta ação não pode ser desfeita e irá remover:\n` +
+        `• O evento e todas suas informações\n` +
+        `• Todas as inscrições associadas\n` +
+        `• Histórico de pagamentos relacionados\n\n` +
+        `Digite "EXCLUIR" para confirmar:`
+    );
+    
+    if (confirmacao) {
+        const confirmacaoTexto = prompt('Digite "EXCLUIR" para confirmar a exclusão:');
+        if (confirmacaoTexto === 'EXCLUIR') {
+            // Adicionar loading
+            elemento.innerHTML = '⏳ Excluindo...';
+            elemento.style.pointerEvents = 'none';
+            return true;
+        } else {
+            alert('Exclusão cancelada. O texto de confirmação não confere.');
+            return false;
+        }
+    }
+    return false;
+}
+
+// Melhorar UX das tabelas
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight da linha ao passar o mouse
+    const linhas = document.querySelectorAll('.admin-table tbody tr');
+    linhas.forEach(linha => {
+        linha.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8fafc';
+        });
+        linha.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+    
+    // Auto-submit dos filtros após 500ms de inatividade
+    const filtros = document.querySelectorAll('.admin-filters input, .admin-filters select');
+    let timeoutId;
+    
+    filtros.forEach(filtro => {
+        filtro.addEventListener('input', function() {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                this.form.submit();
+            }, 500);
+        });
+    });
+});
+</script>
 
 <?php
 obter_rodape_admin();
