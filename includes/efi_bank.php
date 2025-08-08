@@ -119,13 +119,13 @@ function efi_obter_token() {
     
     if ($error) {
         error_log("EFI cURL Error: " . $error);
-        registrar_log('efi_auth_error', "cURL Error: " . $error);
+        registrar_log_efi('efi_auth_error', "cURL Error: " . $error);
         return false;
     }
     
     if ($httpCode !== 200) {
         error_log("EFI Auth Error HTTP {$httpCode}: " . $response);
-        registrar_log('efi_auth_error', "HTTP {$httpCode}: " . $response);
+        registrar_log_efi('efi_auth_error', "HTTP {$httpCode}: " . $response);
         return false;
     }
     
@@ -133,7 +133,7 @@ function efi_obter_token() {
     
     if (!$data || !isset($data['access_token'])) {
         error_log("EFI: Token não encontrado na resposta");
-        registrar_log('efi_auth_error', "Token não encontrado na resposta: " . $response);
+        registrar_log_efi('efi_auth_error', "Token não encontrado na resposta: " . $response);
         return false;
     }
     
@@ -141,7 +141,7 @@ function efi_obter_token() {
         error_log("EFI Debug: Token obtido com sucesso");
     }
     
-    registrar_log('efi_auth_success', "Token obtido com sucesso - Ambiente: " . ($config['sandbox'] ? 'Sandbox' : 'Produção'));
+    registrar_log_efi('efi_auth_success', "Token obtido com sucesso - Ambiente: " . ($config['sandbox'] ? 'Sandbox' : 'Produção'));
     
     return $data['access_token'];
 }
@@ -255,7 +255,7 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
     
     if ($httpCode >= 400) {
         error_log("EFI API Error HTTP {$httpCode}: " . $response);
-        registrar_log('efi_api_error', "HTTP {$httpCode} em {$endpoint}: " . $response);
+        registrar_log_efi('efi_api_error', "HTTP {$httpCode} em {$endpoint}: " . $response);
         return false;
     }
     
@@ -337,13 +337,13 @@ function efi_criar_cobranca_pix($txid, $valor, $descricao, $nome_pagador, $cpf_p
     $resposta = efi_fazer_requisicao($endpoint, 'PUT', $dados);
     
     if ($resposta) {
-        registrar_log('efi_cobranca_criada', 
+        registrar_log_efi('efi_cobranca_criada', 
             "TXID: {$txid} | Valor: R$ {$valor} | Status: " . ($resposta['status'] ?? 'N/A') . 
             " | Loc ID: " . ($resposta['loc']['id'] ?? 'N/A') .
             " | Ambiente: " . ($config['sandbox'] ? 'Sandbox' : 'Produção')
         );
     } else {
-        registrar_log('efi_cobranca_erro', "Falha ao criar cobrança - TXID: {$txid} | Valor: R$ {$valor}");
+        registrar_log_efi('efi_cobranca_erro', "Falha ao criar cobrança - TXID: {$txid} | Valor: R$ {$valor}");
     }
     
     return $resposta;
@@ -416,7 +416,7 @@ function efi_processar_baixa_automatica($txid, $participante_id) {
         $cobranca = efi_consultar_cobranca($txid);
         
         if (!$cobranca) {
-            registrar_log('efi_erro_consulta', "TXID: {$txid} não encontrado");
+            registrar_log_efi('efi_erro_consulta', "TXID: {$txid} não encontrado");
             return false;
         }
         
@@ -434,7 +434,7 @@ function efi_processar_baixa_automatica($txid, $participante_id) {
         ", [$txid, PAGAMENTO_PENDENTE]);
         
         if (!$pagamento) {
-            registrar_log('efi_erro_pagamento', "Pagamento não encontrado para TXID: {$txid}");
+            registrar_log_efi('efi_erro_pagamento', "Pagamento não encontrado para TXID: {$txid}");
             return false;
         }
         
@@ -452,7 +452,7 @@ function efi_processar_baixa_automatica($txid, $participante_id) {
             ], ['id' => $participante_id]);
             
             // Registrar log
-            registrar_log('efi_baixa_automatica', 
+            registrar_log_efi('efi_baixa_automatica', 
                 "Pagamento confirmado | TXID: {$txid} | Participante: {$pagamento['nome']} | Valor: R$ {$pagamento['valor']}"
             );
             
@@ -475,7 +475,7 @@ function efi_processar_baixa_automatica($txid, $participante_id) {
         
     } catch (Exception $e) {
         error_log("Erro na baixa automática EFI: " . $e->getMessage());
-        registrar_log('efi_erro_baixa', "Erro: " . $e->getMessage() . " | TXID: {$txid}");
+        registrar_log_efi('efi_erro_baixa', "Erro: " . $e->getMessage() . " | TXID: {$txid}");
         return false;
     }
 }
@@ -494,7 +494,7 @@ function efi_configurar_webhook($webhook_url) {
     $resposta = efi_fazer_requisicao($endpoint, 'PUT', $dados);
     
     if ($resposta) {
-        registrar_log('efi_webhook_configurado', "URL: {$webhook_url}");
+        registrar_log_efi('efi_webhook_configurado', "URL: {$webhook_url}");
         return true;
     }
     
@@ -610,7 +610,7 @@ function efi_criar_pix_completo($dados_pagamento) {
         ];
         
         // Log de sucesso
-        registrar_log('efi_pix_completo', 
+        registrar_log_efi('efi_pix_completo', 
             "PIX criado com sucesso - TXID: {$txid} | Participante: {$dados_pagamento['participante_id']} | Valor: R$ {$dados_pagamento['valor']}"
         );
         
@@ -618,7 +618,7 @@ function efi_criar_pix_completo($dados_pagamento) {
         
     } catch (Exception $e) {
         error_log("EFI: Erro ao criar PIX completo: " . $e->getMessage());
-        registrar_log('efi_pix_erro', "Erro ao criar PIX: " . $e->getMessage());
+        registrar_log_efi('efi_pix_erro', "Erro ao criar PIX: " . $e->getMessage());
         return ['erro' => 'Erro interno ao processar PIX: ' . $e->getMessage()];
     }
 }
@@ -678,12 +678,12 @@ function efi_verificar_pagamento_pix($txid) {
 }
 
 /**
- * Função utilitária para registrar logs do sistema
+ * Função utilitária para registrar logs do sistema EFI
  * @param string $tipo Tipo do log
  * @param string $mensagem Mensagem do log
  * @param string $txid TXID relacionado (opcional)
  */
-function registrar_log($tipo, $mensagem, $txid = null) {
+function registrar_log_efi($tipo, $mensagem, $txid = null) {
     try {
         // Verificar se a tabela de logs existe
         $table_exists = buscar_um("SHOW TABLES LIKE 'efi_logs'");
