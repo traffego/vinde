@@ -6,6 +6,7 @@ require_once '../includes/auth_participante.php';
 requer_login_participante();
 
 $participante = obter_participante_logado();
+$csrf_token = gerar_csrf_token();
 
 // Verificar se sistema foi migrado
 $tabela_inscricoes_existe = false;
@@ -458,9 +459,28 @@ function formatar_status_pagamento($status, $valor) {
                             </div>
                             
                             <div class="evento-actions">
-                                <button class="btn-qr" onclick="mostrarQR(<?= $evento['participante_id'] ?>, <?= $evento['evento_id'] ?>, '<?= htmlspecialchars($evento['nome']) ?>')">
-                                    📱 Ver QR Code
-                                </button>
+                                <?php
+                                $inscricaoId = $evento['inscricao_id'] ?? null;
+                                $statusInscricao = $evento['status'];
+                                $pagamentoStatus = $evento['pagamento_status'] ?? null;
+                                $valorEvento = $evento['valor'] ?? 0;
+                                ?>
+
+                                <?php if ($statusInscricao === 'aprovada' && $inscricaoId): ?>
+                                    <button class="btn-qr" onclick="mostrarQR(<?= (int)$participante['id'] ?>, <?= (int)$evento['evento_id'] ?>, '<?= htmlspecialchars($evento['nome']) ?>')">
+                                        📱 Ver QR Code
+                                    </button>
+                                    <a href="<?= SITE_URL ?>/confirmacao.php?inscricao=<?= (int)$inscricaoId ?>" class="btn-secondary" target="_blank">📄 Comprovante</a>
+                                <?php endif; ?>
+
+                                <?php if ($inscricaoId && $valorEvento > 0 && $pagamentoStatus === 'pendente' && $statusInscricao === 'pendente'): ?>
+                                    <a href="<?= SITE_URL ?>/pagamento.php?inscricao=<?= (int)$inscricaoId ?>" class="btn-secondary">💳 Pagar agora</a>
+                                <?php endif; ?>
+
+                                <?php if ($inscricaoId && $statusInscricao === 'pendente'): ?>
+                                    <button class="btn-secondary" onclick="cancelarInscricao(<?= (int)$inscricaoId ?>)">❌ Cancelar</button>
+                                <?php endif; ?>
+
                                 <a href="<?= SITE_URL ?>/evento.php?slug=<?= $evento['slug'] ?>" class="btn-secondary" target="_blank">
                                     ℹ️ Detalhes
                                 </a>
@@ -496,6 +516,7 @@ function formatar_status_pagamento($status, $valor) {
     <script>
         let qrCanvas = null;
         let currentEventName = '';
+        const CSRF_TOKEN = '<?= $csrf_token ?>';
 
         async function mostrarQR(participanteId, eventoId, eventoNome) {
             try {
@@ -560,6 +581,26 @@ function formatar_status_pagamento($status, $valor) {
                 fecharModal();
             }
         });
+
+        async function cancelarInscricao(inscricaoId) {
+            if (!confirm('Tem certeza que deseja cancelar sua inscrição?')) return;
+            try {
+                const resp = await fetch('cancelar.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inscricao_id: inscricaoId, csrf_token: CSRF_TOKEN })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    alert('Inscrição cancelada com sucesso.');
+                    location.reload();
+                } else {
+                    alert(data.message || 'Não foi possível cancelar sua inscrição.');
+                }
+            } catch (e) {
+                alert('Erro ao cancelar. Tente novamente.');
+            }
+        }
     </script>
 </body>
 </html> 
