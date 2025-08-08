@@ -87,6 +87,13 @@ function buscar_todos($sql, $params = []) {
 }
 
 /**
+ * Alias de buscar_todos para compatibilidade com código existente
+ */
+function buscar_varios($sql, $params = []) {
+    return buscar_todos($sql, $params);
+}
+
+/**
  * Insere um registro e retorna o ID
  * @param string $tabela Nome da tabela
  * @param array $dados Array associativo com os dados
