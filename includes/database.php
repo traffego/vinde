@@ -204,6 +204,22 @@ function transacao_ativa() {
 }
 
 /**
+ * Executa uma consulta SQL e retorna se foi bem-sucedida (wrapper para compatibilidade)
+ * @param string $sql Consulta SQL
+ * @param array $params Parâmetros da consulta
+ * @return bool True se executou com sucesso, false se houve erro
+ */
+function executar($sql, $params = []) {
+    try {
+        $stmt = executar_consulta($sql, $params);
+        return $stmt->rowCount() >= 0; // Retorna true se executou, mesmo que não afetou linhas
+    } catch (Exception $e) {
+        error_log("Erro na função executar(): " . $e->getMessage() . " | SQL: " . $sql);
+        return false;
+    }
+}
+
+/**
  * Fecha a conexão com o banco
  */
 function fechar_conexao() {

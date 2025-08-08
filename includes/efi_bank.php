@@ -690,7 +690,7 @@ function registrar_log_efi($tipo, $mensagem, $txid = null) {
         
         if (!$table_exists) {
             // Criar tabela se não existir
-            executar("
+            executar_consulta("
                 CREATE TABLE IF NOT EXISTS efi_logs (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     tipo VARCHAR(50) NOT NULL,
@@ -705,7 +705,7 @@ function registrar_log_efi($tipo, $mensagem, $txid = null) {
         }
         
         // Inserir log
-        executar("
+        executar_consulta("
             INSERT INTO efi_logs (tipo, mensagem, txid) 
             VALUES (?, ?, ?)
         ", [$tipo, $mensagem, $txid]);
