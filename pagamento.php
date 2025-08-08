@@ -1,16 +1,43 @@
 <?php
 require_once 'includes/init.php';
 
+// Debug mode para desenvolvimento
+$debug_mode = (AMBIENTE === 'desenvolvimento' || isset($_GET['debug']));
+
 $participante_id = $_GET['participante'] ?? '';
 $erro = '';
 $sucesso = '';
+
+// Debug inicial
+if ($debug_mode) {
+    error_log("PAGAMENTO DEBUG: Participante ID = {$participante_id}");
+}
+
+// Validar participante_id
+if (empty($participante_id) || !is_numeric($participante_id)) {
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: ID inválido");
+    }
+    obter_cabecalho('Pagamento - ID Inválido');
+    ?>
+    <div class="container">
+        <div class="error-page">
+            <h1>ID de Participante Inválido</h1>
+            <p>O ID do participante não foi fornecido ou é inválido.</p>
+            <a href="<?= SITE_URL ?>" class="btn btn-primary">Voltar aos Eventos</a>
+        </div>
+    </div>
+    <?php
+    obter_rodape();
+    exit;
+}
 
 // Buscar dados do participante e evento
 $participante = [];
 $evento = [];
 $pagamento = [];
 
-if ($participante_id) {
+try {
     $dados = buscar_um("
         SELECT p.*, e.*, 
                pag.id as pagamento_id, pag.valor, pag.status as pagamento_status,
@@ -26,16 +53,117 @@ if ($participante_id) {
         $participante = $dados;
         $evento = $dados;
         $pagamento = $dados;
+        
+        if ($debug_mode) {
+            error_log("PAGAMENTO DEBUG: Dados encontrados - Nome: {$participante['nome']}, Evento: {$evento['nome']}");
+        }
+    } else {
+        if ($debug_mode) {
+            error_log("PAGAMENTO DEBUG: Nenhum dado encontrado para participante {$participante_id}");
+        }
     }
+    
+} catch (Exception $e) {
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: Erro ao buscar dados - " . $e->getMessage());
+    }
+    $erro = 'Erro interno ao buscar dados do participante.';
 }
 
-if (!$participante || empty($pagamento)) {
-    obter_cabecalho('Pagamento não encontrado');
+// Verificar se participante foi encontrado
+if (!$participante || empty($participante['nome'])) {
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: Participante não encontrado");
+    }
+    obter_cabecalho('Participante não encontrado');
     ?>
     <div class="container">
         <div class="error-page">
-            <h1>Pagamento não encontrado</h1>
-            <p>Os dados de pagamento não foram encontrados ou são inválidos.</p>
+            <h1>Participante não encontrado</h1>
+            <p>Os dados do participante ID <?= htmlspecialchars($participante_id) ?> não foram encontrados.</p>
+            <?php if ($debug_mode): ?>
+                <div class="debug-info" style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 8px;">
+                    <h4>Debug Info:</h4>
+                    <p><strong>Participante ID:</strong> <?= htmlspecialchars($participante_id) ?></p>
+                    <p><strong>Verificar:</strong> <a href="admin/debug_participante.php?id=<?= $participante_id ?>" target="_blank">Debug Participante</a></p>
+                </div>
+            <?php endif; ?>
+            <a href="<?= SITE_URL ?>" class="btn btn-primary">Voltar aos Eventos</a>
+        </div>
+    </div>
+    <?php
+    obter_rodape();
+    exit;
+}
+
+// Verificar se evento foi encontrado
+if (!$evento || empty($evento['nome'])) {
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: Evento não encontrado para participante {$participante_id}");
+    }
+    obter_cabecalho('Evento não encontrado');
+    ?>
+    <div class="container">
+        <div class="error-page">
+            <h1>Evento não encontrado</h1>
+            <p>O evento associado ao participante não foi encontrado.</p>
+            <a href="<?= SITE_URL ?>" class="btn btn-primary">Voltar aos Eventos</a>
+        </div>
+    </div>
+    <?php
+    obter_rodape();
+    exit;
+}
+
+// Verificar/criar pagamento se necessário
+if (empty($pagamento['pagamento_id'])) {
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: Pagamento não encontrado, criando...");
+    }
+    
+    try {
+        // Criar pagamento
+        $resultado = executar("INSERT INTO pagamentos (participante_id, valor, status, criado_em) VALUES (?, ?, 'pendente', ?)", 
+            [$participante_id, $evento['valor'], date('Y-m-d H:i:s')]);
+        
+        if ($resultado) {
+            // Buscar pagamento criado
+            $pagamento_novo = buscar_um("SELECT * FROM pagamentos WHERE participante_id = ? ORDER BY id DESC LIMIT 1", [$participante_id]);
+            if ($pagamento_novo) {
+                $pagamento = array_merge($pagamento, $pagamento_novo);
+                $pagamento['pagamento_id'] = $pagamento_novo['id'];
+                $pagamento['pagamento_status'] = $pagamento_novo['status'];
+                $sucesso = 'Pagamento criado com sucesso!';
+                
+                if ($debug_mode) {
+                    error_log("PAGAMENTO DEBUG: Pagamento criado com ID: {$pagamento['pagamento_id']}");
+                }
+            }
+        }
+    } catch (Exception $e) {
+        if ($debug_mode) {
+            error_log("PAGAMENTO DEBUG: Erro ao criar pagamento - " . $e->getMessage());
+        }
+        $erro = 'Erro ao criar registro de pagamento.';
+    }
+}
+
+// Verificar se ainda não tem pagamento
+if (empty($pagamento['pagamento_id'])) {
+    obter_cabecalho('Erro no Pagamento');
+    ?>
+    <div class="container">
+        <div class="error-page">
+            <h1>Erro no Sistema de Pagamento</h1>
+            <p>Não foi possível inicializar o pagamento. Entre em contato com o suporte.</p>
+            <?php if ($debug_mode): ?>
+                <div class="debug-info" style="background: #f8f9fa; padding: 15px; margin: 15px 0; border-radius: 8px;">
+                    <h4>Debug Info:</h4>
+                    <p><strong>Erro:</strong> <?= htmlspecialchars($erro) ?></p>
+                    <p><strong>Participante:</strong> <?= htmlspecialchars($participante['nome']) ?></p>
+                    <p><strong>Evento:</strong> <?= htmlspecialchars($evento['nome']) ?></p>
+                </div>
+            <?php endif; ?>
             <a href="<?= SITE_URL ?>" class="btn btn-primary">Voltar aos Eventos</a>
         </div>
     </div>
@@ -205,6 +333,54 @@ if ($pagamento['pix_expires_at']) {
             </div>
         </div>
     </nav>
+    
+    <!-- Alertas de Erro e Sucesso -->
+    <?php if (!empty($erro) || !empty($sucesso)): ?>
+    <div class="container">
+        <div class="alert-section">
+            <?php if (!empty($erro)): ?>
+                <div class="alert alert-error">
+                    <div class="alert-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                    </div>
+                    <div class="alert-content">
+                        <h4>Erro no Sistema de Pagamento</h4>
+                        <p><?= htmlspecialchars($erro) ?></p>
+                        <?php if ($debug_mode): ?>
+                            <div class="debug-details">
+                                <h5>Debug Info:</h5>
+                                <p><strong>EFI Ativo:</strong> <?= efi_esta_ativo() ? 'Sim' : 'Não' ?></p>
+                                <p><strong>Participante ID:</strong> <?= $participante_id ?></p>
+                                <p><strong>Pagamento ID:</strong> <?= $pagamento['pagamento_id'] ?? 'N/A' ?></p>
+                                <p><strong>Debug Links:</strong> 
+                                    <a href="admin/debug_participante.php?id=<?= $participante_id ?>" target="_blank">Participante</a> | 
+                                    <a href="admin/debug_efi.php" target="_blank">EFI Bank</a> | 
+                                    <a href="admin/debug_qr_payload.php" target="_blank">QR Payload</a>
+                                </p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($sucesso)): ?>
+                <div class="alert alert-success">
+                    <div class="alert-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                        </svg>
+                    </div>
+                    <div class="alert-content">
+                        <h4>Sucesso!</h4>
+                        <p><?= htmlspecialchars($sucesso) ?></p>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="container">
         <!-- Header Premium do Pagamento -->
@@ -550,6 +726,84 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Estilos CSS específicos da página -->
 <style>
+/* Alertas */
+.alert-section {
+    margin: 20px 0;
+}
+
+.alert {
+    display: flex;
+    align-items: flex-start;
+    padding: 16px 20px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    border: 1px solid;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.alert-error {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border-color: #f87171;
+    color: #7f1d1d;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-color: #34d399;
+    color: #14532d;
+}
+
+.alert-icon {
+    margin-right: 12px;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-content h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.alert-content p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.debug-details {
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.debug-details h5 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.debug-details p {
+    margin: 4px 0;
+    font-family: monospace;
+}
+
+.debug-details a {
+    color: inherit;
+    text-decoration: underline;
+}
+
+.debug-details a:hover {
+    text-decoration: none;
+}
+
 /* Estilos da página de pagamento serão adicionados ao CSS principal */
 </style>
                     <h4>📊 Status do Pagamento</h4>
