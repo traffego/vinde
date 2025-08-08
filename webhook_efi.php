@@ -34,6 +34,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     resposta_json(false, 'Método não permitido');
 }
 
+// Exigir mTLS em produção (a validação real é feita pelo servidor web)
+if (defined('AMBIENTE') && AMBIENTE === 'producao') {
+    $mtlsOk = isset($_SERVER['SSL_CLIENT_VERIFY']) && $_SERVER['SSL_CLIENT_VERIFY'] === 'SUCCESS';
+    if (!$mtlsOk) {
+        http_response_code(400);
+        registrar_log('webhook_erro', 'mTLS ausente ou inválido ao acessar webhook', $_SERVER['SSL_CLIENT_VERIFY'] ?? 'NA');
+        resposta_json(false, 'mTLS obrigatório: certificado de cliente não verificado');
+    }
+}
+
 // Verificar se EFI está ativo e configurado
 if (!efi_esta_ativo()) {
     http_response_code(503);

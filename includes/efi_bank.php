@@ -47,6 +47,11 @@ function obter_config_efi() {
                 $certPath = $candidate2;
             }
         }
+        // Preferir PEM se existir um arquivo com mesmo basename e extensão .pem
+        $basenameNoExt = preg_replace('/\.(p12|pfx)$/i', '', $certPath);
+        if ($basenameNoExt && file_exists($basenameNoExt . '.pem')) {
+            $certPath = $basenameNoExt . '.pem';
+        }
         $config_efi['efi_certificado_path'] = $certPath;
     }
     
@@ -111,7 +116,7 @@ function efi_obter_token() {
     // Inicializar cURL conforme exemplo oficial
     $curl = curl_init();
     
-    curl_setopt_array($curl, [
+    $curlOptionsAuth = [
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST => true,
@@ -120,17 +125,36 @@ function efi_obter_token() {
             'Authorization: Basic ' . $auth,
             'Content-Type: application/json'
         ],
-        // Certificado P12 conforme documentação
-        CURLOPT_SSLCERT => $config['certificado'],
-        CURLOPT_SSLCERTPASSWD => $config['certificate_password'],
-        CURLOPT_SSLCERTTYPE => 'P12',
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 30,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => 0
-    ]);
+    ];
+
+    // Suporte a certificado em P12 ou PEM
+    $ext = strtolower(pathinfo($config['certificado'], PATHINFO_EXTENSION));
+    if ($ext === 'pem') {
+        $curlOptionsAuth[CURLOPT_SSLCERT] = $config['certificado'];
+        $curlOptionsAuth[CURLOPT_SSLCERTTYPE] = 'PEM';
+        if (!empty($config['certificate_password'])) {
+            $curlOptionsAuth[CURLOPT_SSLCERTPASSWD] = $config['certificate_password'];
+            $curlOptionsAuth[CURLOPT_SSLKEYPASSWD] = $config['certificate_password'];
+        }
+        // Opcional: se existir arquivo de chave com mesmo prefixo e extensão .key, usar
+        $possibleKey = preg_replace('/\.pem$/i', '.key', $config['certificado']);
+        if ($possibleKey && file_exists($possibleKey)) {
+            $curlOptionsAuth[CURLOPT_SSLKEY] = $possibleKey;
+        }
+    } else {
+        // Padrão anterior: P12
+        $curlOptionsAuth[CURLOPT_SSLCERT] = $config['certificado'];
+        $curlOptionsAuth[CURLOPT_SSLCERTPASSWD] = $config['certificate_password'];
+        $curlOptionsAuth[CURLOPT_SSLCERTTYPE] = 'P12';
+    }
+
+    curl_setopt_array($curl, $curlOptionsAuth);
     
     $response = curl_exec($curl);
     $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
@@ -238,9 +262,6 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_SSLCERT => $config['certificado'],
-        CURLOPT_SSLCERTPASSWD => $config['certificate_password'],
-        CURLOPT_SSLCERTTYPE => 'P12',
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
         CURLOPT_TIMEOUT => 30,
@@ -248,6 +269,25 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => 0
     ];
+
+    // Suporte a certificado em P12 ou PEM nas chamadas gerais
+    $extReq = strtolower(pathinfo($config['certificado'], PATHINFO_EXTENSION));
+    if ($extReq === 'pem') {
+        $curlOptions[CURLOPT_SSLCERT] = $config['certificado'];
+        $curlOptions[CURLOPT_SSLCERTTYPE] = 'PEM';
+        if (!empty($config['certificate_password'])) {
+            $curlOptions[CURLOPT_SSLCERTPASSWD] = $config['certificate_password'];
+            $curlOptions[CURLOPT_SSLKEYPASSWD] = $config['certificate_password'];
+        }
+        $possibleKey2 = preg_replace('/\.pem$/i', '.key', $config['certificado']);
+        if ($possibleKey2 && file_exists($possibleKey2)) {
+            $curlOptions[CURLOPT_SSLKEY] = $possibleKey2;
+        }
+    } else {
+        $curlOptions[CURLOPT_SSLCERT] = $config['certificado'];
+        $curlOptions[CURLOPT_SSLCERTPASSWD] = $config['certificate_password'];
+        $curlOptions[CURLOPT_SSLCERTTYPE] = 'P12';
+    }
     
     switch (strtoupper($method)) {
         case 'POST':
