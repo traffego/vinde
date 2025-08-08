@@ -32,9 +32,10 @@ define('UPLOAD_MAX_SIZE', 5 * 1024 * 1024); // 5MB
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/webp']);
 
 // Configurações PIX - EFI Bank
-define('PIX_CHAVE', '10ba6099-17e3-4b0a-a53a-363e17bfe295'); // Sua chave PIX cadastrada na EFI
-define('PIX_NOME', 'SAOFRANCISCODEASSIS');
-define('PIX_CIDADE', 'QUEIMADOS');
+// As chaves abaixo NÃO devem conter credenciais reais. Use as configurações salvas no banco (efi_pix_key, pix_chave) via painel.
+define('PIX_CHAVE', '');
+define('PIX_NOME', '');
+define('PIX_CIDADE', '');
 
 // As credenciais e parâmetros da EFI agora vêm da tabela `configuracoes` via funções utilitárias.
 // Não definir constantes de credenciais diretamente aqui para evitar divergência com o banco.

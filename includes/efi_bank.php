@@ -535,18 +535,31 @@ function efi_processar_baixa_automatica($txid, $participante_id) {
  * @return bool Sucesso da operação
  */
 function efi_configurar_webhook($webhook_url) {
+    // Obter configuração para acessar a chave PIX correta
+    $cfg = obter_config_efi();
+    if (!$cfg) {
+        return false;
+    }
+
+    $chavePix = trim($cfg['pix_key'] ?? '');
+    if ($chavePix === '') {
+        registrar_log_efi('efi_webhook_erro', 'Chave PIX não configurada');
+        return false;
+    }
+
     $dados = [
         'webhookUrl' => $webhook_url
     ];
-    
-    $endpoint = '/v2/webhook/pix';
+
+    // Endpoint correto para configuração de webhook na Efí é por chave PIX
+    $endpoint = '/v2/webhook/' . rawurlencode($chavePix);
     $resposta = efi_fazer_requisicao($endpoint, 'PUT', $dados);
-    
+
     if ($resposta) {
-        registrar_log_efi('efi_webhook_configurado', "URL: {$webhook_url}");
+        registrar_log_efi('efi_webhook_configurado', "Chave: {$chavePix} | URL: {$webhook_url}");
         return true;
     }
-    
+
     return false;
 }
 
@@ -561,6 +574,10 @@ function efi_registrar_webhook_configurado() {
     $url = $cfg['webhook_url'] ?? '';
     if (empty($url) || stripos($url, 'http') !== 0) {
         return ['sucesso' => false, 'mensagem' => 'URL do webhook inválida. Configure a chave efi_webhook_url com a URL completa (https://...)'];
+    }
+    $chavePix = trim($cfg['pix_key'] ?? '');
+    if ($chavePix === '') {
+        return ['sucesso' => false, 'mensagem' => 'Chave PIX não configurada. Defina `efi_pix_key` nas configurações.'];
     }
     $ok = efi_configurar_webhook($url);
     if ($ok) {
