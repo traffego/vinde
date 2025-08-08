@@ -63,7 +63,7 @@ function gerar_payload_pix($chave_pix, $valor, $nome_recebedor, $cidade, $descri
     $payload .= formatarCampo('00', '01');
     
     // Point of Initiation Method: 11 = estático (copia e cola), 12 = dinâmico (via API)
-    // Para o modo simples (sem API EFI), usamos 11
+    // Atenção: em produção com EFI, não usar payload estático gerado localmente
     $payload .= formatarCampo('01', '11');
     
     // Merchant Account Information

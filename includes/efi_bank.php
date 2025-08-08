@@ -569,7 +569,7 @@ function efi_testar_configuracao() {
  * @return array|false Resultado completo ou false em erro
  */
 function efi_criar_pix_completo($dados_pagamento) {
-    // Verificar se EFI está configurado e ativo
+    // Verificar se EFI está configurado e ativo (obrigatório em produção)
     if (!efi_esta_ativo()) {
         return ['erro' => 'EFI Bank não está ativo ou configurado'];
     }
@@ -628,35 +628,9 @@ function efi_criar_pix_completo($dados_pagamento) {
                          (strpos($payload_pix, '00020101') === 0 || strpos($payload_pix, '00020126') === 0) &&
                          strpos($payload_pix, 'BR.GOV.BCB.PIX') !== false;
         
-        // Se o payload da EFI Bank não for válido, tentar gerar PIX simples como fallback
+        // Sem fallback local: em produção exigimos payload vindo da EFI
         if (!$payload_valido) {
-            error_log("EFI: Payload PIX inválido, tentando fallback PIX simples");
-            registrar_log_efi('efi_payload_invalido', "Payload EFI inválido, gerando fallback - TXID: {$txid}");
-            
-            // Obter configurações PIX simples
-            $config_pix = obter_configuracoes_pix();
-            
-            // Se não tiver configurações PIX básicas, configurar automaticamente
-            if (empty($config_pix['pix_chave'])) {
-                efi_configurar_pix_basico();
-                $config_pix = obter_configuracoes_pix(); // Recarregar configurações
-            }
-            
-            if (!empty($config_pix['pix_chave']) && function_exists('gerar_payload_pix')) {
-                $payload_fallback = gerar_payload_pix(
-                    $config_pix['pix_chave'],
-                    $dados_pagamento['valor'],
-                    $config_pix['pix_nome'] ?? 'VINDE',
-                    $config_pix['pix_cidade'] ?? 'SAO PAULO',
-                    $dados_pagamento['descricao'],
-                    substr($txid, 0, 25) // TXID para PIX simples pode ser menor
-                );
-                
-                if (!empty($payload_fallback)) {
-                    $payload_pix = $payload_fallback;
-                    registrar_log_efi('efi_fallback_usado', "PIX simples usado como fallback - TXID: {$txid}");
-                }
-            }
+            return ['erro' => 'Payload do QR Code não retornado pela EFI'];
         }
         
         // Calcular data de expiração
