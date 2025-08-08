@@ -463,7 +463,14 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     <div class="qr-code-container">
                         <img src="<?= htmlspecialchars($pagamento['pix_qrcode_url']) ?>" 
                              alt="QR Code PIX" 
-                             id="qr-code-img">
+                             id="qr-code-img"
+                             onerror="document.getElementById('qr-code-img').style.display='none';document.getElementById('qr-canvas-pix').style.display='block';gerarQrPixCanvas();">
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
+                    <div class="qr-code-container" style="display: <?= empty($pagamento['pix_qrcode_url']) ? 'inline-block' : 'none' ?>;" id="qr-canvas-wrapper">
+                        <canvas id="qr-canvas-pix"></canvas>
                     </div>
                 <?php endif; ?>
 
@@ -473,7 +480,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                         <div class="pix-code" id="pix-code">
                             <?= htmlspecialchars($pagamento['pix_qrcode_data']) ?>
                         </div>
-                        <button type="button" class="btn-copiar" onclick="copiarPix()">
+                        <button type="button" class="btn-copiar" onclick="copiarPix(this)">
                             📋 Copiar Código PIX
                         </button>
                     </div>
@@ -546,6 +553,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 // Timer de expiração
 <?php if ($tempo_expiracao !== null): ?>
@@ -570,20 +578,37 @@ function atualizarTimer() {
 setInterval(atualizarTimer, 1000);
 <?php endif; ?>
 
-// Função para copiar código PIX
-function copiarPix() {
-    const pixCode = document.getElementById('pix-code').textContent;
-    navigator.clipboard.writeText(pixCode).then(function() {
-        const btn = event.target;
-        const textoOriginal = btn.textContent;
-        btn.textContent = '✅ Copiado!';
-        btn.classList.add('copiado');
-        
-        setTimeout(function() {
-            btn.textContent = textoOriginal;
-            btn.classList.remove('copiado');
-        }, 2000);
-    });
+// Função para copiar código PIX (com fallback)
+function copiarPix(btn) {
+    const pixEl = document.getElementById('pix-code');
+    const pixCode = pixEl ? (pixEl.textContent || pixEl.innerText) : '';
+    if (!pixCode) return;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pixCode).then(() => feedbackCopiado(btn));
+    } else {
+        const area = document.createElement('textarea');
+        area.value = pixCode;
+        area.setAttribute('readonly', '');
+        area.style.position = 'absolute';
+        area.style.left = '-9999px';
+        document.body.appendChild(area);
+        area.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(area);
+        feedbackCopiado(btn);
+    }
+}
+
+function feedbackCopiado(btn) {
+    if (!btn) return;
+    const textoOriginal = btn.textContent;
+    btn.textContent = '✅ Copiado!';
+    btn.classList.add('copiado');
+    setTimeout(function() {
+        btn.textContent = textoOriginal;
+        btn.classList.remove('copiado');
+    }, 2000);
 }
 
 // Função para verificar status do pagamento
@@ -628,6 +653,30 @@ function verificarPagamento() {
 setInterval(function() {
     verificarPagamento();
 }, 30000);
+
+// Geração local do QR Code PIX a partir do payload
+function gerarQrPixCanvas() {
+    const canvas = document.getElementById('qr-canvas-pix');
+    if (!canvas) return;
+    const payload = `<?= isset($pagamento['pix_qrcode_data']) ? addslashes($pagamento['pix_qrcode_data']) : '' ?>`;
+    if (!payload) return;
+    QRCode.toCanvas(canvas, payload, {
+        width: 250,
+        margin: 2,
+        color: { dark: '#000000', light: '#FFFFFF' }
+    }, function(err){ /* noop */ });
+}
+
+// Se não houver imagem de QR ou estiver oculta, desenhar o canvas
+document.addEventListener('DOMContentLoaded', function() {
+    const img = document.getElementById('qr-code-img');
+    const shouldDraw = !img || img.style.display === 'none';
+    if (shouldDraw) {
+        const wrapper = document.getElementById('qr-canvas-wrapper');
+        if (wrapper) wrapper.style.display = 'inline-block';
+        gerarQrPixCanvas();
+    }
+});
 </script>
 
 <?php obter_rodape(); ?> 
