@@ -85,23 +85,24 @@ function debug_log($message, $category = 'general') {
 /**
  * Debug dump condicional
  */
-function debug_dump($var, $label = '', $die = false) {
+function debug_dump($var, $label = '') {
     if (!is_debug_enabled()) {
         return;
     }
     
-    echo "<div style='background: #f1f1f1; border: 1px solid #ddd; padding: 10px; margin: 10px 0; font-family: monospace;'>";
+    echo "<pre style='background:#f8f9fa;border:1px solid #dee2e6;padding:15px;margin:10px 0;border-radius:5px;'>";
     if ($label) {
-        echo "<strong>DEBUG - {$label}:</strong><br>";
+        echo "<strong>{$label}:</strong>\n";
     }
-    echo "<pre>";
     var_dump($var);
     echo "</pre>";
-    echo "</div>";
-    
-    if ($die) {
-        die();
-    }
+}
+
+// Aplicar configurações de debug se habilitado
+if (is_debug_enabled() && defined('SHOW_PHP_ERRORS') && SHOW_PHP_ERRORS) {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
 }
 
 ?> 
