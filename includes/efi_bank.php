@@ -627,10 +627,17 @@ function efi_criar_pix_completo($dados_pagamento) {
         
         // Verificar se o payload PIX é válido e preparar a imagem do QR (sempre base64 da EFI)
         $payload_pix = $qrcode['qrcode'] ?? '';
-        if (empty($qrcode['imagemQrcode'])) {
+        $imagem_qrcode = $qrcode['imagemQrcode'] ?? '';
+        $imagem_qrcode = is_string($imagem_qrcode) ? preg_replace('/\s+/', '', trim($imagem_qrcode)) : '';
+        if (empty($imagem_qrcode)) {
             return ['erro' => 'Imagem do QR Code (base64) não retornada pela EFI'];
         }
-        $qr_url = 'data:image/png;base64,' . $qrcode['imagemQrcode'];
+        // Evitar prefixo duplicado (algumas respostas já vêm com data:image/png;base64,)
+        if (strpos($imagem_qrcode, 'data:image') === 0) {
+            $qr_url = $imagem_qrcode;
+        } else {
+            $qr_url = 'data:image/png;base64,' . $imagem_qrcode;
+        }
         
         // Validar se o payload PIX está correto
         $payload_valido = !empty($payload_pix) && 

@@ -1,11 +1,11 @@
 <?php
-require_once 'includes/init.php';
-require_once 'includes/auth_participante.php';
+    require_once 'includes/init.php';
+    require_once 'includes/auth_participante.php';
 
 // Debug mode para desenvolvimento
 $debug_mode = is_debug_enabled() || isset($_GET['debug']);
 
-$inscricao_id = $_GET['inscricao'] ?? '';
+    $inscricao_id = $_GET['inscricao'] ?? '';
 $erro = '';
 $sucesso = '';
 $novo_pix_gerado = false;
@@ -16,7 +16,7 @@ if ($debug_mode) {
 }
 
 // Validar inscricao_id
-if (empty($inscricao_id) || !is_numeric($inscricao_id)) {
+    if (empty($inscricao_id) || !is_numeric($inscricao_id)) {
     if ($debug_mode) {
         error_log("PAGAMENTO DEBUG: ID de inscrição inválido");
     }
@@ -31,16 +31,16 @@ if (empty($inscricao_id) || !is_numeric($inscricao_id)) {
     </div>
     <?php
     obter_rodape();
-    exit;
-}
+        exit;
+    }
 
 // Verificar se usuário está logado
 if (!participante_esta_logado()) {
     redirecionar(SITE_URL . '/participante/login.php');
 }
 
-$participante_logado = obter_participante_logado();
-
+    $participante_logado = obter_participante_logado();
+    
 // Buscar dados da inscrição, participante, evento e pagamento
 $inscricao = [];
 $participante = [];
@@ -110,7 +110,7 @@ try {
         if ($debug_mode) {
         error_log("PAGAMENTO DEBUG: Dados encontrados - Inscrição: {$inscricao['id']}, Status: {$inscricao['status']}, Pagamento: {$pagamento['status']}");
     }
-    
+
 } catch (Exception $e) {
     if ($debug_mode) {
         error_log("PAGAMENTO DEBUG: Erro ao buscar dados - " . $e->getMessage());
@@ -258,7 +258,7 @@ if ($deve_gerar_pix) {
             error_log("ERRO CRÍTICO: EFI Bank falhou ao gerar PIX - TXID: {$txid} | Valor: R$ {$valor}");
             $erro = "Erro ao gerar PIX. Tente novamente ou entre em contato com o suporte.";
         }
-    } else {
+            } else {
         // Log detalhado do motivo de não usar EFI
         if ($debug_mode) {
             if (!$efi_ativo) {
@@ -332,7 +332,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                     <div class="qr-code-container">
                         <?php if (!empty($pagamento['pix_qrcode_url'])): ?>
                             <img 
-                                src="<?= $pagamento['pix_qrcode_url'] ?>" 
+                                src="<?= strpos($pagamento['pix_qrcode_url'], 'data:image') === 0 ? $pagamento['pix_qrcode_url'] : 'data:image/png;base64,' . preg_replace('/\s+/', '', $pagamento['pix_qrcode_url']) ?>"
                                 alt="QR Code PIX" 
                                 id="qr-code-img"
                                 width="260" height="260"
@@ -465,7 +465,7 @@ window.PIX_PAYLOAD = '<?= isset($pagamento['pix_qrcode_data']) ? addslashes($pag
 <?php if ($tempo_expiracao !== null): ?>
 window.TEMPO_EXPIRACAO = <?= $tempo_expiracao ?>;
 <?php endif; ?>
-</script>
+    </script>
 <script src="<?= SITE_URL ?>/assets/js/pagamento.js"></script>
 
 <?php obter_rodape(); ?>
