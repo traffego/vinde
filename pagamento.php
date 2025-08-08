@@ -5,6 +5,11 @@
 // Debug mode para desenvolvimento
 $debug_mode = is_debug_enabled() || isset($_GET['debug']);
 
+// Evitar cache para página de pagamento (gera dados dinâmicos)
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+
     $inscricao_id = $_GET['inscricao'] ?? '';
 $erro = '';
 $sucesso = '';
@@ -294,7 +299,7 @@ if ($debug_mode) {
 obter_cabecalho('Pagamento - ' . $evento['nome']);
 ?>
 
-<link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/pagamento.css">
+<link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/pagamento.css?v=<?= urlencode(SISTEMA_VERSAO) ?>">
 
 <main class="pagamento-container">
     <div class="pagamento-header">
@@ -455,7 +460,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js?v=1.5.3"></script>
 <script>
 // Configurações globais para o JavaScript
 window.SITE_URL = '<?= SITE_URL ?>';
@@ -466,6 +471,6 @@ window.PIX_PAYLOAD = '<?= isset($pagamento['pix_qrcode_data']) ? addslashes($pag
 window.TEMPO_EXPIRACAO = <?= $tempo_expiracao ?>;
 <?php endif; ?>
     </script>
-<script src="<?= SITE_URL ?>/assets/js/pagamento.js"></script>
+<script src="<?= SITE_URL ?>/assets/js/pagamento.js?v=<?= urlencode(SISTEMA_VERSAO) ?>"></script>
 
 <?php obter_rodape(); ?>
