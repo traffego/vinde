@@ -72,6 +72,12 @@ foreach ($includes_necessarios as $file) {
 echo "<h3>🔧 Teste de Carregamento dos Includes</h3>";
 try {
     ob_start();
+    
+    // Definir constante do sistema ANTES de carregar qualquer arquivo
+    if (!defined('SISTEMA_INSCRICOES')) {
+        define('SISTEMA_INSCRICOES', true);
+    }
+    
     include_once __DIR__ . '/includes/config.php';
     $config_ok = true;
     $config_error = '';
@@ -164,7 +170,7 @@ if ($config_ok) {
         ob_start();
         
         // Simular carregamento do sistema sem output
-        define('SISTEMA_INSCRICOES', true);
+        // (SISTEMA_INSCRICOES já foi definido acima)
         
         // Testar includes um por um
         $init_steps = [

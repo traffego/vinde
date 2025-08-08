@@ -29,6 +29,11 @@ echo "<!DOCTYPE html>
 try {
     echo "<div class='info'>🔄 Iniciando testes do sistema...</div>";
     
+    // Definir constante do sistema ANTES de carregar qualquer arquivo
+    if (!defined('SISTEMA_INSCRICOES')) {
+        define('SISTEMA_INSCRICOES', true);
+    }
+    
     // Teste 1: Carregar configurações
     echo "<h3>1. Carregando configurações...</h3>";
     require_once __DIR__ . '/includes/config.php';
@@ -62,7 +67,6 @@ try {
     
     // Teste 6: Carregar sistema completo
     echo "<h3>6. Carregando sistema completo...</h3>";
-    define('SISTEMA_INSCRICOES', true);
     require_once __DIR__ . '/includes/init.php';
     echo "<div class='success'>✅ Sistema carregado completamente</div>";
     
