@@ -158,13 +158,25 @@ if ($evento['valor'] <= 0) {
     redirecionar(SITE_URL . '/confirmacao.php?inscricao=' . $inscricao_id);
 }
 
-// Processar geração/renovação de PIX se necessário
-if (empty($pagamento['pix_qrcode_data']) || 
-    ($pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) < time())) {
+// Processar geração/renovação de PIX sempre que status não for pago
+// Isso garante que sempre há um PIX válido e atualizado disponível
+$deve_gerar_pix = ($pagamento['status'] !== 'pago') && (
+    empty($pagamento['pix_qrcode_data']) || 
+    ($pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) < time()) ||
+    true // Sempre gerar novo PIX quando não está pago (conforme solicitado)
+);
+
+if ($deve_gerar_pix) {
     
-    // Gerar novo PIX
-    $txid = $pagamento['pix_txid'] ?: 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
+    // Gerar novo PIX sempre com TXID único
+    $timestamp = date('YmdHis');
+    $random_suffix = strtoupper(substr(md5(uniqid()), 0, 4)); // 4 caracteres aleatórios
+    $txid = 'VINDE' . $timestamp . str_pad($inscricao_id, 4, '0', STR_PAD_LEFT) . $random_suffix;
     $valor = $evento['valor'];
+    
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: Gerando novo PIX - TXID: {$txid} | Valor: R$ {$valor}");
+    }
     
     // Verificar se EFI Bank está ativo (configurações vindas do banco)
     $efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
@@ -190,15 +202,72 @@ if (empty($pagamento['pix_qrcode_data']) ||
                 'pix_loc_id' => $resultado_pix['pix_loc_id'] ?? null,
                 'pix_qrcode_data' => $resultado_pix['pix_qrcode_data'] ?? null,
                 'pix_qrcode_url' => $resultado_pix['pix_qrcode_url'] ?? null,
-                'pix_expires_at' => $resultado_pix['pix_expires_at'] ?? date('Y-m-d H:i:s', time() + 3600)
+                'pix_expires_at' => $resultado_pix['pix_expires_at'] ?? date('Y-m-d H:i:s', time() + 3600),
+                'status' => 'pendente', // Garantir que status seja pendente para novo PIX
+                'atualizado_em' => date('Y-m-d H:i:s')
             ];
 
-            atualizar_registro('pagamentos', $dados_pagamento, ['id' => $pagamento['id']]);
+            // Atualizar tabela de pagamentos
+            $sucesso_pagamento = atualizar_registro('pagamentos', $dados_pagamento, ['id' => $pagamento['id']]);
+            
+            // Atualizar tabela de inscrições conforme solicitado
+            if ($sucesso_pagamento) {
+                $dados_inscricao = [
+                    'status' => 'pendente', // Status pendente até confirmação do pagamento
+                    'atualizado_em' => date('Y-m-d H:i:s')
+                ];
+                
+                atualizar_registro('inscricoes', $dados_inscricao, ['id' => $inscricao_id]);
+                
+                if ($debug_mode) {
+                    error_log("PAGAMENTO DEBUG: Dados atualizados - Pagamento ID: {$pagamento['id']}, Inscrição ID: {$inscricao_id}");
+                }
+            }
+            
             $pagamento = array_merge($pagamento, $dados_pagamento);
+            
+            // Definir variável para mostrar mensagem de novo PIX gerado
+            $novo_pix_gerado = true;
+            
+            if ($debug_mode) {
+                error_log("PAGAMENTO DEBUG: PIX gerado com sucesso - Payload: " . substr($resultado_pix['pix_qrcode_data'] ?? '', 0, 50) . "...");
+            }
+        } else {
+            if ($debug_mode) {
+                error_log("PAGAMENTO DEBUG: Falha ao gerar PIX via EFI Bank");
+            }
+            
+            // Se falhou na EFI, tentar gerar PIX simples como fallback
+            if (function_exists('criar_cobranca_pix_simples')) {
+                $pix_simples = criar_cobranca_pix_simples(
+                    $participante_logado['id'],
+                    $valor,
+                    sprintf('Inscricao %s - %s', $evento['nome'], $participante['nome'])
+                );
+                
+                if ($pix_simples) {
+                    $dados_pagamento_simples = [
+                        'pix_txid' => $pix_simples['txid'],
+                        'pix_qrcode_data' => $pix_simples['payload'],
+                        'pix_qrcode_url' => $pix_simples['qrcode_url'],
+                        'pix_expires_at' => $pix_simples['expires_at'],
+                        'status' => 'pendente',
+                        'atualizado_em' => date('Y-m-d H:i:s')
+                    ];
+                    
+                    atualizar_registro('pagamentos', $dados_pagamento_simples, ['id' => $pagamento['id']]);
+                    atualizar_registro('inscricoes', ['status' => 'pendente', 'atualizado_em' => date('Y-m-d H:i:s')], ['id' => $inscricao_id]);
+                    
+                    $pagamento = array_merge($pagamento, $dados_pagamento_simples);
+                    $novo_pix_gerado = true;
+                    
+                    if ($debug_mode) {
+                        error_log("PAGAMENTO DEBUG: PIX simples gerado como fallback - TXID: {$pix_simples['txid']}");
+                    }
+                }
+            }
         }
     }
-    
-    // Sem fallback para PIX simples: exigimos payload EFI válido para produção
 }
 
 // Calcular tempo restante para expiração
@@ -482,9 +551,16 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
         </div>
 
     <?php if ($erro): ?>
-                <div class="alert alert-error">
+        <div class="alert alert-error">
             <?= htmlspecialchars($erro) ?>
-    </div>
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($novo_pix_gerado) && $novo_pix_gerado): ?>
+        <div class="alert alert-success" style="margin: 20px 0; padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; color: #155724;">
+            <strong>✅ Novo PIX Gerado!</strong><br>
+            <small>Um novo código PIX foi criado especialmente para esta sessão. Utilize o QR Code ou código abaixo para realizar o pagamento.</small>
+        </div>
     <?php endif; ?>
 
     <div class="pagamento-layout">
@@ -525,11 +601,16 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                         <?php if ($debug_mode): ?>
                         <div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 11px;">
                             <strong>Debug Info:</strong><br>
+                            <?php if (isset($novo_pix_gerado) && $novo_pix_gerado): ?>
+                                <span style="color: #28a745; font-weight: bold;">🔄 NOVO PIX GERADO NESTA SESSÃO</span><br>
+                            <?php endif; ?>
                             Tamanho: <?= strlen(trim($pagamento['pix_qrcode_data'])) ?> caracteres<br>
                             Início: <?= htmlspecialchars(substr(trim($pagamento['pix_qrcode_data']), 0, 20)) ?>...<br>
                             Final: ...<?= htmlspecialchars(substr(trim($pagamento['pix_qrcode_data']), -20)) ?><br>
                             TXID: <?= htmlspecialchars($pagamento['pix_txid'] ?? 'N/A') ?><br>
-                            Expira em: <?= $pagamento['pix_expires_at'] ? date('d/m/Y H:i:s', strtotime($pagamento['pix_expires_at'])) : 'N/A' ?>
+                            Expira em: <?= $pagamento['pix_expires_at'] ? date('d/m/Y H:i:s', strtotime($pagamento['pix_expires_at'])) : 'N/A' ?><br>
+                            Status Pagamento: <?= htmlspecialchars($pagamento['status'] ?? 'N/A') ?><br>
+                            Status Inscrição: <?= htmlspecialchars($inscricao['status'] ?? 'N/A') ?>
                         </div>
                         <?php endif; ?>
                         
