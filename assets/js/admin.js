@@ -18,6 +18,7 @@ function initializeAdminPanel() {
     initializeAdminFilters();
     initializeAdminModals();
     initializeAdminCharts();
+    initializeCacheBtn();
     
     console.log('Vinde Admin Panel - Initialized');
 }
@@ -648,4 +649,260 @@ const AdminUtils = {
 };
 
 // Expor utilitários globalmente
-window.AdminUtils = AdminUtils; 
+window.AdminUtils = AdminUtils;
+
+/**
+ * Inicializar funcionalidade do botão de cache
+ */
+function initializeCacheBtn() {
+    // Adicionar funcionalidade AJAX ao botão flutuante
+    const cacheFloatBtn = document.querySelector('.cache-float-btn');
+    if (cacheFloatBtn) {
+        cacheFloatBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            clearCacheAjax();
+        });
+    }
+    
+    // Adicionar funcionalidade ao formulário da página de cache
+    const cacheForm = document.getElementById('cache-form');
+    if (cacheForm) {
+        cacheForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearCacheAjax();
+        });
+    }
+}
+
+/**
+ * Limpar cache via AJAX
+ */
+function clearCacheAjax() {
+    // Feedback visual imediato
+    showCacheLoading();
+    
+    // Fazer requisição AJAX
+    const baseUrl = window.location.pathname.includes('/admin/') ? 
+        window.location.origin + window.location.pathname.split('/admin/')[0] + '/admin/limpar_cache.php' :
+        window.location.origin + '/admin/limpar_cache.php';
+    
+    fetch(baseUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'limpar_cache=1&ajax=1'
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideCacheLoading();
+        showCacheResult(data);
+        
+        // Forçar reload de CSS/JS após 1 segundo
+        setTimeout(() => {
+            reloadPageAssets();
+        }, 1000);
+    })
+    .catch(error => {
+        hideCacheLoading();
+        showCacheError('Erro ao limpar cache: ' + error.message);
+    });
+}
+
+/**
+ * Mostrar loading do cache
+ */
+function showCacheLoading() {
+    const floatBtn = document.querySelector('.cache-float-btn');
+    const formBtn = document.getElementById('btn-limpar');
+    
+    if (floatBtn) {
+        floatBtn.innerHTML = '⏳';
+        floatBtn.style.animation = 'spin 1s linear infinite';
+        floatBtn.style.pointerEvents = 'none';
+    }
+    
+    if (formBtn) {
+        formBtn.innerHTML = '🔄 Limpando...';
+        formBtn.disabled = true;
+        formBtn.classList.add('loading');
+    }
+    
+    // Adicionar animação de spin
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+/**
+ * Esconder loading do cache
+ */
+function hideCacheLoading() {
+    const floatBtn = document.querySelector('.cache-float-btn');
+    const formBtn = document.getElementById('btn-limpar');
+    
+    if (floatBtn) {
+        floatBtn.innerHTML = '🧹';
+        floatBtn.style.animation = 'pulse-cache 3s infinite';
+        floatBtn.style.pointerEvents = 'auto';
+    }
+    
+    if (formBtn) {
+        formBtn.innerHTML = '🧹 Limpar Cache Agora';
+        formBtn.disabled = false;
+        formBtn.classList.remove('loading');
+    }
+}
+
+/**
+ * Mostrar resultado da limpeza
+ */
+function showCacheResult(data) {
+    const message = data.sucesso ? 
+        `✅ Cache limpo com sucesso!\n\n${data.acoes.join('\n')}` :
+        `❌ Erro: ${data.mensagem}`;
+    
+    // Toast notification
+    showToast(message, data.sucesso ? 'success' : 'error');
+    
+    // Se estiver na página de cache, atualizar o conteúdo
+    const acoesDiv = document.querySelector('.acoes-executadas');
+    if (acoesDiv && data.acoes) {
+        acoesDiv.innerHTML = `
+            <h3>Ações executadas:</h3>
+            <ul>
+                ${data.acoes.map(acao => `<li>${acao}</li>`).join('')}
+            </ul>
+        `;
+        acoesDiv.style.display = 'block';
+    }
+}
+
+/**
+ * Mostrar erro do cache
+ */
+function showCacheError(message) {
+    showToast(`❌ ${message}`, 'error');
+}
+
+/**
+ * Forçar reload de assets (CSS/JS)
+ */
+function reloadPageAssets() {
+    const timestamp = new Date().getTime();
+    
+    // Recarregar CSS
+    const cssLinks = document.querySelectorAll('link[rel="stylesheet"]');
+    cssLinks.forEach(link => {
+        const href = link.href.split('?')[0];
+        link.href = `${href}?v=${timestamp}`;
+    });
+    
+    // Recarregar JS (opcional - pode causar problemas)
+    // const jsScripts = document.querySelectorAll('script[src]');
+    // jsScripts.forEach(script => {
+    //     const newScript = document.createElement('script');
+    //     const src = script.src.split('?')[0];
+    //     newScript.src = `${src}?v=${timestamp}`;
+    //     script.parentNode.replaceChild(newScript, script);
+    // });
+}
+
+/**
+ * Mostrar toast notification
+ */
+function showToast(message, type = 'info') {
+    // Remover toasts existentes
+    const existingToasts = document.querySelectorAll('.cache-toast');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Criar novo toast
+    const toast = document.createElement('div');
+    toast.className = `cache-toast cache-toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <pre>${message}</pre>
+            <button class="toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // Adicionar estilos inline
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        max-width: 400px;
+        background: ${type === 'success' ? '#f0f9f4' : '#fef2f2'};
+        border: 1px solid ${type === 'success' ? '#86efac' : '#fca5a5'};
+        color: ${type === 'success' ? '#065f46' : '#dc2626'};
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    // Adicionar ao DOM
+    document.body.appendChild(toast);
+    
+    // Remover automaticamente após 5 segundos
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
+    
+    // Adicionar animações CSS se não existirem
+    if (!document.querySelector('#toast-animations')) {
+        const style = document.createElement('style');
+        style.id = 'toast-animations';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+            .toast-content {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .toast-content pre {
+                margin: 0;
+                font-family: inherit;
+                white-space: pre-wrap;
+                font-size: 13px;
+                line-height: 1.4;
+            }
+            .toast-close {
+                background: none;
+                border: none;
+                font-size: 18px;
+                cursor: pointer;
+                padding: 0;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                opacity: 0.7;
+            }
+            .toast-close:hover {
+                opacity: 1;
+                background: rgba(0,0,0,0.1);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+} 

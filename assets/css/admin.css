@@ -3,6 +3,54 @@
    Estilos específicos para o painel administrativo
    ========================================= */
 
+/* Botão flutuante de cache - Global */
+.cache-float-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: white;
+    font-size: 1.5rem;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: pulse-cache 3s infinite;
+}
+
+.cache-float-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+    color: white;
+    text-decoration: none;
+    animation: none;
+}
+
+@keyframes pulse-cache {
+    0% { 
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        transform: scale(1);
+    }
+    50% { 
+        box-shadow: 0 4px 20px rgba(220, 38, 38, 0.6);
+        transform: scale(1.05);
+    }
+    100% { 
+        box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        transform: scale(1);
+    }
+}
+
+.cache-float-btn:active {
+    transform: scale(0.95);
+}
+
 /* === LAYOUT ADMIN === */
 .admin-body {
     margin: 0;

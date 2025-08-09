@@ -228,6 +228,12 @@ obter_cabecalho_admin('Dashboard', 'dashboard');
                 <h3>Configurações</h3>
                 <p>Configurar sistema e PIX</p>
             </a>
+            
+            <a href="<?= SITE_URL ?>/admin/limpar_cache.php" class="action-card cache-action">
+                <div class="action-icon">🧹</div>
+                <h3>Limpar Cache</h3>
+                <p>Force atualizações estéticas</p>
+            </a>
         </div>
     </div>
 </div>
@@ -475,6 +481,76 @@ obter_cabecalho_admin('Dashboard', 'dashboard');
         flex-direction: column;
         gap: var(--espaco-sm);
     }
+}
+
+/* Estilo específico para ação de cache */
+.cache-action {
+    border: 2px solid #dc2626 !important;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+}
+
+.cache-action:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.25) !important;
+    border-color: #b91c1c !important;
+}
+
+.cache-action .action-icon {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.cache-action h3 {
+    color: #dc2626 !important;
+}
+
+.cache-action p {
+    color: #7f1d1d !important;
+}
+
+/* Botão flutuante de cache */
+.cache-float-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    color: white;
+    font-size: 1.5rem;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: pulse 2s infinite;
+}
+
+.cache-float-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+    color: white;
+    text-decoration: none;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); }
+    50% { box-shadow: 0 4px 20px rgba(220, 38, 38, 0.6); }
+    100% { box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); }
+}
+
+.cache-float-btn:active {
+    transform: scale(0.95);
 }
 </style>
 

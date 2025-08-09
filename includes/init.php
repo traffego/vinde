@@ -184,6 +184,7 @@ function obter_cabecalho_admin($titulo = 'Painel Administrativo', $pagina = 'das
                     <li><a href='" . SITE_URL . "/admin/relatorios.php' class='nav-link'><i class='icon-chart'></i> Relatórios</a></li>
                     <li><a href='" . SITE_URL . "/admin/efi_config.php' class='nav-link'><i class='icon-payment'></i> API Pagamento</a></li>
                     <li><a href='" . SITE_URL . "/admin/configuracoes.php' class='nav-link'><i class='icon-settings'></i> Configurações</a></li>
+                    <li><a href='" . SITE_URL . "/admin/limpar_cache.php' class='nav-link'><i class='icon-refresh'></i> Limpar Cache</a></li>
                     <li><a href='" . SITE_URL . "/admin/logs.php' class='nav-link'><i class='icon-log'></i> Logs</a></li>
                 </ul>
             </nav>
@@ -226,6 +227,9 @@ function obter_rodape_admin() {
     echo "</main>
         </div>
     </div>
+    
+    <!-- Botão flutuante para limpeza de cache -->
+    <a href='" . SITE_URL . "/admin/limpar_cache.php' class='cache-float-btn' title='Limpar Cache'>🧹</a>
     
     <script src='" . SITE_URL . "/assets/js/main.js'></script>
     <script src='" . SITE_URL . "/assets/js/admin.js'></script>
