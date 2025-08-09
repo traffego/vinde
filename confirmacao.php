@@ -429,13 +429,13 @@ obter_cabecalho('Confirmação - ' . $evento['evento_nome'], 'confirmacao');
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="<?= SITE_URL ?>/assets/js/qr-simple.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     gerarQRCode();
 });
 
-function gerarQRCode() {
+async function gerarQRCode() {
     const dadosQR = {
         tipo: 'checkin',
         inscricao_id: <?= $inscricao_id ?>,
@@ -447,30 +447,36 @@ function gerarQRCode() {
     };
     
     const qrData = JSON.stringify(dadosQR);
-    const canvas = document.getElementById('qr-canvas');
+    const container = document.getElementById('qr-canvas').parentElement;
     
-    if (canvas) {
-        QRCode.toCanvas(canvas, qrData, {
-            width: 200,
-            margin: 2,
-            color: {
-                dark: '#333',
-                light: '#ffffff'
-            }
-        }, function(error) {
-            if (error) {
-                console.error('Erro ao gerar QR Code:', error);
-            }
+    try {
+        await window.VindeQR.renderTo('qr-canvas', qrData, {
+            size: 200
         });
+        
+        // Armazenar dados para download
+        window.currentQRData = qrData;
+        window.currentEventSlug = '<?= $evento['slug'] ?? 'evento' ?>';
+        
+    } catch (error) {
+        console.error('Erro ao gerar QR Code:', error);
+        container.innerHTML = '<div class="qr-error">Erro ao gerar QR Code</div>';
     }
 }
 
-function baixarQRCode() {
-    const canvas = document.getElementById('qr-canvas');
-    const link = document.createElement('a');
-    link.download = 'qr-code-<?= $evento['slug'] ?? 'evento' ?>.png';
-    link.href = canvas.toDataURL();
-    link.click();
+async function baixarQRCode() {
+    if (window.currentQRData && window.currentEventSlug) {
+        try {
+            await window.VindeQR.download(
+                window.currentQRData, 
+                `qr-code-${window.currentEventSlug}.png`,
+                { size: 300 }
+            );
+        } catch (error) {
+            console.error('Erro ao baixar QR Code:', error);
+            alert('Erro ao baixar QR Code');
+        }
+    }
 }
 
 function compartilharWhatsApp() {

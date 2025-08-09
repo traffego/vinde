@@ -451,7 +451,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js?v=1.5.3"></script>
+<script src="<?= SITE_URL ?>/assets/js/qr-simple.js"></script>
 <script>
 // Configurações globais para o JavaScript
 window.SITE_URL = '<?= SITE_URL ?>';

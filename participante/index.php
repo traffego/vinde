@@ -88,7 +88,7 @@ function formatar_status_pagamento($status, $valor) {
     <title>Meus Eventos - Área do Participante</title>
     <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script src="<?= SITE_URL ?>/assets/js/qr-simple.js"></script>
     <style>
         .participante-area {
             min-height: 100vh;
@@ -538,17 +538,14 @@ function formatar_status_pagamento($status, $valor) {
                     // Limpar QR anterior
                     document.getElementById('qrcode').innerHTML = '';
                     
-                    // Gerar novo QR
-                    qrCanvas = await QRCode.toCanvas(result.qr_data, {
-                        width: 200,
-                        margin: 2,
-                        color: {
-                            dark: '#333333',
-                            light: '#FFFFFF'
-                        }
+                    // Gerar novo QR usando nossa biblioteca
+                    await window.VindeQR.renderTo('qrcode', result.qr_data, {
+                        size: 200
                     });
                     
-                    document.getElementById('qrcode').appendChild(qrCanvas);
+                    // Armazenar dados para download
+                    window.currentQRData = result.qr_data;
+                    
                     document.getElementById('qrModalTitle').textContent = 'QR Code para Check-in';
                     document.getElementById('qrModalSubtitle').textContent = eventoNome;
                     currentEventName = eventoNome;
@@ -558,6 +555,7 @@ function formatar_status_pagamento($status, $valor) {
                     alert('Erro ao gerar QR Code: ' + result.message);
                 }
             } catch (error) {
+                console.error('Erro ao carregar QR Code:', error);
                 alert('Erro ao carregar QR Code');
             }
         }
@@ -566,12 +564,15 @@ function formatar_status_pagamento($status, $valor) {
             document.getElementById('qrModal').style.display = 'none';
         }
 
-        function baixarQR() {
-            if (qrCanvas) {
-                const link = document.createElement('a');
-                link.download = `qr-checkin-${currentEventName.replace(/[^a-zA-Z0-9]/g, '-')}.png`;
-                link.href = qrCanvas.toDataURL();
-                link.click();
+        async function baixarQR() {
+            if (window.currentQRData && currentEventName) {
+                try {
+                    const filename = `qr-checkin-${currentEventName.replace(/[^a-zA-Z0-9]/g, '-')}.png`;
+                    await window.VindeQR.download(window.currentQRData, filename, { size: 300 });
+                } catch (error) {
+                    console.error('Erro ao baixar QR Code:', error);
+                    alert('Erro ao baixar QR Code');
+                }
             }
         }
 

@@ -259,9 +259,12 @@ function processarQRCode(qrData) {
             fazerCheckinPorQR(data.participante_id, data.token);
         } else {
             showToast('QR Code inválido para check-in', 'error');
+            console.log('Dados do QR Code:', data);
         }
     } catch (error) {
         showToast('Erro ao processar QR Code: ' + error.message, 'error');
+        console.error('Erro ao fazer parse do QR Code:', error);
+        console.log('QR Data bruto:', qrData);
     }
 }
 

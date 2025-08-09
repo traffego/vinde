@@ -18,6 +18,7 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/qrcode.php';
+require_once __DIR__ . '/qr_generator.php';
 require_once __DIR__ . '/efi_bank.php';
 require_once __DIR__ . '/pix_simples.php';
 
