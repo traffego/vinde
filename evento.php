@@ -104,86 +104,145 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
         </div>
     </nav>
 
-    <!-- Hero Compacto do Evento -->
-    <section class="evento-hero-compacto">
+    <!-- Hero Elegante do Evento -->
+    <div class="sympla-page evento-page">
         <div class="container">
-            <div class="hero-content-compacto">
-                <!-- Linha 1: Badges e Título -->
-                <div class="hero-header">
-                    <div class="hero-badges">
-                        <span class="hero-badge hero-badge-<?= $evento['tipo'] ?>"><?= ucfirst($evento['tipo']) ?></span>
-                        <?php if ($evento_passou): ?>
-                            <span class="hero-badge hero-badge-finished">✓ Finalizado</span>
-                        <?php elseif ($evento_esgotado): ?>
-                            <span class="hero-badge hero-badge-sold-out">🔥 Esgotado</span>
-                        <?php elseif ($evento['vagas_restantes'] <= 5): ?>
-                            <span class="hero-badge hero-badge-limited">⚡ Últimas vagas</span>
+            <!-- Card Principal do Evento -->
+            <div class="main-card evento-card">
+                <!-- Header do Evento -->
+                <div class="event-header">
+                    <div class="event-image">
+                        <?php if ($evento['imagem']): ?>
+                            <img src="<?= SITE_URL ?>/uploads/<?= $evento['imagem'] ?>" alt="<?= htmlspecialchars($evento['nome']) ?>">
+                        <?php else: ?>
+                            <div class="event-placeholder">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z"/>
+                                </svg>
+                            </div>
                         <?php endif; ?>
                     </div>
-                    <h1 class="hero-title-compacto"><?= htmlspecialchars($evento['nome']) ?></h1>
-                </div>
-                
-                <!-- Linha 2: Informações Essenciais -->
-                <div class="info-essencial">
-                    <div class="info-grid-compacto">
-                        <div class="info-item">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M9 11H7v6h2v-6zm4 0h-2v6h2v-6zm4 0h-2v6h2v-6zm2-7h-3V2h-2v2H8V2H6v2H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H3V9h14v11z"/>
-                            </svg>
-                            <span><?= formatar_data($evento['data_inicio']) ?><?php if ($evento['data_fim'] && $evento['data_fim'] !== $evento['data_inicio']): ?> - <?= formatar_data($evento['data_fim']) ?><?php endif; ?></span>
+                    <div class="event-info">
+                        <!-- Badges -->
+                        <div class="event-badges">
+                            <span class="event-badge badge-<?= $evento['tipo'] ?>"><?= ucfirst($evento['tipo']) ?></span>
+                            <?php if ($evento_passou): ?>
+                                <span class="event-badge badge-finished">✓ Finalizado</span>
+                            <?php elseif ($evento_esgotado): ?>
+                                <span class="event-badge badge-sold-out">🔥 Esgotado</span>
+                            <?php elseif ($evento['vagas_restantes'] <= 5): ?>
+                                <span class="event-badge badge-limited">⚡ Últimas vagas</span>
+                            <?php endif; ?>
                         </div>
                         
-                        <?php if ($evento['horario_inicio']): ?>
-                        <div class="info-item">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
-                                <path d="m12.5 7-1 0 0 6 4.75 2.85.75-1.23-4-2.37z"/>
-                            </svg>
-                            <span><?= date('H:i', strtotime($evento['horario_inicio'])) ?><?php if ($evento['horario_fim']): ?> - <?= date('H:i', strtotime($evento['horario_fim'])) ?><?php endif; ?></span>
-                        </div>
+                        <h1 class="event-title"><?= htmlspecialchars($evento['nome']) ?></h1>
+                        
+                        <?php if ($evento['descricao']): ?>
+                            <p class="event-description"><?= htmlspecialchars($evento['descricao']) ?></p>
                         <?php endif; ?>
                         
-                        <div class="info-item">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                            </svg>
-                            <span><?= htmlspecialchars($evento['local']) ?></span>
+                        <div class="event-details">
+                            <div class="detail-item">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z"/>
+                                </svg>
+                                <span><?= formatar_data($evento['data_inicio']) ?></span>
+                                <?php if ($evento['data_fim'] && $evento['data_fim'] !== $evento['data_inicio']): ?>
+                                    <span> - <?= formatar_data($evento['data_fim']) ?></span>
+                                <?php endif; ?>
+                                <?php if ($evento['horario_inicio']): ?>
+                                    <span>às <?= date('H:i', strtotime($evento['horario_inicio'])) ?></span>
+                                    <?php if ($evento['horario_fim']): ?>
+                                        <span> - <?= date('H:i', strtotime($evento['horario_fim'])) ?></span>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                            <div class="detail-item">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
+                                <span><?= htmlspecialchars($evento['local']) ?> - <?= htmlspecialchars($evento['cidade']) ?>, <?= $evento['estado'] ?></span>
+                            </div>
                         </div>
-                        
-                        <div class="info-item preco-destaque">
-                            <span class="preco-valor"><?= $evento['valor'] > 0 ? formatar_dinheiro($evento['valor']) : 'Gratuito' ?></span>
-                        </div>
-                        
-                        <!-- Botão de Inscrição Inline -->
-                        <div class="cta-inline">
-                            <?php if ($evento_passou): ?>
-                                <button class="btn-compacto btn-disabled" disabled>Evento Finalizado</button>
-                            <?php elseif ($evento_esgotado): ?>
-                                <button class="btn-compacto btn-esgotado" disabled>Esgotado</button>
+                    </div>
+                </div>
+
+                <!-- Seção de Inscrição -->
+                <div class="inscription-section">
+                    <div class="inscription-info">
+                        <div class="price-section">
+                            <?php if ($evento['valor'] > 0): ?>
+                                <div class="price-main">
+                                    <span class="price-currency">R$</span>
+                                    <span class="price-value"><?= number_format($evento['valor'], 0, ',', '.') ?></span>
+                                    <?php if ($evento['valor'] - floor($evento['valor']) > 0): ?>
+                                        <span class="price-decimal">,<?= sprintf('%02d', ($evento['valor'] - floor($evento['valor'])) * 100) ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <span class="price-label">por pessoa</span>
                             <?php else: ?>
-                                <a href="<?= SITE_URL ?>/inscricao.php?evento_id=<?= $evento['id'] ?>" class="btn-compacto btn-primary">
-                                    Garantir Vaga
-                                </a>
+                                <div class="price-free">
+                                    <span class="free-label">Evento Gratuito</span>
+                                </div>
                             <?php endif; ?>
+                        </div>
+                        
+                        <div class="availability-info">
+                            <div class="availability-text">
+                                <span class="available-number"><?= $evento['vagas_restantes'] ?></span>
+                                <span class="available-label">vagas disponíveis</span>
+                            </div>
+                            <div class="total-spots"><?= $evento['total_inscritos'] ?>/<?= $evento['limite_participantes'] ?></div>
+                        </div>
+                        
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: <?= min(100, ($evento['total_inscritos'] / $evento['limite_participantes']) * 100) ?>%"></div>
                         </div>
                     </div>
                     
-                    <!-- Contador de Vagas -->
-                    <div class="contador-vagas">
-                        <span class="vagas-restantes"><?= $evento['vagas_restantes'] ?></span> vagas disponíveis
-                        <div class="progress-mini">
-                            <div class="progress-fill-mini" style="width: <?= min(100, ($evento['total_inscritos'] / $evento['limite_participantes']) * 100) ?>%"></div>
+                    <div class="inscription-action">
+                        <?php if ($evento_passou): ?>
+                            <button class="btn-inscription disabled" disabled>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                                Evento Finalizado
+                            </button>
+                        <?php elseif ($evento_esgotado): ?>
+                            <button class="btn-inscription disabled" disabled>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L16.31 7.1C17.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/>
+                                </svg>
+                                Esgotado
+                            </button>
+                        <?php else: ?>
+                            <a href="<?= SITE_URL ?>/inscricao.php?evento_id=<?= $evento['id'] ?>" class="btn-inscription primary">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                                </svg>
+                                <?= $evento['valor'] > 0 ? 'Garantir Minha Vaga' : 'Inscrever-se Gratuitamente' ?>
+                            </a>
+                        <?php endif; ?>
+                        
+                        <div class="security-info">
+                            <div class="security-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                                </svg>
+                                <span>Confirmação imediata</span>
+                            </div>
+                            <div class="security-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/>
+                                </svg>
+                                <span>Dados protegidos</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Linha 3: Descrição (opcional, mais discreta) -->
-                <?php if ($evento['descricao']): ?>
-                <p class="hero-description-mini"><?= htmlspecialchars($evento['descricao']) ?></p>
-                <?php endif; ?>
             </div>
         </div>
-    </section>
+    </div>
 
     <!-- Conteúdo Principal -->
     <section class="evento-conteudo">

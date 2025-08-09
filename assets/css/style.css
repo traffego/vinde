@@ -4328,180 +4328,350 @@ body {
     }
 }
 
-/* === EVENTOS - HERO COMPACTO === */
-.evento-hero-compacto {
-    background: linear-gradient(135deg, var(--cor-primaria) 0%, var(--cor-primaria-hover) 100%);
-    color: white;
-    padding: var(--espaco-lg) 0;
+/* === EVENTOS - DESIGN ELEGANTE === */
+.evento-page {
+    background: #f8fafc;
+    padding: var(--espaco-xl) 0;
 }
 
-.hero-content-compacto {
+.evento-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 15px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+}
+
+.event-header {
+    display: flex;
+    gap: var(--espaco-lg);
+    padding: var(--espaco-xl);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.event-image {
+    flex-shrink: 0;
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f1f5f9;
+}
+
+.event-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.event-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    background: #f1f5f9;
+}
+
+.event-info {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: var(--espaco-md);
 }
 
-.hero-header {
+.event-badges {
     display: flex;
-    flex-direction: column;
     gap: var(--espaco-sm);
+    flex-wrap: wrap;
 }
 
-.hero-title-compacto {
-    font-size: 1.75rem;
+.event-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-presencial {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-online {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-hibrido {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-finished {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.badge-sold-out {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.badge-limited {
+    background: #fef3c7;
+    color: #d97706;
+    animation: pulse 2s infinite;
+}
+
+.event-title {
+    font-size: 1.875rem;
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.2;
+    color: #1e293b;
     margin: 0;
 }
 
-.info-essencial {
+.event-description {
+    font-size: 1rem;
+    color: #64748b;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.event-details {
     display: flex;
     flex-direction: column;
     gap: var(--espaco-sm);
 }
 
-.info-grid-compacto {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--espaco-md);
-    padding: var(--espaco-md);
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: var(--borda-radius);
-}
-
-.info-item {
+.detail-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--espaco-sm);
     font-size: 0.875rem;
-    font-weight: 500;
-    white-space: nowrap;
+    color: #475569;
 }
 
-.info-item svg {
+.detail-item svg {
+    color: #64748b;
     flex-shrink: 0;
-    opacity: 0.8;
 }
 
-.preco-destaque {
-    margin-left: auto;
+.inscription-section {
+    padding: var(--espaco-xl);
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--espaco-xl);
 }
 
-.preco-valor {
-    font-size: 1.125rem;
+.inscription-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--espaco-md);
+    flex: 1;
+}
+
+.price-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.price-main {
+    display: flex;
+    align-items: flex-start;
+    line-height: 1;
+}
+
+.price-currency {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    margin-right: 4px;
+    margin-top: 8px;
+}
+
+.price-value {
+    font-size: 2.5rem;
     font-weight: 700;
-    color: var(--cor-dourado-light);
+    color: var(--cor-primaria);
 }
 
-.cta-inline {
-    margin-left: auto;
+.price-decimal {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    margin-top: 8px;
 }
 
-.btn-compacto {
+.price-label {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.price-free .free-label {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--cor-sucesso);
+}
+
+.availability-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--espaco-sm);
+}
+
+.availability-text {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.available-number {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--cor-dourado);
+}
+
+.available-label {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.total-spots {
+    font-size: 0.875rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.progress-bar {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cor-dourado) 0%, var(--cor-dourado-hover) 100%);
+    transition: width 0.3s ease;
+    border-radius: 3px;
+}
+
+.inscription-action {
+    display: flex;
+    flex-direction: column;
+    gap: var(--espaco-md);
+    align-items: center;
+}
+
+.btn-inscription {
     display: inline-flex;
     align-items: center;
-    gap: var(--espaco-xs);
-    padding: 8px 16px;
+    justify-content: center;
+    gap: var(--espaco-sm);
+    padding: 16px 32px;
     border: none;
-    border-radius: var(--borda-radius);
-    font-size: 0.875rem;
+    border-radius: 12px;
+    font-size: 1rem;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
     transition: all 0.2s ease;
+    min-width: 200px;
     white-space: nowrap;
 }
 
-.btn-compacto.btn-primary {
-    background: var(--cor-dourado);
+.btn-inscription.primary {
+    background: linear-gradient(135deg, var(--cor-dourado) 0%, var(--cor-dourado-hover) 100%);
     color: white;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
-.btn-compacto.btn-primary:hover {
-    background: var(--cor-dourado-hover);
-    transform: translateY(-1px);
+.btn-inscription.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
 }
 
-.btn-compacto.btn-disabled,
-.btn-compacto.btn-esgotado {
-    background: rgba(107, 114, 128, 0.5);
-    color: rgba(255, 255, 255, 0.7);
+.btn-inscription.disabled {
+    background: #e2e8f0;
+    color: #64748b;
     cursor: not-allowed;
+    box-shadow: none;
 }
 
-.contador-vagas {
+.security-info {
+    display: flex;
+    gap: var(--espaco-lg);
+    justify-content: center;
+}
+
+.security-item {
     display: flex;
     align-items: center;
-    gap: var(--espaco-sm);
-    font-size: 0.875rem;
-    opacity: 0.9;
-    padding: 0 var(--espaco-md);
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #64748b;
 }
 
-.vagas-restantes {
-    font-weight: 700;
-    color: var(--cor-dourado-light);
+.security-item svg {
+    color: var(--cor-sucesso);
 }
 
-.progress-mini {
-    flex: 1;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
-    overflow: hidden;
-}
-
-.progress-fill-mini {
-    height: 100%;
-    background: var(--cor-dourado-light);
-    transition: width 0.3s ease;
-    border-radius: 2px;
-}
-
-.hero-description-mini {
-    font-size: 0.875rem;
-    line-height: 1.5;
-    opacity: 0.85;
-    margin: 0;
-    padding: 0 var(--espaco-md);
-}
-
-/* Responsividade para Hero Compacto */
+/* Responsividade */
 @media (max-width: 768px) {
-    .evento-hero-compacto {
-        padding: var(--espaco-md) 0;
+    .evento-page {
+        padding: var(--espaco-lg) 0;
     }
     
-    .hero-title-compacto {
+    .event-header {
+        flex-direction: column;
+        gap: var(--espaco-md);
+        padding: var(--espaco-lg);
+    }
+    
+    .event-image {
+        align-self: center;
+        width: 100px;
+        height: 100px;
+    }
+    
+    .event-title {
         font-size: 1.5rem;
     }
     
-    .info-grid-compacto {
+    .inscription-section {
         flex-direction: column;
-        align-items: stretch;
-        gap: var(--espaco-sm);
+        gap: var(--espaco-lg);
+        padding: var(--espaco-lg);
     }
     
-    .info-item {
-        justify-content: flex-start;
+    .inscription-info {
+        text-align: center;
     }
     
-    .preco-destaque,
-    .cta-inline {
-        margin-left: 0;
-        align-self: stretch;
+    .availability-info {
+        justify-content: center;
+        gap: var(--espaco-lg);
     }
     
-    .btn-compacto {
+    .btn-inscription {
         width: 100%;
-        justify-content: center;
     }
     
-    .contador-vagas {
-        justify-content: center;
+    .security-info {
+        flex-direction: column;
+        gap: var(--espaco-sm);
     }
 }
 
