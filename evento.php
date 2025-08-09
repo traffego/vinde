@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/init.php';
+require_once 'includes/config_social.php';
 
 // Verificar se sistema foi migrado
 $tabela_inscricoes_existe = false;
@@ -137,6 +138,9 @@ if (strlen(strip_tags($evento['descricao'])) > 160) {
 
 // Meta tags específicas para Open Graph - Seguindo regras rigorosas
 $meta_tags = [
+    // Facebook App ID (obrigatório para algumas funcionalidades)
+    'fb:app_id' => FACEBOOK_APP_ID,
+    
     // Open Graph básico (obrigatório)
     'og:title' => htmlspecialchars($evento['nome']),
     'og:type' => 'website', // Mudança: 'event' pode não ser reconhecido por todas as plataformas
@@ -145,15 +149,15 @@ $meta_tags = [
     'og:description' => htmlspecialchars($evento_descricao),
     
     // Meta tags adicionais para melhor compatibilidade
-    'og:site_name' => 'Vinde - Eventos Católicos',
-    'og:locale' => 'pt_BR',
+    'og:site_name' => SITE_NAME,
+    'og:locale' => SITE_LOCALE,
     
     // Especificações da imagem (IMPORTANTES para funcionamento)
     'og:image:url' => $evento_imagem_path,
     'og:image:secure_url' => str_replace('http://', 'https://', $evento_imagem_path),
     'og:image:type' => 'image/jpeg', // Assumindo JPEG - será corrigido dinamicamente
-    'og:image:width' => '1200',
-    'og:image:height' => '630',
+    'og:image:width' => DEFAULT_OG_IMAGE_WIDTH,
+    'og:image:height' => DEFAULT_OG_IMAGE_HEIGHT,
     'og:image:alt' => htmlspecialchars($evento['nome']),
     
     // Meta tags para evento específico
@@ -162,7 +166,7 @@ $meta_tags = [
     
     // Twitter Cards (essencial para WhatsApp e Twitter)
     'twitter:card' => 'summary_large_image',
-    'twitter:site' => '@vinde',
+    'twitter:site' => TWITTER_HANDLE,
     'twitter:title' => htmlspecialchars($evento['nome']),
     'twitter:description' => htmlspecialchars($evento_descricao),
     'twitter:image' => $evento_imagem_path,
