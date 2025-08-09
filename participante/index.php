@@ -96,10 +96,10 @@ function formatar_status_pagamento($status, $valor) {
         }
 
         .header-participante {
-            background: white;
-            border-bottom: 1px solid #e1e5e9;
-            padding: 16px 0;
-            margin-bottom: 30px;
+            background: linear-gradient(135deg, var(--cor-primaria) 0%, var(--cor-primaria-hover) 100%);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 40px;
         }
 
         .header-content {
@@ -111,41 +111,72 @@ function formatar_status_pagamento($status, $valor) {
             align-items: center;
         }
 
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
         .header-title {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--cor-primaria);
+            font-size: 28px;
+            font-weight: 700;
+            color: white;
+            margin: 0;
+        }
+
+        .header-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
         }
 
         .header-user {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .user-info {
-            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
         .user-name {
             font-weight: 600;
-            color: var(--cor-texto-principal);
+            color: white;
+            font-size: 16px;
         }
 
-        .user-actions {
+        .user-email {
             font-size: 14px;
-            color: var(--cor-texto-secundario);
+            color: rgba(255, 255, 255, 0.8);
         }
 
         .btn-logout {
-            background: #dc3545;
+            background: rgba(220, 53, 69, 0.9);
             color: white;
-            padding: 8px 16px;
+            padding: 10px 16px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             text-decoration: none;
             font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-logout:hover {
+            background: #dc3545;
+            transform: translateY(-1px);
         }
 
         .main-content {
@@ -156,18 +187,19 @@ function formatar_status_pagamento($status, $valor) {
 
         .page-header {
             margin-bottom: 30px;
+            text-align: center;
         }
 
         .page-title {
-            font-size: 32px;
-            font-weight: 700;
+            font-size: 24px;
+            font-weight: 600;
             color: var(--cor-texto-principal);
             margin-bottom: 8px;
         }
 
         .page-subtitle {
             color: var(--cor-texto-secundario);
-            font-size: 16px;
+            font-size: 14px;
         }
 
         .eventos-grid {
@@ -415,7 +447,24 @@ function formatar_status_pagamento($status, $valor) {
             
             .header-content {
                 flex-direction: column;
-                gap: 16px;
+                gap: 20px;
+                text-align: center;
+            }
+            
+            .header-left {
+                text-align: center;
+            }
+            
+            .header-title {
+                font-size: 24px;
+            }
+            
+            .header-user {
+                align-self: center;
+                min-width: 280px;
+            }
+            
+            .user-info {
                 text-align: center;
             }
         }
@@ -424,22 +473,29 @@ function formatar_status_pagamento($status, $valor) {
 <body class="participante-area">
     <header class="header-participante">
         <div class="header-content">
-            <div class="header-title">Área do Participante</div>
+            <div class="header-left">
+                <h1 class="header-title">Área do Participante</h1>
+                <p class="header-subtitle">Gerencie suas inscrições e acompanhe seus eventos</p>
+            </div>
             <div class="header-user">
                 <div class="user-info">
                     <div class="user-name"><?= htmlspecialchars($participante['nome']) ?></div>
-                    <div class="user-actions">
-                        <a href="logout.php" class="btn-logout">Sair</a>
-                    </div>
+                    <div class="user-email"><?= htmlspecialchars($participante['email']) ?></div>
                 </div>
+                <a href="logout.php" class="btn-logout">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                    </svg>
+                    Sair
+                </a>
             </div>
         </div>
     </header>
 
     <main class="main-content">
         <div class="page-header">
-            <h1 class="page-title">Meus Eventos</h1>
-            <p class="page-subtitle">Aqui estão todos os eventos nos quais você está inscrito</p>
+            <h2 class="page-title">Meus Eventos</h2>
+            <p class="page-subtitle"><?= count($eventos) ?> evento(s) encontrado(s)</p>
         </div>
 
         <?php if (empty($eventos)): ?>
