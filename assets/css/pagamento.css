@@ -265,6 +265,50 @@
     animation: spin 1s linear infinite;
 }
 
+/* Estilos para loading do PIX */
+.qr-code-loading {
+    text-align: center;
+    padding: 40px 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    border: 2px dashed #dee2e6;
+    margin: 20px 0;
+}
+
+.loading-spinner-pix {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #e3f2fd;
+    border-top: 4px solid #2196f3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+.qr-code-loading p {
+    margin: 10px 0;
+    color: #495057;
+}
+
+.qr-code-loading strong {
+    color: #2196f3;
+    font-size: 16px;
+}
+
+.qr-code-loading small {
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.btn-reload {
+    transition: all 0.3s ease;
+}
+
+.btn-reload:hover {
+    background: #0056b3 !important;
+    transform: translateY(-1px);
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }

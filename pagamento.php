@@ -177,108 +177,158 @@ $deve_gerar_pix = empty($erro) && ($pagamento['status'] !== 'pago') && (
 );
 
 if ($deve_gerar_pix) {
-    try {
+    // SISTEMA DE RETRY MELHORADO PARA RESOLVER PROBLEMA DE TIMING
+    $max_tentativas = 3;
+    $tentativa_atual = 0;
+    $pix_gerado_com_sucesso = false;
+    $ultimo_erro = '';
     
-    // Gerar novo PIX sempre com TXID único (máximo 35 caracteres para EFI)
-    $timestamp = date('YmdHis'); // 14 caracteres
-    $inscricao_padded = str_pad($inscricao_id, 4, '0', STR_PAD_LEFT); // 4 caracteres
-    $random_suffix = strtoupper(substr(md5(uniqid()), 0, 3)); // 3 caracteres
-    $txid = 'VINDE' . $timestamp . $inscricao_padded . $random_suffix; // 5+14+4+3 = 26 caracteres
-    $valor = $evento['valor'];
-    
-    if ($debug_mode) {
-        error_log("PAGAMENTO DEBUG: Gerando novo PIX - TXID: {$txid} | Valor: R$ {$valor}");
-    }
-    
-    // Verificar se EFI Bank está ativo (configurações vindas do banco)
-    $efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
-    $config_efi = obter_configuracoes_efi();
-    $certificado_existe = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
-    
-    if ($debug_mode) {
-        error_log("PAGAMENTO DEBUG: EFI Status - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO'));
-        error_log("PAGAMENTO DEBUG: EFI Client ID: " . (!empty($config_efi['efi_client_id']) ? 'Configurado' : 'Vazio'));
-        error_log("PAGAMENTO DEBUG: EFI Client Secret: " . (!empty($config_efi['efi_client_secret']) ? 'Configurado' : 'Vazio'));
-        error_log("PAGAMENTO DEBUG: EFI Certificado: " . ($certificado_existe ? 'Existe' : 'Não encontrado'));
-        error_log("PAGAMENTO DEBUG: EFI Chave PIX: " . (!empty($config_efi['efi_pix_key']) ? $config_efi['efi_pix_key'] : 'Vazio'));
-    }
-    
-    if ($efi_ativo && $certificado_existe) {
-        // Usar EFI Bank com função de alto nível
-        $resultado_pix = efi_criar_pix_completo([
-            'valor' => $valor,
-            'descricao' => sprintf('Inscricao %s - %s', $evento['nome'], $participante['nome']),
-            'participante_id' => $participante_logado['id'],
-            'evento_nome' => $evento['nome'],
-            'nome_pagador' => $participante['nome'],
-            'cpf_pagador' => limpar_cpf($participante['cpf']),
-            'expiracao' => 3600,
-            'debug' => $debug_mode,
-            'txid_customizado' => $txid // Usar nosso TXID gerado
-        ]);
-
-        if (!empty($resultado_pix['sucesso'])) {
-            $dados_pagamento = [
-                'pix_txid' => $resultado_pix['pix_txid'],
-                'pix_loc_id' => $resultado_pix['pix_loc_id'] ?? null,
-                'pix_qrcode_data' => $resultado_pix['pix_qrcode_data'] ?? null,
-                'pix_qrcode_url' => $resultado_pix['pix_qrcode_url'] ?? null,
-                'pix_expires_at' => $resultado_pix['pix_expires_at'] ?? date('Y-m-d H:i:s', time() + 3600),
-                'status' => 'pendente', // Garantir que status seja pendente para novo PIX
-                'atualizado_em' => date('Y-m-d H:i:s')
-            ];
-
-            // Atualizar tabela de pagamentos
-            $sucesso_pagamento = atualizar_registro('pagamentos', $dados_pagamento, ['id' => $pagamento['id']]);
-            
-            // Atualizar tabela de inscrições conforme solicitado
-            if ($sucesso_pagamento) {
-                $dados_inscricao = [
-                    'status' => 'pendente', // Status pendente até confirmação do pagamento
-                    'atualizado_em' => date('Y-m-d H:i:s')
-                ];
-                
-                atualizar_registro('inscricoes', $dados_inscricao, ['id' => $inscricao_id]);
-                
-                if ($debug_mode) {
-                    error_log("PAGAMENTO DEBUG: Dados atualizados - Pagamento ID: {$pagamento['id']}, Inscrição ID: {$inscricao_id}");
-                }
-            }
-            
-            $pagamento = array_merge($pagamento, $dados_pagamento);
-            
-            // Definir variável para mostrar mensagem de novo PIX gerado
-            $novo_pix_gerado = true;
-            
-            if ($debug_mode) {
-                error_log("PAGAMENTO DEBUG: PIX gerado com sucesso - Payload: " . substr($resultado_pix['pix_qrcode_data'] ?? '', 0, 50) . "...");
-            }
-        } else {
-            if ($debug_mode) {
-                error_log("PAGAMENTO DEBUG: Falha ao gerar PIX via EFI Bank - resultado_pix: " . print_r($resultado_pix, true));
-            }
-            
-            // Log de erro crítico - não deve usar fallback em produção
-            error_log("ERRO CRÍTICO: EFI Bank falhou ao gerar PIX - TXID: {$txid} | Valor: R$ {$valor}");
-            $erro = "Erro ao gerar PIX. Tente novamente ou entre em contato com o suporte.";
-        }
-            } else {
-        // Log detalhado do motivo de não usar EFI
-        if ($debug_mode) {
-            if (!$efi_ativo) {
-                error_log("PAGAMENTO DEBUG: EFI Bank não está ativo nas configurações");
-            }
-            if (!$certificado_existe) {
-                error_log("PAGAMENTO DEBUG: Certificado EFI não encontrado: " . ($config_efi['efi_certificado_path'] ?? 'caminho não configurado'));
-            }
-        }
+    while ($tentativa_atual < $max_tentativas && !$pix_gerado_com_sucesso) {
+        $tentativa_atual++;
         
-        error_log("ERRO: EFI Bank não configurado corretamente - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO') . " | Certificado: " . ($certificado_existe ? 'SIM' : 'NÃO'));
-        $erro = "Sistema de pagamento não configurado. Entre em contato com o suporte.";
+        try {
+            if ($debug_mode) {
+                error_log("PAGAMENTO DEBUG: Tentativa {$tentativa_atual}/{$max_tentativas} de gerar PIX");
+            }
+            
+            // Gerar novo PIX sempre com TXID único (máximo 35 caracteres para EFI)
+            $timestamp = date('YmdHis'); // 14 caracteres
+            $inscricao_padded = str_pad($inscricao_id, 4, '0', STR_PAD_LEFT); // 4 caracteres
+            $random_suffix = strtoupper(substr(md5(uniqid() . $tentativa_atual), 0, 3)); // 3 caracteres
+            $txid = 'VINDE' . $timestamp . $inscricao_padded . $random_suffix; // 5+14+4+3 = 26 caracteres
+            $valor = $evento['valor'];
+            
+            if ($debug_mode) {
+                error_log("PAGAMENTO DEBUG: Gerando novo PIX - Tentativa {$tentativa_atual} - TXID: {$txid} | Valor: R$ {$valor}");
+            }
+            
+            // Verificar se EFI Bank está ativo (configurações vindas do banco)
+            $efi_ativo = obter_configuracao('efi_ativo', '0') === '1';
+            $config_efi = obter_configuracoes_efi();
+            $certificado_existe = !empty($config_efi['efi_certificado_path']) && file_exists($config_efi['efi_certificado_path']);
+            
+            if ($debug_mode && $tentativa_atual === 1) {
+                error_log("PAGAMENTO DEBUG: EFI Status - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO'));
+                error_log("PAGAMENTO DEBUG: EFI Client ID: " . (!empty($config_efi['efi_client_id']) ? 'Configurado' : 'Vazio'));
+                error_log("PAGAMENTO DEBUG: EFI Client Secret: " . (!empty($config_efi['efi_client_secret']) ? 'Configurado' : 'Vazio'));
+                error_log("PAGAMENTO DEBUG: EFI Certificado: " . ($certificado_existe ? 'Existe' : 'Não encontrado'));
+                error_log("PAGAMENTO DEBUG: EFI Chave PIX: " . (!empty($config_efi['efi_pix_key']) ? $config_efi['efi_pix_key'] : 'Vazio'));
+            }
+            
+            if ($efi_ativo && $certificado_existe) {
+                // Limpar token em cache nas tentativas subsequentes para forçar renovação
+                if ($tentativa_atual > 1) {
+                    unset($_SESSION['efi_token'], $_SESSION['efi_token_expires']);
+                    if ($debug_mode) {
+                        error_log("PAGAMENTO DEBUG: Token EFI limpo para renovação na tentativa {$tentativa_atual}");
+                    }
+                }
+                
+                // Usar EFI Bank com função de alto nível
+                $resultado_pix = efi_criar_pix_completo([
+                    'valor' => $valor,
+                    'descricao' => sprintf('Inscricao %s - %s', $evento['nome'], $participante['nome']),
+                    'participante_id' => $participante_logado['id'],
+                    'evento_nome' => $evento['nome'],
+                    'nome_pagador' => $participante['nome'],
+                    'cpf_pagador' => limpar_cpf($participante['cpf']),
+                    'expiracao' => 3600,
+                    'debug' => $debug_mode,
+                    'txid_customizado' => $txid // Usar nosso TXID gerado
+                ]);
+
+                if (!empty($resultado_pix['sucesso'])) {
+                    $dados_pagamento = [
+                        'pix_txid' => $resultado_pix['pix_txid'],
+                        'pix_loc_id' => $resultado_pix['pix_loc_id'] ?? null,
+                        'pix_qrcode_data' => $resultado_pix['pix_qrcode_data'] ?? null,
+                        'pix_qrcode_url' => $resultado_pix['pix_qrcode_url'] ?? null,
+                        'pix_expires_at' => $resultado_pix['pix_expires_at'] ?? date('Y-m-d H:i:s', time() + 3600),
+                        'status' => 'pendente', // Garantir que status seja pendente para novo PIX
+                        'atualizado_em' => date('Y-m-d H:i:s')
+                    ];
+
+                    // Atualizar tabela de pagamentos
+                    $sucesso_pagamento = atualizar_registro('pagamentos', $dados_pagamento, ['id' => $pagamento['id']]);
+                    
+                    // Atualizar tabela de inscrições conforme solicitado
+                    if ($sucesso_pagamento) {
+                        $dados_inscricao = [
+                            'status' => 'pendente', // Status pendente até confirmação do pagamento
+                            'atualizado_em' => date('Y-m-d H:i:s')
+                        ];
+                        
+                        atualizar_registro('inscricoes', $dados_inscricao, ['id' => $inscricao_id]);
+                        
+                        if ($debug_mode) {
+                            error_log("PAGAMENTO DEBUG: Dados atualizados - Pagamento ID: {$pagamento['id']}, Inscrição ID: {$inscricao_id}");
+                        }
+                    }
+                    
+                    $pagamento = array_merge($pagamento, $dados_pagamento);
+                    
+                    // PIX gerado com sucesso!
+                    $pix_gerado_com_sucesso = true;
+                    $novo_pix_gerado = true;
+                    
+                    if ($debug_mode) {
+                        error_log("PAGAMENTO DEBUG: PIX gerado com sucesso na tentativa {$tentativa_atual} - Payload: " . substr($resultado_pix['pix_qrcode_data'] ?? '', 0, 50) . "...");
+                    }
+                } else {
+                    $ultimo_erro = "Tentativa {$tentativa_atual}: " . ($resultado_pix['erro'] ?? 'Erro desconhecido na API EFI');
+                    
+                    if ($debug_mode) {
+                        error_log("PAGAMENTO DEBUG: Falha na tentativa {$tentativa_atual} - resultado_pix: " . print_r($resultado_pix, true));
+                    }
+                    
+                    // Se não é a última tentativa, aguardar um pouco antes de tentar novamente
+                    if ($tentativa_atual < $max_tentativas) {
+                        $delay = $tentativa_atual * 2; // 2s, 4s, etc.
+                        if ($debug_mode) {
+                            error_log("PAGAMENTO DEBUG: Aguardando {$delay}s antes da próxima tentativa...");
+                        }
+                        sleep($delay);
+                    }
+                }
+            } else {
+                // Configuração inválida - não tentar novamente
+                if ($debug_mode) {
+                    if (!$efi_ativo) {
+                        error_log("PAGAMENTO DEBUG: EFI Bank não está ativo nas configurações");
+                    }
+                    if (!$certificado_existe) {
+                        error_log("PAGAMENTO DEBUG: Certificado EFI não encontrado: " . ($config_efi['efi_certificado_path'] ?? 'caminho não configurado'));
+                    }
+                }
+                
+                error_log("ERRO: EFI Bank não configurado corretamente - Ativo: " . ($efi_ativo ? 'SIM' : 'NÃO') . " | Certificado: " . ($certificado_existe ? 'SIM' : 'NÃO'));
+                $erro = "Sistema de pagamento não configurado. Entre em contato com o suporte.";
+                break; // Sair do loop - problema de configuração
+            }
+            
+        } catch (Exception $e) {
+            $ultimo_erro = "Tentativa {$tentativa_atual}: Exceção - " . $e->getMessage();
+            error_log("PAGAMENTO ERRO: Exceção na tentativa {$tentativa_atual}: " . $e->getMessage());
+            
+            // Se não é a última tentativa, aguardar antes de tentar novamente
+            if ($tentativa_atual < $max_tentativas) {
+                $delay = $tentativa_atual * 2;
+                if ($debug_mode) {
+                    error_log("PAGAMENTO DEBUG: Aguardando {$delay}s após exceção antes da próxima tentativa...");
+                }
+                sleep($delay);
+            }
+        }
     }
-} catch (Exception $e) {
-        error_log('PAGAMENTO ERRO: Exceção ao gerar PIX: ' . $e->getMessage());
-        $erro = 'Erro interno ao gerar o PIX. Tente novamente.';
+    
+    // Se não conseguiu gerar PIX após todas as tentativas
+    if (!$pix_gerado_com_sucesso && empty($erro)) {
+        error_log("ERRO CRÍTICO: EFI Bank falhou em todas as {$max_tentativas} tentativas - Último erro: {$ultimo_erro}");
+        $erro = "Erro temporário ao gerar PIX. Recarregue a página em alguns segundos ou entre em contato com o suporte.";
+        
+        if ($debug_mode) {
+            error_log("PAGAMENTO DEBUG: Histórico de erros nas tentativas: {$ultimo_erro}");
+        }
     }
 }
 
@@ -349,6 +399,16 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                                 <!-- <canvas id="qr-canvas-pix"></canvas> -->
                             </div>
                         <?php endif; ?>
+                    </div>
+                <?php else: ?>
+                    <!-- Loading do PIX em geração -->
+                    <div class="qr-code-loading" id="qr-loading">
+                        <div class="loading-spinner-pix"></div>
+                        <p><strong>🔄 Gerando código PIX...</strong></p>
+                        <p><small>Aguarde enquanto processamos sua solicitação. Isso pode levar alguns segundos.</small></p>
+                        <button type="button" onclick="window.location.reload()" class="btn-reload" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            🔄 Atualizar Página
+                        </button>
                     </div>
                 <?php endif; ?>
 

@@ -127,8 +127,8 @@ function efi_obter_token() {
         ],
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_CONNECTTIMEOUT => 15,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => 0
     ];
@@ -264,8 +264,8 @@ function efi_fazer_requisicao($endpoint, $method = 'GET', $data = null) {
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 45,
+        CURLOPT_CONNECTTIMEOUT => 15,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => 0
     ];
