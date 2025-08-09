@@ -27,6 +27,7 @@ body {
     --cor-primaria: #1e40af;
     --cor-primaria-hover: #1d4ed8;
     --cor-primaria-light: #3b82f6;
+    --cor-primaria-rgb: 30, 64, 175;
     --cor-dourado: #f59e0b;
     --cor-dourado-hover: #d97706;
     --cor-dourado-light: #fbbf24;
@@ -160,19 +161,36 @@ body {
 }
 
 .btn-participante {
-    background-color: #28a745;
+    background: linear-gradient(135deg, var(--cor-primaria) 0%, var(--cor-primaria-hover) 100%);
     color: var(--cor-branco);
-    padding: var(--espaco-sm) var(--espaco-md);
-    border-radius: var(--borda-radius);
+    padding: 12px 24px;
+    border-radius: 12px;
     text-decoration: none;
     font-size: 0.875rem;
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(var(--cor-primaria-rgb), 0.3);
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-participante::before {
+    content: '👤';
+    font-size: 14px;
 }
 
 .btn-participante:hover {
-    background-color: #218838;
+    background: linear-gradient(135deg, var(--cor-primaria-hover) 0%, var(--cor-primaria) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(var(--cor-primaria-rgb), 0.4);
+}
+
+.btn-participante:active {
     transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(var(--cor-primaria-rgb), 0.3);
 }
 
 .btn-limpar {
@@ -842,6 +860,22 @@ body {
     
     .nav-principal a:hover {
         background-color: var(--cor-cinza-claro);
+    }
+    
+    /* Ajustes do botão participante no mobile */
+    .btn-participante {
+        border-radius: 8px;
+        margin: var(--espaco-sm) 0;
+        background: linear-gradient(135deg, var(--cor-primaria) 0%, var(--cor-primaria-hover) 100%);
+        color: var(--cor-branco) !important;
+        font-weight: 600;
+        box-shadow: 0 2px 8px rgba(var(--cor-primaria-rgb), 0.3);
+    }
+    
+    .btn-participante:hover {
+        background: linear-gradient(135deg, var(--cor-primaria-hover) 0%, var(--cor-primaria) 100%);
+        color: var(--cor-branco) !important;
+        transform: none; /* Remove transform no mobile */
     }
     
     .hero-content h1 {

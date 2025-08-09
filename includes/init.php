@@ -79,7 +79,6 @@ function obter_cabecalho($titulo = 'Vinde - Eventos Católicos', $pagina = 'home
                         <li><a href='" . SITE_URL . "'>Eventos</a></li>
                         <li><a href='" . SITE_URL . "/contato.php'>Contato</a></li>
                         <li><a href='" . SITE_URL . "/participante' class='btn-participante'>Área do Participante</a></li>
-                        <li><a href='" . SITE_URL . "/admin' class='btn-admin'>Área Admin</a></li>
                     </ul>
                 </nav>
                 <div class='header-mobile'>
