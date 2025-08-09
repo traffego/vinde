@@ -136,6 +136,7 @@ try {
     }
 
 // Garantir que exista um registro de pagamento associado a esta inscrição
+$pagamento_criado_agora = false;
 if (empty($pagamento['id'])) {
     try {
         $txid = 'VINDE' . date('YmdHis') . str_pad($inscricao_id, 6, '0', STR_PAD_LEFT);
@@ -151,6 +152,16 @@ if (empty($pagamento['id'])) {
         $pagamento['status'] = 'pendente';
         $pagamento['valor'] = $evento['valor'];
         $pagamento['pix_txid'] = $txid;
+        // Garantir que campos PIX estejam inicializados
+        $pagamento['pix_qrcode_data'] = null;
+        $pagamento['pix_qrcode_url'] = null;
+        $pagamento['pix_expires_at'] = null;
+        $pagamento['pix_loc_id'] = null;
+        $pagamento_criado_agora = true;
+        
+        if ($debug_mode) {
+            error_log("PAGAMENTO DEBUG: Novo registro de pagamento criado - ID: {$pagamento_id}");
+        }
     } catch (Exception $e) {
         error_log('PAGAMENTO ERRO: Falha ao criar registro de pagamento: ' . $e->getMessage());
         $erro = 'Erro ao criar registro de pagamento. Tente novamente em instantes.';
@@ -170,11 +181,36 @@ if ($evento['valor'] <= 0) {
 }
 
 // Processar geração/renovação de PIX sempre que status não for pago
-// Isso garante que sempre há um PIX válido e atualizado disponível
+// CORREÇÃO: Garantir que PIX seja SEMPRE gerado quando necessário
+$pix_inexistente = empty($pagamento['pix_qrcode_data']);
+$pix_expirado = $pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) <= time();
+$pix_sem_expiracao = empty($pagamento['pix_expires_at']);
+
 $deve_gerar_pix = empty($erro) && ($pagamento['status'] !== 'pago') && (
-    empty($pagamento['pix_qrcode_data']) || 
-    ($pagamento['pix_expires_at'] && strtotime($pagamento['pix_expires_at']) <= time())
+    $pix_inexistente || 
+    $pix_expirado || 
+    $pix_sem_expiracao ||
+    $pagamento_criado_agora
 );
+
+// Debug detalhado das condições
+if ($debug_mode) {
+    error_log("PAGAMENTO DEBUG: Verificando condições para gerar PIX:");
+    error_log("PAGAMENTO DEBUG: - erro vazio: " . (empty($erro) ? 'SIM' : 'NÃO'));
+    error_log("PAGAMENTO DEBUG: - status não é 'pago': " . ($pagamento['status'] !== 'pago' ? 'SIM' : 'NÃO') . " (status atual: {$pagamento['status']})");
+    error_log("PAGAMENTO DEBUG: - pix_inexistente: " . ($pix_inexistente ? 'SIM' : 'NÃO'));
+    error_log("PAGAMENTO DEBUG: - pix_expirado: " . ($pix_expirado ? 'SIM' : 'NÃO'));
+    error_log("PAGAMENTO DEBUG: - pix_sem_expiracao: " . ($pix_sem_expiracao ? 'SIM' : 'NÃO'));
+    error_log("PAGAMENTO DEBUG: - pagamento_criado_agora: " . ($pagamento_criado_agora ? 'SIM' : 'NÃO'));
+    error_log("PAGAMENTO DEBUG: - expires_at: " . ($pagamento['pix_expires_at'] ?? 'NULL'));
+    error_log("PAGAMENTO DEBUG: - qrcode_data presente: " . (!empty($pagamento['pix_qrcode_data']) ? 'SIM' : 'NÃO'));
+    if ($pagamento['pix_expires_at']) {
+        $exp_time = strtotime($pagamento['pix_expires_at']);
+        $now_time = time();
+        error_log("PAGAMENTO DEBUG: - expires_at timestamp: {$exp_time}, now: {$now_time}");
+    }
+    error_log("PAGAMENTO DEBUG: - RESULTADO deve_gerar_pix: " . ($deve_gerar_pix ? 'SIM' : 'NÃO'));
+}
 
 if ($deve_gerar_pix) {
     // SISTEMA DE RETRY MELHORADO PARA RESOLVER PROBLEMA DE TIMING
@@ -338,6 +374,19 @@ if ($pagamento['pix_expires_at']) {
     $expira_timestamp = strtotime($pagamento['pix_expires_at']);
     $agora = time();
     $tempo_expiracao = max(0, $expira_timestamp - $agora);
+    
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: Calculando tempo expiração:");
+        error_log("PAGAMENTO DEBUG: - pix_expires_at: {$pagamento['pix_expires_at']}");
+        error_log("PAGAMENTO DEBUG: - timestamp expira: {$expira_timestamp}");
+        error_log("PAGAMENTO DEBUG: - timestamp agora: {$agora}");
+        error_log("PAGAMENTO DEBUG: - tempo_expiracao segundos: {$tempo_expiracao}");
+        error_log("PAGAMENTO DEBUG: - pix_qrcode_data presente: " . (!empty($pagamento['pix_qrcode_data']) ? 'SIM' : 'NÃO'));
+    }
+} else {
+    if ($debug_mode) {
+        error_log("PAGAMENTO DEBUG: pix_expires_at está vazio - PIX pode não ter sido gerado");
+    }
 }
 
 // Debug: verificar se chegou até aqui

@@ -336,5 +336,25 @@ document.addEventListener('DOMContentLoaded', function() {
     // Inicializar timer se existe
     if (window.TEMPO_EXPIRACAO) {
         inicializarTimer(window.TEMPO_EXPIRACAO);
+    } else {
+        // CORREÇÃO: Se não há tempo de expiração, verificar se PIX não foi gerado
+        const qrLoading = document.getElementById('qr-loading');
+        const pixCode = document.getElementById('pix-code');
+        
+        if (qrLoading || (!pixCode || !pixCode.textContent.trim())) {
+            console.log('PIX não gerado na primeira carga - aguardando...');
+            
+            // Aguardar 5 segundos e recarregar se PIX ainda não existir
+            setTimeout(function() {
+                const pixCodeCheck = document.getElementById('pix-code');
+                const qrImg = document.getElementById('qr-code-img');
+                
+                if ((!pixCodeCheck || !pixCodeCheck.textContent.trim()) && 
+                    (!qrImg || qrImg.style.display === 'none')) {
+                    console.log('PIX ainda não gerado após 5s - recarregando página...');
+                    window.location.reload();
+                }
+            }, 5000);
+        }
     }
 });
