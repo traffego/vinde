@@ -141,14 +141,14 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                     </div>
                     
                     <div class="step-content">
-                        <div class="confirmacao-participant-info">
+                        <div class="participant-info">
                             <h3><?= htmlspecialchars($participante_logado['nome']) ?></h3>
                             <p><strong>CPF:</strong> <?= formatarCpf($participante_logado['cpf']) ?></p>
                             <p><strong>Email:</strong> <?= htmlspecialchars($participante_logado['email']) ?></p>
                             <p><strong>WhatsApp:</strong> <?= formatarTelefone($participante_logado['whatsapp']) ?></p>
                         </div>
                         
-                        <div class="confirmacao-participant-actions">
+                        <div class="participant-actions">
                             <a href="<?= SITE_URL ?>/participante/logout.php" class="btn-link">
                                 Não é você? Fazer login com outra conta
                             </a>
@@ -259,24 +259,24 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
 </main>
 
 <style>
-.confirmacao-participant-info {
+.participant-info {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 15px;
 }
 
-.confirmacao-participant-info h3 {
+.participant-info h3 {
     margin: 0 0 10px 0;
     color: var(--cor-primaria);
 }
 
-.confirmacao-participant-info p {
+.participant-info p {
     margin: 5px 0;
     color: var(--cor-texto-secundario);
 }
 
-.confirmacao-participant-actions {
+.participant-actions {
     text-align: center;
 }
 
