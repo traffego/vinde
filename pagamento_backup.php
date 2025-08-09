@@ -15,6 +15,7 @@ if ($debug_mode) {
     error_log("PAGAMENTO DEBUG: Inscrição ID = {$inscricao_id}");
 }
 
+@https://vinde.traffego.agency/pagamento.php?inscricao=22 
 // Validar inscricao_id
 if (empty($inscricao_id) || !is_numeric($inscricao_id)) {
     if ($debug_mode) {

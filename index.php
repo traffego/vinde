@@ -11,35 +11,51 @@ try {
     $tabela_inscricoes_existe = false;
 }
 
-if ($tabela_inscricoes_existe) {
-    // Sistema novo - usar tabela inscricoes
-    $eventos = buscar_todos("
-        SELECT e.*, 
-               COUNT(i.id) as total_inscritos,
-               (e.limite_participantes - COUNT(i.id)) as vagas_restantes
-        FROM eventos e
-        LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente', 'aprovada')
-        WHERE e.status = 'ativo' 
-        AND e.data_inicio >= CURDATE()
-        GROUP BY e.id
-        ORDER BY e.data_inicio ASC
-    ");
-} else {
-    // Sistema antigo - usar tabela participantes
-    $eventos = buscar_todos("
-        SELECT e.*, 
-               COUNT(p.id) as total_inscritos,
-               (e.limite_participantes - COUNT(p.id)) as vagas_restantes
-        FROM eventos e
-        LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
-        WHERE e.status = 'ativo' 
-        AND e.data_inicio >= CURDATE()
-        GROUP BY e.id
-        ORDER BY e.data_inicio ASC
-    ");
+echo "<!-- DEBUG: Executando query de eventos -->";
+try {
+    if ($tabela_inscricoes_existe) {
+        // Sistema novo - usar tabela inscricoes
+        echo "<!-- DEBUG: Usando sistema novo (tabela inscricoes) -->";
+        $eventos = buscar_todos("
+            SELECT e.*, 
+                   COUNT(i.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(i.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN inscricoes i ON e.id = i.evento_id AND i.status IN ('pendente', 'aprovada')
+            WHERE e.status = 'ativo' 
+            AND e.data_inicio >= CURDATE()
+            GROUP BY e.id
+            ORDER BY e.data_inicio ASC
+        ");
+    } else {
+        // Sistema antigo - usar tabela participantes
+        echo "<!-- DEBUG: Usando sistema antigo (tabela participantes) -->";
+        $eventos = buscar_todos("
+            SELECT e.*, 
+                   COUNT(p.id) as total_inscritos,
+                   (e.limite_participantes - COUNT(p.id)) as vagas_restantes
+            FROM eventos e
+            LEFT JOIN participantes p ON e.id = p.evento_id AND p.status != 'cancelado'
+            WHERE e.status = 'ativo' 
+            AND e.data_inicio >= CURDATE()
+            GROUP BY e.id
+            ORDER BY e.data_inicio ASC
+        ");
+    }
+    echo "<!-- DEBUG: Query executada com sucesso. Eventos encontrados: " . count($eventos) . " -->";
+} catch (Exception $e) {
+    echo "<!-- DEBUG: ERRO na query de eventos: " . htmlspecialchars($e->getMessage()) . " -->";
+    $eventos = [];
 }
 
-obter_cabecalho('Vinde - Eventos Católicos', 'home');
+echo "<!-- DEBUG: Chamando obter_cabecalho() -->";
+try {
+    obter_cabecalho('Vinde - Eventos Católicos', 'home');
+    echo "<!-- DEBUG: obter_cabecalho() executado com sucesso -->";
+} catch (Exception $e) {
+    echo "<!-- DEBUG: ERRO em obter_cabecalho(): " . htmlspecialchars($e->getMessage()) . " -->";
+    die("Erro fatal em obter_cabecalho(): " . $e->getMessage());
+}
 ?>
 
 <main>
