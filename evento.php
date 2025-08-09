@@ -172,12 +172,10 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                     <div class="inscription-info">
                         <div class="price-section">
                             <?php if ($evento['valor'] > 0): ?>
+                                <!-- Debug: <?= "Valor do banco: " . var_export($evento['valor'], true) ?> -->
                                 <div class="price-main">
                                     <span class="price-currency">R$</span>
-                                    <span class="price-value"><?= number_format($evento['valor'], 0, ',', '.') ?></span>
-                                    <?php if ($evento['valor'] - floor($evento['valor']) > 0): ?>
-                                        <span class="price-decimal">,<?= sprintf('%02d', ($evento['valor'] - floor($evento['valor'])) * 100) ?></span>
-                                    <?php endif; ?>
+                                    <span class="price-value"><?= formatar_moeda($evento['valor']) ?></span>
                                 </div>
                                 <span class="price-label">por pessoa</span>
                             <?php else: ?>
