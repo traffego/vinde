@@ -141,7 +141,7 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                     </div>
                     
                     <div class="step-content">
-                        <div class="participant-info">
+                        <div class="confirmacao-participant-info">
                             <h3><?= htmlspecialchars($participante_logado['nome']) ?></h3>
                             <p><strong>CPF:</strong> <?= formatarCpf($participante_logado['cpf']) ?></p>
                             <p><strong>Email:</strong> <?= htmlspecialchars($participante_logado['email']) ?></p>
