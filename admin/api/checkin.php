@@ -43,6 +43,10 @@ try {
             $resultado = desfazerCheckin($input);
             break;
             
+        case 'search_participant':
+            $resultado = buscarParticipante($input);
+            break;
+            
         default:
             throw new Exception('Ação não reconhecida');
     }
@@ -257,6 +261,71 @@ function realizarCheckin($participante_id, $participante_nome) {
     } else {
         return ['success' => false, 'message' => 'Erro ao realizar check-in'];
     }
+}
+
+/**
+ * Buscar participante por nome, CPF ou email
+ */
+function buscarParticipante($input) {
+    if (!isset($input['query']) || !isset($input['evento_id'])) {
+        return ['success' => false, 'message' => 'Parâmetros incompletos'];
+    }
+    
+    $query = trim($input['query']);
+    $evento_id = (int)$input['evento_id'];
+    
+    if (strlen($query) < 3) {
+        return ['success' => false, 'message' => 'Digite pelo menos 3 caracteres'];
+    }
+    
+    // Limpar CPF se for o caso
+    $cpf_limpo = preg_replace('/[^0-9]/', '', $query);
+    
+    // Buscar participantes
+    $participantes = buscar_todos("
+        SELECT 
+            p.id,
+            p.nome,
+            p.email,
+            p.cpf,
+            p.whatsapp,
+            p.status,
+            p.checkin_timestamp,
+            e.nome as evento_nome
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        JOIN eventos e ON i.evento_id = e.id
+        WHERE i.evento_id = ? 
+        AND i.status != 'cancelada'
+        AND (
+            LOWER(p.nome) LIKE LOWER(?) 
+            OR LOWER(p.email) LIKE LOWER(?)
+            OR p.cpf = ?
+            OR REPLACE(REPLACE(REPLACE(p.cpf, '.', ''), '-', ''), ' ', '') = ?
+        )
+        ORDER BY p.nome
+        LIMIT 10
+    ", [
+        $evento_id,
+        "%{$query}%",
+        "%{$query}%", 
+        $cpf_limpo,
+        $cpf_limpo
+    ]);
+    
+    if (empty($participantes)) {
+        return [
+            'success' => true,
+            'participants' => [],
+            'message' => 'Nenhum participante encontrado'
+        ];
+    }
+    
+    return [
+        'success' => true,
+        'participants' => $participantes,
+        'total' => count($participantes)
+    ];
 }
 
 /**

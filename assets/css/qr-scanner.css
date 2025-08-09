@@ -1,0 +1,451 @@
+/**
+ * Estilos para o Scanner QR Code Melhorado
+ * Sistema Vinde - Check-in
+ */
+
+/* Abas do Scanner */
+.scanner-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px 20px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6c757d;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+.tab-btn.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    background: #fff;
+}
+
+/* Conteúdo das Abas */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scanner de Câmera */
+.scanner-container {
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+#scanner-video {
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+}
+
+.scanner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.scanner-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    border: 3px solid #00ff00;
+    border-radius: 8px;
+    background: rgba(0, 255, 0, 0.1);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
+}
+
+.scanner-instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    text-align: center;
+}
+
+/* Resultados do Scanner */
+.scanner-result, .upload-result {
+    min-height: 40px;
+    margin: 10px 0;
+    text-align: center;
+}
+
+.qr-loading, .upload-loading, .search-loading {
+    color: #007bff;
+    font-weight: 500;
+    animation: blink 1.5s infinite;
+}
+
+.qr-scanning {
+    color: #28a745;
+    font-weight: 500;
+    animation: blink 1s infinite;
+}
+
+.qr-detected, .upload-success {
+    color: #28a745;
+    font-weight: bold;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+.qr-error, .upload-error, .search-error {
+    color: #dc3545;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.5; }
+}
+
+/* Controles do Scanner */
+.scanner-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.scanner-controls .btn {
+    min-width: 120px;
+}
+
+/* Upload de Arquivo */
+.upload-area {
+    padding: 20px;
+}
+
+.upload-dropzone {
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fafafa;
+}
+
+.upload-dropzone:hover {
+    border-color: #007bff;
+    background: #f0f8ff;
+}
+
+.upload-dropzone.dragover {
+    border-color: #28a745;
+    background: #f0fff0;
+    transform: scale(1.02);
+}
+
+.upload-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.7;
+}
+
+.upload-dropzone p {
+    margin: 5px 0;
+    color: #6c757d;
+}
+
+.upload-dropzone small {
+    color: #adb5bd;
+}
+
+/* Input Manual */
+.manual-checkin {
+    padding: 20px;
+}
+
+.manual-checkin h4 {
+    margin-bottom: 15px;
+    color: #495057;
+    font-size: 16px;
+}
+
+.form-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    resize: vertical;
+    margin-bottom: 15px;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.manual-separator {
+    text-align: center;
+    margin: 25px 0;
+    position: relative;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.manual-separator::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #dee2e6;
+    z-index: 1;
+}
+
+.manual-separator::after {
+    content: 'ou';
+    background: white;
+    padding: 0 15px;
+    position: relative;
+    z-index: 2;
+}
+
+/* Busca Manual */
+.manual-search {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.manual-search .form-input {
+    flex: 1;
+}
+
+/* Resultados da Busca */
+.search-results {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.search-results-list {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.search-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #e9ecef;
+    background: white;
+    transition: background 0.2s ease;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background: #f8f9fa;
+}
+
+.search-result-item .participant-info {
+    flex: 1;
+}
+
+.search-result-item .participant-info strong {
+    display: block;
+    margin-bottom: 4px;
+    color: #495057;
+}
+
+.search-result-item .participant-info small {
+    color: #6c757d;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.search-result-item .status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.search-result-item .status-badge.presente {
+    background: #d4edda;
+    color: #155724;
+}
+
+.search-result-item .status-badge.pendente {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.search-result-item .participant-actions {
+    margin-left: 15px;
+}
+
+.search-empty {
+    text-align: center;
+    padding: 30px;
+    color: #6c757d;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .scanner-tabs {
+        flex-direction: column;
+    }
+    
+    .tab-btn {
+        border-bottom: 1px solid #dee2e6;
+        border-left: 3px solid transparent;
+    }
+    
+    .tab-btn.active {
+        border-left-color: #007bff;
+        border-bottom-color: #dee2e6;
+    }
+    
+    .scanner-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .manual-search {
+        flex-direction: column;
+    }
+    
+    .search-result-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .search-result-item .participant-actions {
+        margin-left: 0;
+    }
+}
+
+/* Estados de Loading */
+.loading-spinner {
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Melhorias na acessibilidade */
+.tab-btn:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+.upload-dropzone:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Notificações toast customizadas */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 300px;
+    max-width: 500px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.toast-success {
+    background: #28a745;
+}
+
+.toast-error {
+    background: #dc3545;
+}
+
+.toast-warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+.toast-info {
+    background: #17a2b8;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
