@@ -148,7 +148,7 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                             <p><strong>WhatsApp:</strong> <?= formatarTelefone($participante_logado['whatsapp']) ?></p>
                         </div>
                         
-                        <div class="participant-actions">
+                        <div class="confirmacao-participant-actions">
                             <a href="<?= SITE_URL ?>/participante/logout.php" class="btn-link">
                                 Não é você? Fazer login com outra conta
                             </a>
@@ -259,24 +259,24 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
 </main>
 
 <style>
-/* .participant-info {
+.confirmacao-participant-info {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 15px;
-} */
+}
 
-.participant-info h3 {
+.confirmacao-participant-info h3 {
     margin: 0 0 10px 0;
     color: var(--cor-primaria);
 }
 
-.participant-info p {
+.confirmacao-participant-info p {
     margin: 5px 0;
     color: var(--cor-texto-secundario);
 }
 
-.participant-actions {
+.confirmacao-participant-actions {
     text-align: center;
 }
 
