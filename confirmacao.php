@@ -256,11 +256,11 @@ obter_cabecalho('Confirmação - ' . $evento['evento_nome'], 'confirmacao');
                 <!-- Participante Info -->
                 <div class="participant-section">
                     <h3>Dados do participante</h3>
-                    <div class="participant-info">
-                        <div class="participant-avatar">
+                    <div class="confirmacao-participant-info">
+                        <div class="confirmacao-participant-avatar">
                             <span><?= strtoupper(substr($participante['participante_nome'], 0, 1)) ?></span>
                         </div>
-                        <div class="participant-details">
+                        <div class="confirmacao-participant-details">
                             <strong><?= htmlspecialchars($participante['participante_nome']) ?></strong>
                             <span><?= htmlspecialchars($participante['participante_email']) ?></span>
                         </div>

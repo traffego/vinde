@@ -2956,7 +2956,7 @@ body {
     font-weight: 400;
 }
 
-.participant-info {
+.confirmacao-participant-info {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2969,7 +2969,7 @@ body {
     margin: 0 auto;
 }
 
-.participant-avatar {
+.confirmacao-participant-avatar {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2980,7 +2980,7 @@ body {
     flex-shrink: 0;
 }
 
-.participant-details {
+.confirmacao-participant-details {
     display: flex;
     flex-direction: column;
     text-align: left;
