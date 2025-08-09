@@ -89,24 +89,51 @@ $protocolo = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 
 $dominio = $_SERVER['HTTP_HOST'];
 $evento_url = $protocolo . '://' . $dominio . '/evento.php?id=' . $evento['id'];
 
-// Imagem do evento - verificar se existe e usar URL absoluta
+// Função para verificar se imagem é acessível
+function verificar_imagem_acessivel($url) {
+    $headers = @get_headers($url);
+    return $headers && strpos($headers[0], '200') !== false;
+}
+
+// Imagem do evento - verificar se existe e é acessível
 $evento_imagem_path = '';
 if ($evento['imagem']) {
     $caminho_imagem = __DIR__ . '/uploads/' . $evento['imagem'];
     if (file_exists($caminho_imagem)) {
-        $evento_imagem_path = $protocolo . '://' . $dominio . '/uploads/' . $evento['imagem'];
+        $url_tentativa = $protocolo . '://' . $dominio . '/uploads/' . $evento['imagem'];
+        
+        // Verificar se a imagem é realmente acessível via HTTP
+        if (verificar_imagem_acessivel($url_tentativa)) {
+            $evento_imagem_path = $url_tentativa;
+        }
     }
 }
 
-// Fallback para logo se não houver imagem ou se não existir
+// Fallbacks sequenciais se não houver imagem ou se não for acessível
 if (empty($evento_imagem_path)) {
-    $logo_path = __DIR__ . '/assets/images/logo.png';
-    if (file_exists($logo_path)) {
-        $evento_imagem_path = $protocolo . '://' . $dominio . '/assets/images/logo.png';
-    } else {
-        // Fallback final para uma imagem padrão
-        $evento_imagem_path = $protocolo . '://' . $dominio . '/assets/img/default-event.jpg';
+    $fallbacks = [
+        '/assets/images/logo.png',
+        '/assets/img/logo.png', 
+        '/assets/images/default-event.jpg',
+        '/assets/img/default-event.jpg'
+    ];
+    
+    foreach ($fallbacks as $fallback) {
+        $path_local = __DIR__ . $fallback;
+        if (file_exists($path_local)) {
+            $url_fallback = $protocolo . '://' . $dominio . $fallback;
+            if (verificar_imagem_acessivel($url_fallback)) {
+                $evento_imagem_path = $url_fallback;
+                break;
+            }
+        }
     }
+}
+
+// Se ainda não tem imagem, criar uma URL de placeholder externa
+if (empty($evento_imagem_path)) {
+    // Usar um serviço de placeholder confiável
+    $evento_imagem_path = 'https://via.placeholder.com/1200x630/1e40af/ffffff?text=' . urlencode($evento['nome']);
 }
 
 // Descrição otimizada para Open Graph
@@ -116,26 +143,62 @@ if (strlen(strip_tags($evento['descricao'])) > 160) {
     $evento_descricao .= '...';
 }
 
-// Meta tags específicas para Open Graph
+// Meta tags específicas para Open Graph - Seguindo regras rigorosas
 $meta_tags = [
+    // Open Graph básico (obrigatório)
     'og:title' => htmlspecialchars($evento['nome']),
-    'og:description' => htmlspecialchars($evento_descricao),
+    'og:type' => 'website', // Mudança: 'event' pode não ser reconhecido por todas as plataformas
     'og:image' => $evento_imagem_path,
+    'og:url' => $evento_url,
+    'og:description' => htmlspecialchars($evento_descricao),
+    
+    // Meta tags adicionais para melhor compatibilidade
+    'og:site_name' => 'Vinde - Eventos Católicos',
+    'og:locale' => 'pt_BR',
+    
+    // Especificações da imagem (IMPORTANTES para funcionamento)
+    'og:image:url' => $evento_imagem_path,
+    'og:image:secure_url' => str_replace('http://', 'https://', $evento_imagem_path),
+    'og:image:type' => 'image/jpeg', // Assumindo JPEG - será corrigido dinamicamente
     'og:image:width' => '1200',
     'og:image:height' => '630',
     'og:image:alt' => htmlspecialchars($evento['nome']),
-    'og:url' => $evento_url,
-    'og:type' => 'event',
-    'og:site_name' => 'Vinde - Eventos Católicos',
-    'og:locale' => 'pt_BR',
+    
+    // Meta tags para evento específico
     'event:start_time' => date('c', strtotime($evento['data_inicio'] . ' ' . ($evento['horario_inicio'] ?: '00:00:00'))),
     'event:location' => htmlspecialchars($evento['local'] . ' - ' . $evento['cidade'] . ', ' . $evento['estado']),
+    
+    // Twitter Cards (essencial para WhatsApp e Twitter)
     'twitter:card' => 'summary_large_image',
+    'twitter:site' => '@vinde',
     'twitter:title' => htmlspecialchars($evento['nome']),
     'twitter:description' => htmlspecialchars($evento_descricao),
     'twitter:image' => $evento_imagem_path,
-    'twitter:image:alt' => htmlspecialchars($evento['nome'])
+    'twitter:image:alt' => htmlspecialchars($evento['nome']),
+    
+    // Meta tags extras para melhor SEO
+    'description' => htmlspecialchars($evento_descricao),
+    'keywords' => 'evento católico, ' . strtolower($evento['cidade']) . ', ' . htmlspecialchars($evento['nome'])
 ];
+
+// Detectar tipo MIME da imagem para meta tag correta
+if ($evento['imagem']) {
+    $extensao = strtolower(pathinfo($evento['imagem'], PATHINFO_EXTENSION));
+    switch ($extensao) {
+        case 'jpg':
+        case 'jpeg':
+            $meta_tags['og:image:type'] = 'image/jpeg';
+            break;
+        case 'png':
+            $meta_tags['og:image:type'] = 'image/png';
+            break;
+        case 'webp':
+            $meta_tags['og:image:type'] = 'image/webp';
+            break;
+        default:
+            $meta_tags['og:image:type'] = 'image/jpeg';
+    }
+}
 
 obter_cabecalho($evento['nome'] . ' - Vinde', 'evento', $meta_tags);
 

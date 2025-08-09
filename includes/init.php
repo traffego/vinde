@@ -61,8 +61,16 @@ function obter_cabecalho($titulo = 'Vinde - Eventos Católicos', $pagina = 'home
         echo "\n    <!-- Open Graph / Social Media Meta Tags -->";
         foreach ($meta_tags as $property => $content) {
             if (strpos($property, 'twitter:') === 0) {
+                // Twitter Cards usam name
+                echo "\n    <meta name='{$property}' content='{$content}'>";
+            } elseif (strpos($property, 'og:') === 0) {
+                // Open Graph usa property
+                echo "\n    <meta property='{$property}' content='{$content}'>";
+            } elseif (in_array($property, ['description', 'keywords'])) {
+                // Meta tags padrão usam name
                 echo "\n    <meta name='{$property}' content='{$content}'>";
             } else {
+                // Event tags e outros usam property
                 echo "\n    <meta property='{$property}' content='{$content}'>";
             }
         }

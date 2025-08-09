@@ -1,0 +1,43 @@
+# Configurações para servir imagens corretamente
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+</IfModule>
+
+# Permitir acesso a imagens
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|bmp|svg)$">
+    # Definir headers corretos para imagens
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000"
+        Header set Content-Type "image/jpeg" env=jpeg
+        Header set Content-Type "image/png" env=png
+        Header set Content-Type "image/gif" env=gif
+        Header set Content-Type "image/webp" env=webp
+    </IfModule>
+    
+    # Permitir acesso cross-origin para Open Graph
+    <IfModule mod_headers.c>
+        Header set Access-Control-Allow-Origin "*"
+        Header set Access-Control-Allow-Methods "GET, OPTIONS"
+        Header set Access-Control-Allow-Headers "Content-Type"
+    </IfModule>
+    
+    # Garantir que imagens sejam servidas
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Bloquear acesso a outros tipos de arquivo
+<FilesMatch "\.php$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Definir tipos MIME corretos
+<IfModule mod_mime.c>
+    AddType image/jpeg .jpg .jpeg
+    AddType image/png .png
+    AddType image/gif .gif
+    AddType image/webp .webp
+    AddType image/bmp .bmp
+    AddType image/svg+xml .svg
+</IfModule>
