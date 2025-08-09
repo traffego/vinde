@@ -264,6 +264,7 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 15px;
+    display: block;
 }
 
 .participant-info h3 {
