@@ -120,8 +120,8 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                                     <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z"/>
                                 </svg>
                             </div>
-                        <?php endif; ?>
-                    </div>
+                                    <?php endif; ?>
+                            </div>
                     <div class="event-info">
                         <!-- Badges -->
                         <div class="event-badges">
@@ -251,9 +251,9 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                 <!-- Coluna Principal -->
                     <!-- Descrição Completa -->
                     <?php if ($evento['descricao_completa']): ?>
-                    <div class="evento-secao">
+                    <div class="content-card">
                         <h2>Sobre o Evento</h2>
-                        <div class="texto-formatado">
+                        <div class="text-content">
                             <?= nl2br(htmlspecialchars($evento['descricao_completa'])) ?>
                         </div>
                     </div>
@@ -261,43 +261,62 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                     
                     <!-- Programação -->
                     <?php if (!empty($programacao)): ?>
-                    <div class="evento-secao">
+                    <div class="content-card">
+                        <div class="section-header">
                         <h2>Programação</h2>
-                        <div class="programacao">
-                            <?php foreach ($programacao as $item): ?>
-                                <div class="programacao-item">
+                            <button class="toggle-btn" onclick="toggleProgram()">
+                                <span>Ver programação completa</span>
+                                <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M7 10l5 5 5-5z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="program-content" id="program-content">
+                            <div class="program-timeline">
+                                <?php foreach ($programacao as $index => $item): ?>
+                                    <div class="program-item">
                                     <?php if (isset($item['horario'])): ?>
-                                        <div class="programacao-horario">
-                                            <span><?= htmlspecialchars($item['horario']) ?></span>
+                                            <div class="program-time">
+                                                <span class="time-badge"><?= htmlspecialchars($item['horario']) ?></span>
                                         </div>
-                                    <?php endif; ?>
-                                    <div class="programacao-conteudo">
-                                        <h3><?= htmlspecialchars($item['titulo'] ?? '') ?></h3>
-                                        <?php if (isset($item['descricao'])): ?>
-                                            <p><?= htmlspecialchars($item['descricao']) ?></p>
+                                        <?php endif; ?>
+                                        <div class="program-content-item">
+                                            <div class="program-info">
+                                                <h3 class="program-title"><?= htmlspecialchars($item['titulo'] ?? '') ?></h3>
+                                                <?php if (isset($item['descricao'])): ?>
+                                                    <p class="program-description"><?= htmlspecialchars($item['descricao']) ?></p>
                                         <?php endif; ?>
                                         <?php if (isset($item['palestrante'])): ?>
-                                            <small class="palestrante">
-                                                <i class="icon-user"></i>
-                                                <?= htmlspecialchars($item['palestrante']) ?>
-                                            </small>
+                                                    <div class="program-speaker">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                                        </svg>
+                                                        <span><?= htmlspecialchars($item['palestrante']) ?></span>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        <?php if ($index < count($programacao) - 1): ?>
+                                            <div class="program-connector"></div>
                                         <?php endif; ?>
                                     </div>
+                                <?php endforeach; ?>
                                 </div>
-                            <?php endforeach; ?>
                         </div>
                     </div>
                     <?php endif; ?>
                     
                     <!-- O que está incluído -->
                     <?php if (!empty($inclui)): ?>
-                    <div class="evento-secao">
+                    <div class="content-card">
                         <h2>O que está incluído</h2>
-                        <ul class="lista-incluso">
+                        <ul class="included-list">
                             <?php foreach ($inclui as $item): ?>
-                                <li>
-                                    <i class="icon-check"></i>
-                                    <?= htmlspecialchars($item) ?>
+                                <li class="included-item">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="check-icon">
+                                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                                    </svg>
+                                    <span><?= htmlspecialchars($item) ?></span>
                                 </li>
                             <?php endforeach; ?>
                         </ul>
@@ -306,17 +325,21 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                     
                     <!-- Endereço -->
                     <?php if ($evento['endereco']): ?>
-                    <div class="evento-secao">
+                    <div class="content-card">
                         <h2>Como chegar</h2>
-                        <div class="endereco">
-                            <p><strong><?= htmlspecialchars($evento['local']) ?></strong></p>
-                            <p><?= htmlspecialchars($evento['endereco']) ?></p>
-                            <p><?= htmlspecialchars($evento['cidade']) ?>, <?= $evento['estado'] ?></p>
+                        <div class="location-info">
+                            <div class="location-details">
+                                <h3 class="location-name"><?= htmlspecialchars($evento['local']) ?></h3>
+                                <p class="location-address"><?= htmlspecialchars($evento['endereco']) ?></p>
+                                <p class="location-city"><?= htmlspecialchars($evento['cidade']) ?>, <?= $evento['estado'] ?></p>
+                            </div>
                             
                             <a href="https://maps.google.com/?q=<?= urlencode($evento['endereco'] . ', ' . $evento['cidade'] . ', ' . $evento['estado']) ?>" 
                                target="_blank" 
-                               class="btn-mapa">
-                                <i class="icon-map"></i>
+                               class="btn-map">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                                </svg>
                                 Ver no Google Maps
                             </a>
                         </div>
@@ -399,6 +422,23 @@ function copiarLink() {
     }
 }
 
+// Toggle da programação
+function toggleProgram() {
+    const content = document.getElementById('program-content');
+    const icon = document.querySelector('.toggle-icon');
+    const btn = document.querySelector('.toggle-btn span');
+    
+    if (content.style.display === 'none' || !content.style.display) {
+        content.style.display = 'block';
+        icon.style.transform = 'rotate(180deg)';
+        btn.textContent = 'Ocultar programação';
+    } else {
+        content.style.display = 'none';
+        icon.style.transform = 'rotate(0deg)';
+        btn.textContent = 'Ver programação completa';
+    }
+}
+
 // Scroll suave para seções
 document.addEventListener('DOMContentLoaded', function() {
     const links = document.querySelectorAll('a[href^="#"]');
@@ -415,6 +455,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // Inicializar programação como oculta
+    const programContent = document.getElementById('program-content');
+    if (programContent) {
+        programContent.style.display = 'none';
+    }
 });
 </script>
 
