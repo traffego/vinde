@@ -162,14 +162,15 @@ body {
 
 .btn-participante {
     background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
-    color: var(--cor-branco);
-    padding: 10px 20px;
+    color: var(--cor-branco) !important;
+    padding: 10px 20px !important;
     border-radius: 8px;
     text-decoration: none;
     font-size: 0.875rem;
     font-weight: 500;
     transition: all 0.2s ease;
-    display: inline-flex;
+    display: inline-flex
+;
     align-items: center;
     gap: 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
