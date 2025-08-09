@@ -259,12 +259,12 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
 </main>
 
 <style>
-.participant-info {
+/* .participant-info {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 12px;
     margin-bottom: 15px;
-}
+} */
 
 .participant-info h3 {
     margin: 0 0 10px 0;
