@@ -89,50 +89,42 @@ $protocolo = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 
 $dominio = $_SERVER['HTTP_HOST'];
 $evento_url = $protocolo . '://' . $dominio . '/evento.php?id=' . $evento['id'];
 
-// Função para verificar se imagem é acessível
-function verificar_imagem_acessivel($url) {
-    $headers = @get_headers($url);
-    return $headers && strpos($headers[0], '200') !== false;
-}
-
-// Imagem do evento - verificar se existe e é acessível
+// Imagem do evento - usar exatamente a mesma lógica do HTML
 $evento_imagem_path = '';
+
 if ($evento['imagem']) {
-    $caminho_imagem = __DIR__ . '/uploads/' . $evento['imagem'];
-    if (file_exists($caminho_imagem)) {
-        $url_tentativa = $protocolo . '://' . $dominio . '/uploads/' . $evento['imagem'];
-        
-        // Verificar se a imagem é realmente acessível via HTTP
-        if (verificar_imagem_acessivel($url_tentativa)) {
-            $evento_imagem_path = $url_tentativa;
-        }
+    // Usar a mesma estrutura que está sendo usada no HTML da página
+    // SITE_URL . '/uploads/' . $evento['imagem']
+    $evento_imagem_path = $protocolo . '://' . $dominio . '/uploads/' . $evento['imagem'];
+    
+    // Verificar se arquivo existe localmente 
+    $caminho_local = __DIR__ . '/uploads/' . $evento['imagem'];
+    
+    if (!file_exists($caminho_local)) {
+        // Se não existir localmente, resetar para buscar fallback
+        $evento_imagem_path = '';
     }
 }
 
-// Fallbacks sequenciais se não houver imagem ou se não for acessível
+// Fallbacks se não houver imagem válida
 if (empty($evento_imagem_path)) {
     $fallbacks = [
-        '/assets/images/logo.png',
-        '/assets/img/logo.png', 
-        '/assets/images/default-event.jpg',
-        '/assets/img/default-event.jpg'
+        ['path' => '/assets/images/logo.png', 'local' => __DIR__ . '/assets/images/logo.png'],
+        ['path' => '/assets/img/logo.png', 'local' => __DIR__ . '/assets/img/logo.png'],
+        ['path' => '/assets/images/default-event.jpg', 'local' => __DIR__ . '/assets/images/default-event.jpg'],
+        ['path' => '/assets/img/default-event.jpg', 'local' => __DIR__ . '/assets/img/default-event.jpg']
     ];
     
     foreach ($fallbacks as $fallback) {
-        $path_local = __DIR__ . $fallback;
-        if (file_exists($path_local)) {
-            $url_fallback = $protocolo . '://' . $dominio . $fallback;
-            if (verificar_imagem_acessivel($url_fallback)) {
-                $evento_imagem_path = $url_fallback;
-                break;
-            }
+        if (file_exists($fallback['local'])) {
+            $evento_imagem_path = $protocolo . '://' . $dominio . $fallback['path'];
+            break;
         }
     }
 }
 
-// Se ainda não tem imagem, criar uma URL de placeholder externa
+// Fallback final para placeholder se nada foi encontrado
 if (empty($evento_imagem_path)) {
-    // Usar um serviço de placeholder confiável
     $evento_imagem_path = 'https://via.placeholder.com/1200x630/1e40af/ffffff?text=' . urlencode($evento['nome']);
 }
 
@@ -206,8 +198,25 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento', $meta_tags);
 if (isset($_GET['debug']) && $_GET['debug'] == '1') {
     echo "<!-- DEBUG: Meta tags geradas para Open Graph -->";
     echo "<div style='background: #f0f0f0; padding: 20px; margin: 20px; border: 1px solid #ccc; font-family: monospace; font-size: 12px;'>";
-    echo "<h3>Meta tags Open Graph (modo debug):</h3>";
-    echo "<pre>";
+    echo "<h3>🔍 Debug Open Graph (vinde.traffego.agency):</h3>";
+    
+    echo "<h4>📋 Informações do evento:</h4>";
+    echo "<ul>";
+    echo "<li><strong>Campo imagem DB:</strong> " . htmlspecialchars($evento['imagem'] ?: 'VAZIO') . "</li>";
+    echo "<li><strong>Caminho local:</strong> " . htmlspecialchars(__DIR__ . '/uploads/' . $evento['imagem']) . "</li>";
+    echo "<li><strong>Arquivo existe:</strong> " . (file_exists(__DIR__ . '/uploads/' . $evento['imagem']) ? 'SIM' : 'NÃO') . "</li>";
+    echo "<li><strong>URL gerada:</strong> {$evento_imagem_path}</li>";
+    echo "<li><strong>Domínio detectado:</strong> {$dominio}</li>";
+    echo "<li><strong>Protocolo:</strong> {$protocolo}</li>";
+    echo "</ul>";
+    
+    echo "<h4>🖼️ Teste da imagem:</h4>";
+    echo "<p><a href='{$evento_imagem_path}' target='_blank' style='background: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;'>Abrir imagem em nova aba</a></p>";
+    echo "<img src='{$evento_imagem_path}' style='max-width: 200px; border: 1px solid #ccc; margin: 10px 0;' onerror='this.style.display=\"none\"; this.nextSibling.style.display=\"block\";'>";
+    echo "<p style='display:none; color: red;'>❌ Erro ao carregar imagem</p>";
+    
+    echo "<h4>📝 Meta tags geradas:</h4>";
+    echo "<pre style='background: white; padding: 10px; border: 1px solid #ddd; max-height: 300px; overflow-y: auto;'>";
     foreach ($meta_tags as $property => $content) {
         if (strpos($property, 'twitter:') === 0) {
             echo htmlspecialchars("<meta name='{$property}' content='{$content}'>") . "\n";
@@ -216,7 +225,14 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
         }
     }
     echo "</pre>";
-    echo "<p><strong>URL da imagem:</strong> <a href='{$evento_imagem_path}' target='_blank'>{$evento_imagem_path}</a></p>";
+    
+    echo "<h4>🔗 Ferramentas de validação:</h4>";
+    echo "<ul>";
+    echo "<li><a href='https://developers.facebook.com/tools/debug/?q=" . urlencode($evento_url) . "' target='_blank'>Facebook Debugger</a></li>";
+    echo "<li><a href='https://www.linkedin.com/post-inspector/inspect/" . urlencode($evento_url) . "' target='_blank'>LinkedIn Inspector</a></li>";
+    echo "<li><a href='https://cards-dev.twitter.com/validator' target='_blank'>Twitter Card Validator</a></li>";
+    echo "</ul>";
+    
     echo "<p><small>Para remover este debug, retire o parâmetro ?debug=1 da URL</small></p>";
     echo "</div>";
 }
