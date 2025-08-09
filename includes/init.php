@@ -37,7 +37,7 @@ try {
 }
 
 // Funções de template
-function obter_cabecalho($titulo = 'Vinde - Eventos Católicos', $pagina = 'home') {
+function obter_cabecalho($titulo = 'Vinde - Eventos Católicos', $pagina = 'home', $meta_tags = []) {
     $csrf_token = gerar_csrf_token();
     $mensagem = obter_mensagem();
     
@@ -54,7 +54,21 @@ function obter_cabecalho($titulo = 'Vinde - Eventos Católicos', $pagina = 'home
     <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>
     <meta name='description' content='Sistema de inscrições para eventos católicos'>
     <meta name='robots' content='index, follow'>
-    <link rel='icon' type='image/x-icon' href='" . SITE_URL . "/assets/images/favicon.ico'>
+    <link rel='icon' type='image/x-icon' href='" . SITE_URL . "/assets/images/favicon.ico'>";
+    
+    // Adicionar meta tags personalizadas (Open Graph, Twitter, etc.)
+    if (!empty($meta_tags)) {
+        echo "\n    <!-- Open Graph / Social Media Meta Tags -->";
+        foreach ($meta_tags as $property => $content) {
+            if (strpos($property, 'twitter:') === 0) {
+                echo "\n    <meta name='{$property}' content='{$content}'>";
+            } else {
+                echo "\n    <meta property='{$property}' content='{$content}'>";
+            }
+        }
+    }
+    
+    echo "
 </head>
 <body class='pagina-{$pagina}'>
     <header class='header-principal'>

@@ -84,7 +84,27 @@ $inclui = $evento['inclui'] ? json_decode($evento['inclui'], true) : [];
 $evento_passou = strtotime($evento['data_inicio']) < strtotime('today');
 $evento_esgotado = $evento['vagas_restantes'] <= 0;
 
-obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
+// URL atual do evento
+$evento_url = SITE_URL . '/evento.php?id=' . $evento['id'];
+$evento_imagem = $evento['imagem'] ? SITE_URL . '/uploads/' . $evento['imagem'] : SITE_URL . '/assets/img/logo.png';
+
+// Meta tags específicas para Open Graph
+$meta_tags = [
+    'og:title' => htmlspecialchars($evento['nome']),
+    'og:description' => htmlspecialchars(substr(strip_tags($evento['descricao']), 0, 160)),
+    'og:image' => $evento_imagem,
+    'og:url' => $evento_url,
+    'og:type' => 'event',
+    'og:site_name' => 'Vinde - Eventos Católicos',
+    'event:start_time' => date('c', strtotime($evento['data_inicio'] . ' ' . ($evento['horario_inicio'] ?: '00:00:00'))),
+    'event:location' => htmlspecialchars($evento['local'] . ' - ' . $evento['cidade'] . ', ' . $evento['estado']),
+    'twitter:card' => 'summary_large_image',
+    'twitter:title' => htmlspecialchars($evento['nome']),
+    'twitter:description' => htmlspecialchars(substr(strip_tags($evento['descricao']), 0, 160)),
+    'twitter:image' => $evento_imagem
+];
+
+obter_cabecalho($evento['nome'] . ' - Vinde', 'evento', $meta_tags);
 ?>
 
 <main class="evento-main">
@@ -236,6 +256,26 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                                 </svg>
                                 <span>Dados protegidos</span>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botões de Compartilhamento -->
+                    <div class="share-section">
+                        <h3 class="share-title">Compartilhar evento</h3>
+                        <div class="share-buttons">
+                            <button onclick="shareWhatsApp()" class="btn-share whatsapp">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.893 3.488"/>
+                                </svg>
+                                WhatsApp
+                            </button>
+                            
+                            <button onclick="copyEventLink()" class="btn-share copy">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                                </svg>
+                                Copiar Link
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -461,6 +501,130 @@ document.addEventListener('DOMContentLoaded', function() {
         programContent.style.display = 'none';
     }
 });
+
+// Funções de compartilhamento
+function shareWhatsApp() {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent('Olha que evento incrível! <?= htmlspecialchars($evento['nome']) ?> - <?= formatar_data($evento['data_inicio']) ?>');
+    const whatsappUrl = `https://wa.me/?text=${text}%20${url}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+function copyEventLink() {
+    const url = window.location.href;
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        // Usar a API moderna
+        navigator.clipboard.writeText(url).then(() => {
+            showToast('Link copiado com sucesso! 📋', 'success');
+        }).catch(() => {
+            fallbackCopyLink(url);
+        });
+    } else {
+        fallbackCopyLink(url);
+    }
+}
+
+function fallbackCopyLink(url) {
+    // Fallback para navegadores mais antigos
+    const textArea = document.createElement('textarea');
+    textArea.value = url;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showToast('Link copiado com sucesso! 📋', 'success');
+    } catch (err) {
+        showToast('Erro ao copiar link. Copie manualmente: ' + url, 'error');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function showToast(message, type = 'info') {
+    // Remover toasts existentes
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Criar novo toast
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span>${message}</span>
+            <button class="toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // Estilos inline
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#d1fae5' : '#fef2f2'};
+        color: ${type === 'success' ? '#065f46' : '#dc2626'};
+        border: 1px solid ${type === 'success' ? '#86efac' : '#fca5a5'};
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideInRight 0.3s ease;
+        max-width: 350px;
+        font-size: 14px;
+    `;
+    
+    // Adicionar ao DOM
+    document.body.appendChild(toast);
+    
+    // Auto-remover após 3 segundos
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 3000);
+}
+
+// Adicionar CSS das animações do toast
+const toastStyle = document.createElement('style');
+toastStyle.textContent = `
+    @keyframes slideInRight {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOutRight {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+    .toast-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+    .toast-close {
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        opacity: 0.7;
+        padding: 0;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .toast-close:hover {
+        opacity: 1;
+    }
+`;
+document.head.appendChild(toastStyle);
 </script>
 
 <?php
