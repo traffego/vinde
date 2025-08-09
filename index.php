@@ -65,16 +65,7 @@ try {
             <div class="hero-content">
                 <h1>Vinde e Participai</h1>
                 <p>Descubra e participe dos melhores eventos católicos. Unidos pela fé, crescemos em comunidade.</p>
-                <div class="hero-stats">
-                    <div class="stat">
-                        <span class="stat-number"><?= count($eventos) ?></span>
-                        <span class="stat-label">Eventos Disponíveis</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-number"><?= array_sum(array_column($eventos, 'total_inscritos')) ?></span>
-                        <span class="stat-label">Participantes Inscritos</span>
-                    </div>
-                </div>
+                <a href="<?= SITE_URL ?>/eventos" class="btn btn-participante">
             </div>
         </div>
     </section>
