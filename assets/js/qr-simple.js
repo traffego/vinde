@@ -71,6 +71,7 @@ class VindeQR {
         if (result.success) {
             // Limpar elemento
             element.innerHTML = '';
+            element.classList.add('qr-loading');
             
             // Criar imagem
             const img = document.createElement('img');
@@ -78,20 +79,23 @@ class VindeQR {
             img.alt = 'QR Code';
             img.style.maxWidth = '100%';
             img.style.height = 'auto';
+            img.style.display = 'block';
+            img.style.margin = '0 auto';
             
-            // Adicionar loading
+            // Adicionar eventos
             img.onload = () => {
                 element.classList.remove('qr-loading');
                 element.classList.add('qr-loaded');
+                console.log('QR Code carregado com sucesso');
             };
             
             img.onerror = () => {
+                console.error('Erro ao carregar imagem do QR Code');
                 element.innerHTML = '<div class="qr-error">Erro ao carregar QR Code</div>';
                 element.classList.remove('qr-loading');
                 element.classList.add('qr-error');
             };
             
-            element.classList.add('qr-loading');
             element.appendChild(img);
             
             return result;
@@ -232,12 +236,15 @@ const qrStyles = `
     background: #f8f9fa;
     border: 2px dashed #dee2e6;
     border-radius: 8px;
+    position: relative;
 }
 
 .qr-loading::before {
     content: 'Gerando QR Code...';
     color: #6c757d;
     font-size: 14px;
+    position: absolute;
+    z-index: 1;
 }
 
 .qr-loaded {
@@ -246,6 +253,14 @@ const qrStyles = `
     background: white;
     border: 1px solid #dee2e6;
     border-radius: 8px;
+    min-height: auto;
+}
+
+.qr-loaded img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
 }
 
 .qr-error {
@@ -259,6 +274,19 @@ const qrStyles = `
     color: #721c24;
     font-size: 14px;
     text-align: center;
+}
+
+/* Garantir que QR Code seja visível */
+#qr-canvas {
+    min-height: 50px;
+    background: transparent;
+}
+
+#qr-canvas img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 0 auto !important;
 }
 `;
 

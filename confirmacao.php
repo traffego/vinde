@@ -275,7 +275,7 @@ obter_cabecalho('Confirmação - ' . $evento['evento_nome'], 'confirmacao');
                     <h3>QR Code de entrada</h3>
                     <div class="qr-container">
                         <div class="qr-code">
-                            <canvas id="qr-canvas"></canvas>
+                            <div id="qr-canvas"></div>
                         </div>
                         <p class="qr-instructions">
                             Apresente este QR Code na entrada do evento para fazer seu check-in
@@ -436,6 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function gerarQRCode() {
+    console.log('🔄 Iniciando geração do QR Code...');
+    
     const dadosQR = {
         tipo: 'checkin',
         inscricao_id: <?= $inscricao_id ?>,
@@ -446,21 +448,41 @@ async function gerarQRCode() {
         evento: '<?= htmlspecialchars($evento['evento_nome'] ?? '') ?>'
     };
     
+    console.log('📊 Dados do QR:', dadosQR);
+    
     const qrData = JSON.stringify(dadosQR);
-    const container = document.getElementById('qr-canvas').parentElement;
+    console.log('📝 QR Data JSON:', qrData);
+    
+    const container = document.getElementById('qr-canvas');
+    console.log('📦 Container encontrado:', container);
+    
+    if (!container) {
+        console.error('❌ Container qr-canvas não encontrado');
+        return;
+    }
+    
+    // Verificar se VindeQR existe
+    if (!window.VindeQR) {
+        console.error('❌ VindeQR não está disponível');
+        container.innerHTML = '<div class="qr-error">Biblioteca QR não carregada</div>';
+        return;
+    }
     
     try {
-        await window.VindeQR.renderTo('qr-canvas', qrData, {
+        console.log('🚀 Chamando VindeQR.renderTo...');
+        await window.VindeQR.renderTo(container, qrData, {
             size: 200
         });
+        
+        console.log('✅ QR Code gerado com sucesso!');
         
         // Armazenar dados para download
         window.currentQRData = qrData;
         window.currentEventSlug = '<?= $evento['slug'] ?? 'evento' ?>';
         
     } catch (error) {
-        console.error('Erro ao gerar QR Code:', error);
-        container.innerHTML = '<div class="qr-error">Erro ao gerar QR Code</div>';
+        console.error('❌ Erro ao gerar QR Code:', error);
+        container.innerHTML = '<div class="qr-error">Erro ao gerar QR Code: ' + error.message + '</div>';
     }
 }
 
