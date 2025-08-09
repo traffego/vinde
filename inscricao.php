@@ -80,10 +80,10 @@ if (!participante_esta_logado()) {
 // Usuário está logado - obter dados
 $participante_logado = obter_participante_logado();
 
-// Verificar se já está inscrito
+// Verificar se já está inscrito e obter detalhes
+$inscricao_existente = null;
 if (participante_ja_inscrito($participante_logado['id'], $evento_id)) {
-    exibir_mensagem('Você já está inscrito neste evento.', 'info');
-    redirecionar(SITE_URL . '/participante/');
+    $inscricao_existente = obter_inscricao_participante($participante_logado['id'], $evento_id);
 }
 
 // Processar confirmação da inscrição
@@ -156,42 +156,105 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                     </div>
                 </div>
 
-                <!-- Confirmação da Inscrição -->
-                <div class="checkout-step">
-                    <div class="step-header">
-                        <div class="step-number">2</div>
-                        <div class="step-title">Confirmar Inscrição</div>
+                <!-- Verificação de Inscrição Existente ou Nova Inscrição -->
+                <?php if ($inscricao_existente): ?>
+                    <!-- Usuário já inscrito - mostrar status -->
+                    <div class="checkout-step">
+                        <div class="step-header">
+                            <div class="step-number">⚠</div>
+                            <div class="step-title">Você já está inscrito</div>
                         </div>
                         
                         <div class="step-content">
-                        <div class="inscricao-resumo">
-                            <p>Você está prestes a se inscrever no evento:</p>
-                            <h3><?= htmlspecialchars($evento['nome']) ?></h3>
-                            
-                            <?php if ($evento['valor'] > 0): ?>
-                                <div class="valor-evento">
-                                    <strong>Valor: R$ <?= number_format($evento['valor'], 2, ',', '.') ?></strong>
+                            <div class="inscricao-existente">
+                                <div class="alert alert-warning">
+                                    <h3>Inscrição já realizada!</h3>
+                                    <p>Você já possui uma inscrição para este evento.</p>
                                 </div>
-                                <p class="info-pagamento">
-                                    Após confirmar, você será direcionado para o pagamento via PIX.
-                                </p>
-                            <?php else: ?>
-                                <div class="evento-gratuito">
-                                    <strong>Evento Gratuito</strong>
+                                
+                                <div class="inscricao-detalhes">
+                                    <h4>Detalhes da sua inscrição:</h4>
+                                    <ul>
+                                        <li><strong>Status:</strong> 
+                                            <?php if ($inscricao_existente['status'] == 'aprovada'): ?>
+                                                <span class="status-aprovada">✓ Confirmada</span>
+                                            <?php elseif ($inscricao_existente['status'] == 'pendente'): ?>
+                                                <span class="status-pendente">⏳ Aguardando pagamento</span>
+                                            <?php endif; ?>
+                                        </li>
+                                        <li><strong>Data da inscrição:</strong> <?= date('d/m/Y H:i', strtotime($inscricao_existente['data_inscricao'])) ?></li>
+                                        <?php if ($inscricao_existente['status'] == 'pendente' && $inscricao_existente['evento_valor'] > 0): ?>
+                                            <li><strong>Valor:</strong> R$ <?= number_format($inscricao_existente['evento_valor'], 2, ',', '.') ?></li>
+                                            <?php if ($inscricao_existente['pagamento_status'] == 'pendente'): ?>
+                                                <li><strong>Pagamento:</strong> <span class="pagamento-pendente">Pendente</span></li>
+                                            <?php endif; ?>
+                                        <?php endif; ?>
+                                    </ul>
                                 </div>
-                            <?php endif; ?>
-                        </div>
-                        
-                        <form method="POST" class="form-confirmacao">
-                            <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
-                            
-                            <button type="submit" class="btn-confirmar">
-                                <?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?>
-                            </button>
-                        </form>
+                                
+                                <div class="acoes-inscricao">
+                                    <?php if ($inscricao_existente['status'] == 'pendente' && $inscricao_existente['evento_valor'] > 0): ?>
+                                        <a href="<?= SITE_URL ?>/pagamento.php?inscricao=<?= $inscricao_existente['id'] ?>" 
+                                           class="btn btn-primary">
+                                            Finalizar Pagamento
+                                        </a>
+                                    <?php endif; ?>
+                                    
+                                    <a href="<?= SITE_URL ?>/participante/" class="btn btn-secondary">
+                                        Ver Minhas Inscrições
+                                    </a>
+                                    
+                                    <a href="<?= SITE_URL ?>" class="btn btn-outline">
+                                        Voltar aos Eventos
+                                    </a>
+                                </div>
+                                
+                                <div class="info-duplicacao">
+                                    <p><small>
+                                        <strong>Não é possível realizar uma nova inscrição</strong> enquanto você já possui uma inscrição ativa para este evento.
+                                        Se precisar de ajuda, entre em contato conosco.
+                                    </small></p>
+                                </div>
                             </div>
                         </div>
                     </div>
+                <?php else: ?>
+                    <!-- Nova Inscrição -->
+                    <div class="checkout-step">
+                        <div class="step-header">
+                            <div class="step-number">2</div>
+                            <div class="step-title">Confirmar Inscrição</div>
+                        </div>
+                        
+                        <div class="step-content">
+                            <div class="inscricao-resumo">
+                                <p>Você está prestes a se inscrever no evento:</p>
+                                <h3><?= htmlspecialchars($evento['nome']) ?></h3>
+                                
+                                <?php if ($evento['valor'] > 0): ?>
+                                    <div class="valor-evento">
+                                        <strong>Valor: R$ <?= number_format($evento['valor'], 2, ',', '.') ?></strong>
+                                    </div>
+                                    <p class="info-pagamento">
+                                        Após confirmar, você será direcionado para o pagamento via PIX.
+                                    </p>
+                                <?php else: ?>
+                                    <div class="evento-gratuito">
+                                        <strong>Evento Gratuito</strong>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <form method="POST" class="form-confirmacao">
+                                <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
+                                
+                                <button type="submit" class="btn-confirmar">
+                                    <?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endif; ?>
                     
             <!-- Sidebar com dados do evento -->
             <div class="checkout-sidebar">

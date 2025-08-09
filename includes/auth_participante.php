@@ -268,11 +268,25 @@ function obter_inscricoes_participante($participante_id) {
  */
 function participante_ja_inscrito($participante_id, $evento_id) {
     $inscricao = buscar_um("
-        SELECT id FROM inscricoes 
-        WHERE participante_id = ? AND evento_id = ? AND status = 'aprovada'
+        SELECT id, status FROM inscricoes 
+        WHERE participante_id = ? AND evento_id = ? AND status IN ('pendente', 'aprovada')
     ", [$participante_id, $evento_id]);
     
     return $inscricao !== false;
+}
+
+/**
+ * Obter detalhes da inscrição do participante em um evento específico
+ */
+function obter_inscricao_participante($participante_id, $evento_id) {
+    return buscar_um("
+        SELECT i.*, e.nome as evento_nome, e.valor as evento_valor,
+               p.status as pagamento_status, p.valor as pagamento_valor
+        FROM inscricoes i
+        JOIN eventos e ON i.evento_id = e.id
+        LEFT JOIN pagamentos p ON p.inscricao_id = i.id
+        WHERE i.participante_id = ? AND i.evento_id = ? AND i.status IN ('pendente', 'aprovada')
+    ", [$participante_id, $evento_id]);
 }
 
 /**

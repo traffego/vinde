@@ -61,23 +61,20 @@ $participante_logado = null;
 if ($usuario_logado) {
     $participante_logado = obter_participante_logado();
     
-    // Verificar se já está inscrito (versão compatível)
+    // Verificar se já está inscrito e obter detalhes (versão compatível)
+    $inscricao_existente = null;
     if ($tabela_inscricoes_existe && function_exists('participante_ja_inscrito')) {
         if (participante_ja_inscrito($participante_logado['id'], $evento_id)) {
-            exibir_mensagem('Você já está inscrito neste evento.', 'info');
-            redirecionar(SITE_URL . '/participante/');
+            $inscricao_existente = obter_inscricao_participante($participante_logado['id'], $evento_id);
         }
     } else {
         // Verificação antiga
         $inscricao_existente = buscar_um("
-            SELECT id FROM participantes 
-            WHERE cpf = ? AND evento_id = ? AND status != 'cancelado'
+            SELECT *, e.nome as evento_nome, e.valor as evento_valor
+            FROM participantes p
+            JOIN eventos e ON p.evento_id = e.id
+            WHERE p.cpf = ? AND p.evento_id = ? AND p.status != 'cancelado'
         ", [$participante_logado['cpf'], $evento_id]);
-        
-        if ($inscricao_existente) {
-            exibir_mensagem('Você já está inscrito neste evento.', 'info');
-            redirecionar(SITE_URL . '/participante/');
-        }
     }
 }
 

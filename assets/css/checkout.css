@@ -273,4 +273,158 @@
     .step-header {
         margin-bottom: 16px;
     }
+}
+
+/* Estilos para inscrição existente */
+.inscricao-existente {
+    max-width: 100%;
+}
+
+.inscricao-existente .alert {
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    border: none;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    border-left: 4px solid #f59e0b;
+}
+
+.alert-warning h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.alert-warning p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.inscricao-detalhes {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.inscricao-detalhes h4 {
+    margin: 0 0 16px 0;
+    color: #1f2937;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.inscricao-detalhes ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.inscricao-detalhes li {
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.inscricao-detalhes li:last-child {
+    border-bottom: none;
+}
+
+.status-aprovada {
+    color: #065f46;
+    background: #d1fae5;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.status-pendente {
+    color: #92400e;
+    background: #fef3c7;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.pagamento-pendente {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+.acoes-inscricao {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.acoes-inscricao .btn {
+    text-align: center;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid #d1d5db;
+    color: #374151;
+}
+
+.btn-outline:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
+.info-duplicacao {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.info-duplicacao p {
+    margin: 0;
+    color: #1e40af;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Warning step number */
+.step-number[data-warning="true"], 
+.step-header .step-number:contains("⚠") {
+    background: #f59e0b;
+    color: white;
 } 
