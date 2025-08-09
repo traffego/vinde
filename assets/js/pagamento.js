@@ -182,12 +182,18 @@ function validarCodigoPix() {
 }
 
 // Função para verificar status do pagamento
-function verificarPagamento(btnEl) {
+function verificarPagamento(btnEl, mostrarAlerta = true) {
     const spinner = document.getElementById('loading-spinner');
     const btn = btnEl || document.getElementById('btn-verificar-pagamento');
+    const statusDiv = document.getElementById('status-verificacao') || criarStatusDiv();
 
     if (spinner) spinner.style.display = 'block';
     if (btn) btn.disabled = true;
+
+    // Feedback visual sutil para verificação automática
+    if (!mostrarAlerta) {
+        statusDiv.innerHTML = '<small style="color: #6c757d;">🔄 Verificando pagamento...</small>';
+    }
 
     fetch(window.SITE_URL + '/api/verificar_pagamento.php', {
         method: 'POST',
@@ -206,22 +212,56 @@ function verificarPagamento(btnEl) {
         
         if (data.success && data.pago) {
             // Pagamento confirmado - redirecionar
-            window.location.href = window.SITE_URL + '/confirmacao.php?inscricao=' + window.INSCRICAO_ID;
+            statusDiv.innerHTML = '<small style="color: #28a745;">✅ Pagamento confirmado! Redirecionando...</small>';
+            setTimeout(() => {
+                window.location.href = window.SITE_URL + '/confirmacao.php?inscricao=' + window.INSCRICAO_ID;
+            }, 1000);
         } else {
-            // Mostrar resultado
-            alert(data.message || 'Pagamento ainda não foi identificado. Tente novamente em alguns instantes.');
+            // Para verificação manual (com botão), mostrar alerta
+            if (mostrarAlerta) {
+                alert(data.message || 'Pagamento ainda não foi identificado. Tente novamente em alguns instantes.');
+                statusDiv.innerHTML = '';
+            } else {
+                // Para verificação automática, apenas feedback sutil
+                const agora = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+                statusDiv.innerHTML = '<small style="color: #6c757d;">⏱️ Última verificação: ' + agora + '</small>';
+            }
         }
     })
     .catch(error => {
         if (spinner) spinner.style.display = 'none';
         if (btn) btn.disabled = false;
-        alert('Erro ao verificar pagamento. Tente novamente.');
+        
+        if (mostrarAlerta) {
+            alert('Erro ao verificar pagamento. Tente novamente.');
+        } else {
+            statusDiv.innerHTML = '<small style="color: #dc3545;">⚠️ Erro na verificação automática</small>';
+        }
     });
 }
 
-// Verificação automática a cada 30 segundos
+// Função para criar div de status se não existir
+function criarStatusDiv() {
+    let statusDiv = document.getElementById('status-verificacao');
+    if (!statusDiv) {
+        statusDiv = document.createElement('div');
+        statusDiv.id = 'status-verificacao';
+        statusDiv.style.textAlign = 'center';
+        statusDiv.style.marginTop = '10px';
+        statusDiv.style.minHeight = '20px';
+        
+        // Inserir após o botão de verificar
+        const btnVerificar = document.querySelector('.btn-verificar');
+        if (btnVerificar && btnVerificar.parentNode) {
+            btnVerificar.parentNode.insertBefore(statusDiv, btnVerificar.nextSibling);
+        }
+    }
+    return statusDiv;
+}
+
+// Verificação automática a cada 30 segundos (SILENCIOSA)
 setInterval(function() {
-    verificarPagamento(null);
+    verificarPagamento(null, false); // false = não mostrar alertas
 }, 30000);
 
 // Geração local do QR Code PIX a partir do payload

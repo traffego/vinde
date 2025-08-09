@@ -309,6 +309,25 @@
     transform: translateY(-1px);
 }
 
+/* Estilos para status de verificação */
+#status-verificacao {
+    transition: all 0.3s ease;
+    opacity: 1;
+}
+
+#status-verificacao:empty {
+    opacity: 0;
+    min-height: 0;
+}
+
+#status-verificacao small {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(108, 117, 125, 0.1);
+    font-size: 12px;
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }

@@ -456,10 +456,11 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
     </div>
 
                 <div class="verificacao-status" style="margin: 8px 0 0 0;">
-                    <button type="button" class="btn-verificar" onclick="verificarPagamento()">
+                    <button type="button" class="btn-verificar" onclick="verificarPagamento(this, true)">
                         🔄 Verificar Pagamento
                     </button>
                     <div class="loading-spinner" id="loading-spinner"></div>
+                    <div id="status-verificacao" style="text-align: center; margin-top: 10px; min-height: 20px;"></div>
                 </div>
             </div>
         </div>

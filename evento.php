@@ -113,15 +113,16 @@ obter_cabecalho($evento['nome'] . ' - Vinde', 'evento');
                 <div class="event-header">
                     <div class="event-image">
                         <?php if ($evento['imagem']): ?>
-                            <img src="<?= SITE_URL ?>/uploads/<?= $evento['imagem'] ?>" alt="<?= htmlspecialchars($evento['nome']) ?>">
+                            <img src="<?= SITE_URL ?>/uploads/<?= $evento['imagem'] ?>" alt="<?= htmlspecialchars($evento['nome']) ?>" loading="eager">
+                            <div class="image-shine"></div>
                         <?php else: ?>
                             <div class="event-placeholder">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10z"/>
                                 </svg>
                             </div>
-                                    <?php endif; ?>
-                            </div>
+                        <?php endif; ?>
+                    </div>
                     <div class="event-info">
                         <!-- Badges -->
                         <div class="event-badges">
