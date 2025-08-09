@@ -3007,7 +3007,7 @@ body {
     z-index: 2;
     text-align: center;
     color: var(--cor-branco);
-    margin: auto;
+    margin: auto !important;
 }
 
 .success-badge {
