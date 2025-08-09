@@ -84,27 +84,79 @@ $inclui = $evento['inclui'] ? json_decode($evento['inclui'], true) : [];
 $evento_passou = strtotime($evento['data_inicio']) < strtotime('today');
 $evento_esgotado = $evento['vagas_restantes'] <= 0;
 
-// URL atual do evento
-$evento_url = SITE_URL . '/evento.php?id=' . $evento['id'];
-$evento_imagem = $evento['imagem'] ? SITE_URL . '/uploads/' . $evento['imagem'] : SITE_URL . '/assets/img/logo.png';
+// URL atual do evento - usar HTTP_HOST para garantir domínio correto
+$protocolo = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+$dominio = $_SERVER['HTTP_HOST'];
+$evento_url = $protocolo . '://' . $dominio . '/evento.php?id=' . $evento['id'];
+
+// Imagem do evento - verificar se existe e usar URL absoluta
+$evento_imagem_path = '';
+if ($evento['imagem']) {
+    $caminho_imagem = __DIR__ . '/uploads/' . $evento['imagem'];
+    if (file_exists($caminho_imagem)) {
+        $evento_imagem_path = $protocolo . '://' . $dominio . '/uploads/' . $evento['imagem'];
+    }
+}
+
+// Fallback para logo se não houver imagem ou se não existir
+if (empty($evento_imagem_path)) {
+    $logo_path = __DIR__ . '/assets/images/logo.png';
+    if (file_exists($logo_path)) {
+        $evento_imagem_path = $protocolo . '://' . $dominio . '/assets/images/logo.png';
+    } else {
+        // Fallback final para uma imagem padrão
+        $evento_imagem_path = $protocolo . '://' . $dominio . '/assets/img/default-event.jpg';
+    }
+}
+
+// Descrição otimizada para Open Graph
+$evento_descricao = $evento['descricao'] ? strip_tags($evento['descricao']) : $evento['nome'];
+$evento_descricao = substr($evento_descricao, 0, 160);
+if (strlen(strip_tags($evento['descricao'])) > 160) {
+    $evento_descricao .= '...';
+}
 
 // Meta tags específicas para Open Graph
 $meta_tags = [
     'og:title' => htmlspecialchars($evento['nome']),
-    'og:description' => htmlspecialchars(substr(strip_tags($evento['descricao']), 0, 160)),
-    'og:image' => $evento_imagem,
+    'og:description' => htmlspecialchars($evento_descricao),
+    'og:image' => $evento_imagem_path,
+    'og:image:width' => '1200',
+    'og:image:height' => '630',
+    'og:image:alt' => htmlspecialchars($evento['nome']),
     'og:url' => $evento_url,
     'og:type' => 'event',
     'og:site_name' => 'Vinde - Eventos Católicos',
+    'og:locale' => 'pt_BR',
     'event:start_time' => date('c', strtotime($evento['data_inicio'] . ' ' . ($evento['horario_inicio'] ?: '00:00:00'))),
     'event:location' => htmlspecialchars($evento['local'] . ' - ' . $evento['cidade'] . ', ' . $evento['estado']),
     'twitter:card' => 'summary_large_image',
     'twitter:title' => htmlspecialchars($evento['nome']),
-    'twitter:description' => htmlspecialchars(substr(strip_tags($evento['descricao']), 0, 160)),
-    'twitter:image' => $evento_imagem
+    'twitter:description' => htmlspecialchars($evento_descricao),
+    'twitter:image' => $evento_imagem_path,
+    'twitter:image:alt' => htmlspecialchars($evento['nome'])
 ];
 
 obter_cabecalho($evento['nome'] . ' - Vinde', 'evento', $meta_tags);
+
+// DEBUG: Mostrar meta tags se parâmetro debug=1 estiver presente
+if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+    echo "<!-- DEBUG: Meta tags geradas para Open Graph -->";
+    echo "<div style='background: #f0f0f0; padding: 20px; margin: 20px; border: 1px solid #ccc; font-family: monospace; font-size: 12px;'>";
+    echo "<h3>Meta tags Open Graph (modo debug):</h3>";
+    echo "<pre>";
+    foreach ($meta_tags as $property => $content) {
+        if (strpos($property, 'twitter:') === 0) {
+            echo htmlspecialchars("<meta name='{$property}' content='{$content}'>") . "\n";
+        } else {
+            echo htmlspecialchars("<meta property='{$property}' content='{$content}'>") . "\n";
+        }
+    }
+    echo "</pre>";
+    echo "<p><strong>URL da imagem:</strong> <a href='{$evento_imagem_path}' target='_blank'>{$evento_imagem_path}</a></p>";
+    echo "<p><small>Para remover este debug, retire o parâmetro ?debug=1 da URL</small></p>";
+    echo "</div>";
+}
 ?>
 
 <main class="evento-main">
