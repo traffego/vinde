@@ -183,11 +183,36 @@ function formatar_status_pagamento($status, $valor) {
             overflow: hidden;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .evento-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+
+        .evento-card.checkin-feito {
+            border: 2px solid #4caf50;
+            box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2);
+        }
+
+        .evento-card.checkin-feito::before {
+            content: '✓';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #4caf50;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
         }
 
         .evento-image {
@@ -249,6 +274,14 @@ function formatar_status_pagamento($status, $valor) {
         .status-pendente { background: #fff3e0; color: #f57c00; }
         .status-gratuito { background: #e8f5e8; color: #2e7d32; }
         .status-estornado { background: #ffebee; color: #c62828; }
+        .status-checkin { 
+            background: linear-gradient(135deg, #4caf50, #66bb6a); 
+            color: white; 
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
 
         .evento-actions {
             display: flex;
@@ -419,7 +452,7 @@ function formatar_status_pagamento($status, $valor) {
         <?php else: ?>
             <div class="eventos-grid">
                 <?php foreach ($eventos as $evento): ?>
-                    <div class="evento-card">
+                    <div class="evento-card <?= !empty($evento['checkin_timestamp']) ? 'checkin-feito' : '' ?>">
                         <div class="evento-image">
                             <?php if ($evento['imagem']): ?>
                                 <img src="<?= SITE_URL ?>/uploads/<?= htmlspecialchars($evento['imagem']) ?>" 
@@ -454,7 +487,12 @@ function formatar_status_pagamento($status, $valor) {
                                 <?= formatar_status($evento['status']) ?>
                                 <?= formatar_status_pagamento($evento['pagamento_status'], $evento['valor']) ?>
                                 <?php if ($evento['checkin_timestamp']): ?>
-                                    <span class="status-badge status-presente">Check-in: <?= date('d/m/Y H:i', strtotime($evento['checkin_timestamp'])) ?></span>
+                                    <span class="status-badge status-checkin">
+                                        ✓ Check-in Realizado
+                                        <small style="font-size: 10px; opacity: 0.9; display: block; font-weight: 400;">
+                                            <?= date('d/m/Y H:i', strtotime($evento['checkin_timestamp'])) ?>
+                                        </small>
+                                    </span>
                                 <?php endif; ?>
                             </div>
                             
