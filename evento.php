@@ -137,10 +137,15 @@ if (strlen(strip_tags($evento['descricao'])) > 160) {
 }
 
 // Meta tags específicas para Open Graph - Seguindo regras rigorosas
-$meta_tags = [
-    // Facebook App ID (obrigatório para algumas funcionalidades)
-    'fb:app_id' => FACEBOOK_APP_ID,
-    
+$meta_tags = [];
+
+// Facebook App ID (só adicionar se configurado)
+if (FACEBOOK_APP_ID && FACEBOOK_APP_ID !== false) {
+    $meta_tags['fb:app_id'] = FACEBOOK_APP_ID;
+}
+
+// Adicionar meta tags principais
+$meta_tags = array_merge($meta_tags, [
     // Open Graph básico (obrigatório)
     'og:title' => htmlspecialchars($evento['nome']),
     'og:type' => 'website', // Mudança: 'event' pode não ser reconhecido por todas as plataformas
@@ -175,7 +180,7 @@ $meta_tags = [
     // Meta tags extras para melhor SEO
     'description' => htmlspecialchars($evento_descricao),
     'keywords' => 'evento católico, ' . strtolower($evento['cidade']) . ', ' . htmlspecialchars($evento['nome'])
-];
+]);
 
 // Detectar tipo MIME da imagem para meta tag correta
 if ($evento['imagem']) {
@@ -212,6 +217,7 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
     echo "<li><strong>URL gerada:</strong> {$evento_imagem_path}</li>";
     echo "<li><strong>Domínio detectado:</strong> {$dominio}</li>";
     echo "<li><strong>Protocolo:</strong> {$protocolo}</li>";
+    echo "<li><strong>Facebook App ID:</strong> " . (FACEBOOK_APP_ID ? FACEBOOK_APP_ID : '<span style="color: orange;">Desabilitado (evita erro ID inválido)</span>') . "</li>";
     echo "</ul>";
     
     echo "<h4>🖼️ Teste da imagem:</h4>";
