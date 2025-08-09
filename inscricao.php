@@ -335,7 +335,7 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
 }
 
 .btn-confirmar:hover {
-    background: var(--cor-primaria-dark);
+    /* background: var(--cor-primaria-dark); */
     transform: translateY(-2px);
 }
 
