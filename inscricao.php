@@ -249,13 +249,21 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                                 <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
                                 
                                 <button type="submit" class="btn-confirmar" id="btn-confirmar">
-                                    <span class="btn-text"><?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?></span>
-                                    <span class="btn-loader" style="display: none;">
-                                        <span class="spinner"></span>
-                                        Processando...
-                                    </span>
+                                    <?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?>
                                 </button>
                             </form>
+                            
+                            <!-- Overlay de confirmação -->
+                            <div class="confirmation-overlay" id="confirmation-overlay">
+                                <div class="overlay-content">
+                                    <div class="overlay-spinner"></div>
+                                    <h3 class="overlay-title">Processando sua inscrição...</h3>
+                                    <p class="overlay-message" id="overlay-message">
+                                        <?= $evento['valor'] > 0 ? 'Estamos criando seu pagamento PIX.' : 'Confirmando sua inscrição gratuita.' ?>
+                                    </p>
+                                    <p class="overlay-submessage">Por favor, aguarde...</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -503,28 +511,49 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('form-confirmacao');
     const btn = document.getElementById('btn-confirmar');
+    const overlay = document.getElementById('confirmation-overlay');
+    const overlayMessage = document.getElementById('overlay-message');
     
-    if (form && btn) {
-        const btnText = btn.querySelector('.btn-text');
-        const btnLoader = btn.querySelector('.btn-loader');
-        
+    if (form && btn && overlay) {
         form.addEventListener('submit', function(e) {
-            // Mostrar loader e desabilitar botão
-            if (btnText && btnLoader) {
-                btnText.style.display = 'none';
-                btnLoader.style.display = 'flex';
-                btn.disabled = true;
-                
-                // Timeout de segurança para reabilitar o botão caso algo dê errado
-                setTimeout(function() {
-                    if (btn.disabled) {
-                        btnText.style.display = 'inline';
-                        btnLoader.style.display = 'none';
-                        btn.disabled = false;
+            // Mostrar overlay e desabilitar botão
+            btn.disabled = true;
+            overlay.classList.add('active');
+            
+            // Adicionar pequeno delay para dar feedback visual instantâneo
+            setTimeout(function() {
+                // O formulário será submetido normalmente após o feedback visual
+            }, 100);
+            
+            // Timeout de segurança para esconder overlay caso algo dê errado
+            setTimeout(function() {
+                if (overlay.classList.contains('active')) {
+                    overlay.classList.remove('active');
+                    btn.disabled = false;
+                    
+                    // Mostrar mensagem de erro
+                    if (window.VindeUtils && window.VindeUtils.showMessage) {
+                        window.VindeUtils.showMessage('Tempo limite excedido. Tente novamente.', 'error');
+                    } else {
+                        alert('Tempo limite excedido. Tente novamente.');
                     }
-                }, 30000); // 30 segundos
-            }
+                }
+            }, 30000); // 30 segundos
         });
+        
+        // Função para esconder overlay (pode ser usada em caso de erro)
+        window.hideConfirmationOverlay = function() {
+            overlay.classList.remove('active');
+            btn.disabled = false;
+        };
+        
+        // Atualizar mensagem do overlay baseado no tipo de evento
+        const isEventoPago = <?= $evento['valor'] > 0 ? 'true' : 'false' ?>;
+        if (isEventoPago) {
+            overlayMessage.textContent = 'Estamos criando seu pagamento PIX.';
+        } else {
+            overlayMessage.textContent = 'Confirmando sua inscrição gratuita.';
+        }
     }
 });
 </script>
