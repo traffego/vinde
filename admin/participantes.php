@@ -84,16 +84,41 @@ if (($acao === 'editar' || $acao === 'visualizar') && $participante_id) {
 // Eventos para filtro
 $eventos = buscar_todos("SELECT id, nome FROM eventos ORDER BY data_inicio DESC");
 
-// Estatísticas
-$stats = buscar_um("
-    SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'inscrito' THEN 1 ELSE 0 END) as inscritos,
-        SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) as pagos,
-        SUM(CASE WHEN status = 'presente' THEN 1 ELSE 0 END) as presentes
-    FROM participantes
-    WHERE status != 'cancelado'
-");
+// Verificar se sistema foi migrado
+$tabela_inscricoes_existe = false;
+try {
+    $teste_tabela = buscar_um("SHOW TABLES LIKE 'inscricoes'");
+    $tabela_inscricoes_existe = $teste_tabela !== false;
+} catch (Exception $e) {
+    $tabela_inscricoes_existe = false;
+}
+
+// Estatísticas - usando estrutura nova com tabela inscricoes e pagamentos
+if ($tabela_inscricoes_existe) {
+    // Sistema novo - considerar pagamentos na tabela separada
+    $stats = buscar_um("
+        SELECT 
+            COUNT(DISTINCT i.id) as total,
+            SUM(CASE WHEN pag.status IS NULL OR pag.status = 'pendente' THEN 1 ELSE 0 END) as inscritos,
+            SUM(CASE WHEN pag.status = 'pago' THEN 1 ELSE 0 END) as pagos,
+            SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) as presentes
+        FROM inscricoes i
+        JOIN participantes p ON i.participante_id = p.id
+        LEFT JOIN pagamentos pag ON pag.inscricao_id = i.id
+        WHERE i.status != 'cancelada'
+    ");
+} else {
+    // Sistema antigo - usando apenas tabela participantes
+    $stats = buscar_um("
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'inscrito' THEN 1 ELSE 0 END) as inscritos,
+            SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) as pagos,
+            SUM(CASE WHEN status = 'presente' THEN 1 ELSE 0 END) as presentes
+        FROM participantes
+        WHERE status != 'cancelado'
+    ");
+}
 
 /**
  * Salvar participante (criar ou editar)
