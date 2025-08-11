@@ -582,6 +582,40 @@
     outline-offset: -2px;
 }
 
+/* Loading container e scroll infinito */
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    text-align: center;
+    color: #666;
+}
+
+.scroll-loading-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+    color: #666;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.scroll-loading-indicator p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.scroll-loading-indicator .loading-spinner {
+    margin-right: 10px;
+}
+
 /* Estilos para impressão */
 @media print {
     .participante-card {
@@ -591,7 +625,9 @@
     }
     
     .card-actions,
-    .filtros-section {
+    .filtros-section,
+    .scroll-loading-indicator,
+    .loading-container {
         display: none;
     }
     

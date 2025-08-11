@@ -504,12 +504,16 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
 let participantesData = [];
 let filtrosAtivos = {};
 let participanteAtual = null;
+let offsetAtual = 0;
+let carregandoMais = false;
+let temMaisParticipantes = true;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', function() {
     <?php if ($acao === 'listar'): ?>
-        carregarParticipantes();
+        carregarParticipantes(true); // Sempre resetar quando filtrar
         inicializarFiltros();
+        inicializarScrollInfinito();
     <?php endif; ?>
     
     // Máscaras de input
@@ -517,38 +521,65 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Carregar participantes via AJAX
-function carregarParticipantes() {
+function carregarParticipantes(resetar = true) {
+    if (carregandoMais) return;
+    
+    carregandoMais = true;
     const container = document.getElementById('participantes-container');
+    
+    if (resetar) {
+        offsetAtual = 0;
+        temMaisParticipantes = true;
+        participantesData = [];
+        container.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div><p>Carregando participantes...</p></div>';
+    }
     
     // Construir query string com filtros
     const params = new URLSearchParams(filtrosAtivos);
+    params.append('offset', offsetAtual);
     
     fetch(`<?= SITE_URL ?>/admin/api/participantes.php?${params}`)
         .then(response => response.json())
         .then(data => {
             if (data.sucesso) {
-                participantesData = data.participantes || [];
-                renderizarParticipantes(participantesData);
+                const novosParticipantes = data.participantes || [];
+                
+                if (resetar) {
+                    participantesData = novosParticipantes;
+                } else {
+                    participantesData = [...participantesData, ...novosParticipantes];
+                }
+                
+                temMaisParticipantes = data.tem_mais || false;
+                offsetAtual = data.proximo_offset || offsetAtual;
+                
+                renderizarParticipantes(participantesData, resetar);
             } else {
                 throw new Error(data.erro || 'Erro desconhecido');
             }
         })
         .catch(error => {
             console.error('Erro ao carregar participantes:', error);
-            container.innerHTML = `
-                <div class="no-results">
-                    <h3>Erro ao carregar participantes</h3>
-                    <p>Tente recarregar a página</p>
-                </div>
-            `;
+            if (resetar) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        <h3>Erro ao carregar participantes</h3>
+                        <p>Tente recarregar a página</p>
+                    </div>
+                `;
+            }
+        })
+        .finally(() => {
+            carregandoMais = false;
+            removerLoadingIndicator();
         });
 }
 
 // Renderizar grid de participantes
-function renderizarParticipantes(participantes) {
+function renderizarParticipantes(participantes, resetar = true) {
     const container = document.getElementById('participantes-container');
     
-    if (participantes.length === 0) {
+    if (participantes.length === 0 && resetar) {
         container.innerHTML = `
             <div class="no-results">
                 <h3>Nenhum participante encontrado</h3>
@@ -558,16 +589,27 @@ function renderizarParticipantes(participantes) {
         return;
     }
     
-    const grid = document.createElement('div');
-    grid.className = 'participantes-grid';
+    let grid = container.querySelector('.participantes-grid');
     
-    participantes.forEach(p => {
+    if (resetar || !grid) {
+        grid = document.createElement('div');
+        grid.className = 'participantes-grid';
+        container.innerHTML = '';
+        container.appendChild(grid);
+    }
+    
+    // Adicionar apenas novos participantes se não for reset
+    const participantesParaAdicionar = resetar ? participantes : participantes.slice(-20);
+    
+    participantesParaAdicionar.forEach(p => {
         const card = criarCardParticipante(p);
         grid.appendChild(card);
     });
     
-    container.innerHTML = '';
-    container.appendChild(grid);
+    // Adicionar loading indicator se há mais para carregar
+    if (temMaisParticipantes && !carregandoMais) {
+        adicionarLoadingIndicator();
+    }
 }
 
 // Criar card individual do participante
@@ -621,7 +663,7 @@ function inicializarFiltros() {
         if (elemento) {
             elemento.addEventListener('input', debounce(() => {
                 filtrosAtivos[filtro] = elemento.value;
-                carregarParticipantes();
+                carregarParticipantes(true); // Sempre resetar quando filtrar
             }, 500));
         }
     });
@@ -795,7 +837,7 @@ function excluirParticipante(id) {
     .then(data => {
         if (data.sucesso) {
             fecharModalExclusao();
-            carregarParticipantes();
+            carregarParticipantes(true); // Sempre resetar quando filtrar
             mostrarToast('Participante excluído com sucesso!', 'success');
         } else {
             mostrarToast(data.mensagem || 'Erro ao excluir participante', 'error');
@@ -1020,7 +1062,7 @@ function executarAcaoMassa() {
     .then(data => {
         if (data.sucesso || data.processados > 0) {
             mostrarToast(data.mensagem, data.erros > 0 ? 'warning' : 'success');
-            carregarParticipantes(); // Recarregar lista
+            carregarParticipantes(true); // Sempre resetar quando filtrar // Recarregar lista
             cancelarSelecao(); // Limpar seleção
         } else {
             mostrarToast(data.mensagem || 'Erro ao processar ação em massa', 'error');
@@ -1035,6 +1077,55 @@ function executarAcaoMassa() {
         btnExecutar.innerHTML = textoOriginal;
         btnExecutar.disabled = false;
     });
+}
+
+// Scroll infinito
+function inicializarScrollInfinito() {
+    let throttleTimer = null;
+    
+    window.addEventListener('scroll', function() {
+        if (throttleTimer) return;
+        
+        throttleTimer = setTimeout(() => {
+            verificarScrollCarregar();
+            throttleTimer = null;
+        }, 200);
+    });
+}
+
+function verificarScrollCarregar() {
+    if (carregandoMais || !temMaisParticipantes) return;
+    
+    const scrollTop = window.pageYOffset;
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
+    
+    // Carregar mais quando estiver a 300px do final
+    if (scrollTop + windowHeight >= documentHeight - 300) {
+        carregarParticipantes(false);
+    }
+}
+
+function adicionarLoadingIndicator() {
+    removerLoadingIndicator(); // Remove qualquer indicador existente
+    
+    const container = document.getElementById('participantes-container');
+    const indicator = document.createElement('div');
+    indicator.className = 'scroll-loading-indicator';
+    indicator.id = 'scroll-loading';
+    indicator.innerHTML = `
+        <div class="loading-spinner"></div>
+        <p>Carregando mais participantes...</p>
+    `;
+    
+    container.appendChild(indicator);
+}
+
+function removerLoadingIndicator() {
+    const indicator = document.getElementById('scroll-loading');
+    if (indicator) {
+        indicator.remove();
+    }
 }
 
 // Máscaras de input

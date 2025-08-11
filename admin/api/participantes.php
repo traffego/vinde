@@ -62,10 +62,9 @@ try {
 
     $where_clause = implode(' AND ', $where_conditions);
 
-    // Paginação
-    $pagina = max(1, (int)($_GET['pagina'] ?? 1));
+    // Paginação/Scroll infinito
+    $offset = max(0, (int)($_GET['offset'] ?? 0));
     $por_pagina = 20;
-    $offset = ($pagina - 1) * $por_pagina;
 
     $total_participantes = buscar_um("
         SELECT COUNT(*) as total 
@@ -74,8 +73,6 @@ try {
         JOIN eventos e ON i.evento_id = e.id
         WHERE {$where_clause}
     ", $params)['total'];
-
-    $total_paginas = ceil($total_participantes / $por_pagina);
 
     $participantes = buscar_todos("
         SELECT 
@@ -101,9 +98,10 @@ try {
         'sucesso' => true,
         'participantes' => $participantes,
         'total' => $total_participantes,
-        'pagina' => $pagina,
-        'total_paginas' => $total_paginas,
-        'por_pagina' => $por_pagina
+        'offset' => $offset,
+        'por_pagina' => $por_pagina,
+        'tem_mais' => ($offset + $por_pagina) < $total_participantes,
+        'proximo_offset' => ($offset + $por_pagina) < $total_participantes ? $offset + $por_pagina : null
     ]);
 
 } catch (Exception $e) {
