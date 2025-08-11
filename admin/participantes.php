@@ -15,17 +15,7 @@ $sucesso = '';
 
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Para ações AJAX, definir header JSON logo no início
-    if (isset($_POST['acao']) && $_POST['acao'] === 'excluir') {
-        header('Content-Type: application/json');
-        ob_clean(); // Limpar qualquer output anterior
-    }
-    
     if (!verificar_csrf_token($_POST['csrf_token'] ?? '')) {
-        if (isset($_POST['acao']) && $_POST['acao'] === 'excluir') {
-            echo json_encode(['sucesso' => false, 'mensagem' => 'Token de segurança inválido.']);
-            exit;
-        }
         $erro = 'Token de segurança inválido.';
     } else {
         switch ($acao) {
@@ -51,68 +41,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $erro = 'Erro ao alterar status.';
                     }
-                }
-                break;
-
-            case 'excluir':
-                // Header JSON já foi definido no início
-                
-                if (!$participante_id) {
-                    echo json_encode(['sucesso' => false, 'mensagem' => 'ID do participante não fornecido.']);
-                    exit;
-                }
-                
-                try {
-                    // Buscar dados do participante para o log
-                    $participante_data = buscar_um("SELECT nome, status FROM participantes WHERE id = ?", [$participante_id]);
-                    
-                    if (!$participante_data) {
-                        echo json_encode(['sucesso' => false, 'mensagem' => 'Participante não encontrado.']);
-                        exit;
-                    }
-                    
-                    // Verificar se há pagamentos confirmados (status = 'pago') associados
-                    $pagamentos_pagos = buscar_um("SELECT COUNT(*) as total FROM pagamentos WHERE participante_id = ? AND status = 'pago'", [$participante_id]);
-                    $total_pagamentos_pagos = $pagamentos_pagos ? $pagamentos_pagos['total'] : 0;
-                    
-                    if ($total_pagamentos_pagos > 0) {
-                        echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Há pagamentos confirmados associados.']);
-                        exit;
-                    }
-                    
-                    // Verificar se há inscrições aprovadas
-                    $inscricoes_aprovadas = buscar_um("SELECT COUNT(*) as total FROM inscricoes WHERE participante_id = ? AND status = 'aprovada'", [$participante_id]);
-                    $total_inscricoes_aprovadas = $inscricoes_aprovadas ? $inscricoes_aprovadas['total'] : 0;
-                    
-                    if ($total_inscricoes_aprovadas > 0 && $participante_data['status'] === 'presente') {
-                        echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Ele já fez check-in no evento.']);
-                        exit;
-                    }
-                    
-                    // Excluir participante (o CASCADE vai remover inscrições e pagamentos relacionados)
-                    $resultado = remover_registro('participantes', ['id' => $participante_id]);
-                    
-                    if ($resultado) {
-                        registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
-                        echo json_encode(['sucesso' => true, 'mensagem' => 'Participante excluído com sucesso!']);
-                    } else {
-                        echo json_encode(['sucesso' => false, 'mensagem' => 'Erro ao excluir participante no banco de dados.']);
-                    }
-                    exit;
-                    
-                } catch (Exception $e) {
-                    error_log("Erro ao excluir participante ID {$participante_id}: " . $e->getMessage());
-                    error_log("Stack trace: " . $e->getTraceAsString());
-                    echo json_encode([
-                        'sucesso' => false, 
-                        'mensagem' => 'Erro interno: ' . $e->getMessage(),
-                        'debug' => [
-                            'file' => $e->getFile(),
-                            'line' => $e->getLine(),
-                            'participante_id' => $participante_id
-                        ]
-                    ]);
-                    exit;
                 }
                 break;
         }
@@ -844,22 +772,35 @@ function excluirParticipante(id) {
     btn.innerHTML = '<div class="loading-spinner"></div> Excluindo...';
     btn.disabled = true;
     
+    console.log('Iniciando exclusão do participante ID:', id);
+    
     const formData = new FormData();
     formData.append('csrf_token', '<?= gerar_csrf_token() ?>');
-    formData.append('acao', 'excluir');
     formData.append('id', id);
     
-    fetch('<?= SITE_URL ?>/admin/participantes.php', {
+    console.log('URL da API:', '<?= SITE_URL ?>/admin/api/excluir_participante.php');
+    console.log('FormData criado:', {
+        csrf_token: '<?= gerar_csrf_token() ?>',
+        id: id
+    });
+    
+    fetch('<?= SITE_URL ?>/admin/api/excluir_participante.php', {
         method: 'POST',
         body: formData
     })
     .then(response => {
+        console.log('Resposta recebida:', response);
+        console.log('Status da resposta:', response.status);
+        console.log('Headers da resposta:', response.headers);
+        
         // Verificar se a resposta é JSON válido
         const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+        
         if (!contentType || !contentType.includes('application/json')) {
             return response.text().then(text => {
-                console.error('Resposta não é JSON:', text);
-                throw new Error('Resposta do servidor não é JSON válido');
+                console.error('Resposta não é JSON:', text.substring(0, 500));
+                throw new Error('Resposta do servidor não é JSON válido. Content-Type: ' + contentType);
             });
         }
         return response.json();
