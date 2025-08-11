@@ -426,7 +426,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                         <?php endif; ?>
                         <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
                             <div id="qr-canvas-wrapper" style="display: <?= empty($pagamento['pix_qrcode_url']) ? 'inline-block' : 'none' ?>;">
-                                <!-- <canvas id="qr-canvas-pix"></canvas> -->
+                                <canvas id="qr-canvas-pix"></canvas>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -586,6 +586,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
 </main>
 
 <script src="<?= SITE_URL ?>/assets/js/qr-simple.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 // Configurações globais para o JavaScript
 window.SITE_URL = '<?= SITE_URL ?>';
