@@ -340,11 +340,15 @@ if ($deve_gerar_pix) {
     // Se não conseguiu gerar PIX mas não há erro de configuração
     if (!$pix_gerado_com_sucesso && empty($erro) && !empty($erro_geracao)) {
         error_log("ERRO: EFI Bank falhou ao gerar PIX - Erro: {$erro_geracao}");
+        error_log("ERRO: Inscricao ID: {$inscricao_id} | Participante ID: {$participante_logado['id']} | Valor: {$evento['valor']}");
+        error_log("ERRO: TXID: {$txid} | Tamanho TXID: " . strlen($txid));
+        
         // NÃO definir $erro aqui para permitir que o usuário tente novamente com F5
         // $erro = "Erro temporário ao gerar PIX. Recarregue a página para tentar novamente.";
         
         if ($debug_mode) {
             error_log("PAGAMENTO DEBUG: Erro na geração PIX: {$erro_geracao}");
+            error_log("PAGAMENTO DEBUG: Tentando gerar PIX novamente em próximas visitas...");
         }
     }
 }
@@ -513,8 +517,66 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                 <?php else: ?>
                     <div class="alert alert-warning" style="margin: 20px 0; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px;">
                         <strong>⚠️ Código PIX não disponível</strong><br>
-                        <small>O código PIX não foi gerado corretamente. <?= $debug_mode ? 'Verifique as configurações EFI Bank no painel administrativo.' : 'Entre em contato com o suporte.' ?></small>
-    </div>
+                        <small>O código PIX não foi gerado corretamente. <?= $debug_mode ? 'Verifique as configurações EFI Bank no painel administrativo.' : 'A página será recarregada automaticamente em alguns segundos...' ?></small>
+                        
+                        <div style="margin-top: 15px;">
+                            <button type="button" onclick="window.location.reload()" class="btn-reload" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                🔄 Tentar Novamente
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Script para verificar se PIX foi gerado e recarregar se necessário -->
+                    <script>
+                        let tentativas = 0;
+                        const maxTentativas = 3;
+                        
+                        function verificarPixGerado() {
+                            tentativas++;
+                            
+                            // Fazer requisição AJAX para verificar se PIX foi gerado
+                            fetch(window.SITE_URL + '/api/verificar_pagamento.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    inscricao_id: window.INSCRICAO_ID,
+                                    pagamento_id: window.PAGAMENTO_ID,
+                                    verificar_pix_apenas: true
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                console.log('Verificação PIX:', data);
+                                
+                                // Se PIX foi gerado ou pagamento foi processado, recarregar
+                                if (data.pix_gerado || data.pago) {
+                                    console.log('PIX foi gerado, recarregando página...');
+                                    window.location.reload();
+                                } else if (tentativas < maxTentativas) {
+                                    // Tentar novamente após 2 segundos
+                                    setTimeout(verificarPixGerado, 2000);
+                                } else {
+                                    // Após 3 tentativas, recarregar a página completa
+                                    console.log('Após', maxTentativas, 'tentativas, recarregando página...');
+                                    window.location.reload();
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro na verificação PIX:', error);
+                                // Em caso de erro, recarregar após 3 segundos
+                                if (tentativas <= 1) {
+                                    setTimeout(function() {
+                                        window.location.reload();
+                                    }, 3000);
+                                }
+                            });
+                        }
+                        
+                        // Iniciar verificação após 2 segundos
+                        setTimeout(verificarPixGerado, 2000);
+                    </script>
                 <?php endif; ?>
 
                 <div class="instrucoes-pix" style="margin-bottom: 8px;">

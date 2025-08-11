@@ -31,6 +31,7 @@ try {
     
     $inscricao_id = (int)$input['inscricao_id'];
     $pagamento_id = isset($input['pagamento_id']) ? (int)$input['pagamento_id'] : null;
+    $verificar_pix_apenas = isset($input['verificar_pix_apenas']) ? (bool)$input['verificar_pix_apenas'] : false;
     
     $participante_logado = obter_participante_logado();
     
@@ -58,6 +59,24 @@ try {
             'success' => true,
             'pago' => true,
             'message' => 'Inscrição confirmada (evento gratuito)'
+        ]);
+        exit;
+    }
+    
+    // Se só quer verificar se PIX foi gerado
+    if ($verificar_pix_apenas) {
+        $pagamento_qualquer = buscar_um("
+            SELECT * FROM pagamentos 
+            WHERE inscricao_id = ?
+        ", [$inscricao_id]);
+        
+        $pix_gerado = $pagamento_qualquer && !empty($pagamento_qualquer['pix_qrcode_data']);
+        
+        echo json_encode([
+            'success' => true,
+            'pix_gerado' => $pix_gerado,
+            'pago' => false,
+            'message' => $pix_gerado ? 'PIX foi gerado' : 'PIX ainda não foi gerado'
         ]);
         exit;
     }
