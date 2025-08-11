@@ -14,10 +14,6 @@ if (ob_get_level()) {
 }
 
 try {
-    // Log de debug
-    error_log("API Exclusão - Método: " . $_SERVER['REQUEST_METHOD']);
-    error_log("API Exclusão - POST data: " . json_encode($_POST));
-    
     // Verificar se é POST
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         echo json_encode(['sucesso' => false, 'mensagem' => 'Método não permitido']);

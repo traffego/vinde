@@ -772,35 +772,22 @@ function excluirParticipante(id) {
     btn.innerHTML = '<div class="loading-spinner"></div> Excluindo...';
     btn.disabled = true;
     
-    console.log('Iniciando exclusão do participante ID:', id);
-    
     const formData = new FormData();
     formData.append('csrf_token', '<?= gerar_csrf_token() ?>');
     formData.append('id', id);
-    
-    console.log('URL da API:', '<?= SITE_URL ?>/admin/api/excluir_participante.php');
-    console.log('FormData criado:', {
-        csrf_token: '<?= gerar_csrf_token() ?>',
-        id: id
-    });
     
     fetch('<?= SITE_URL ?>/admin/api/excluir_participante.php', {
         method: 'POST',
         body: formData
     })
     .then(response => {
-        console.log('Resposta recebida:', response);
-        console.log('Status da resposta:', response.status);
-        console.log('Headers da resposta:', response.headers);
-        
         // Verificar se a resposta é JSON válido
         const contentType = response.headers.get('content-type');
-        console.log('Content-Type:', contentType);
         
         if (!contentType || !contentType.includes('application/json')) {
             return response.text().then(text => {
-                console.error('Resposta não é JSON:', text.substring(0, 500));
-                throw new Error('Resposta do servidor não é JSON válido. Content-Type: ' + contentType);
+                console.error('Erro: Resposta não é JSON:', text.substring(0, 200));
+                throw new Error('Erro do servidor. Tente novamente.');
             });
         }
         return response.json();
@@ -1001,12 +988,53 @@ function executarAcaoMassa() {
         'excluir': 'excluir os participantes'
     };
     
-    if (confirm(`Tem certeza que deseja ${acoes[acao]} de ${ids.length} participante(s)?`)) {
-        // Implementar a ação em massa
-        mostrarToast(`Ação "${acao}" executada para ${ids.length} participante(s)`, 'success');
-        cancelarSelecao();
-        // TODO: Implementar as ações reais via API
+    if (!confirm(`Tem certeza que deseja ${acoes[acao]} de ${ids.length} participante(s)?`)) {
+        return;
     }
+    
+    // Mostrar loading
+    const btnExecutar = document.querySelector('.acoes-massa-buttons .btn-primary');
+    const textoOriginal = btnExecutar.innerHTML;
+    btnExecutar.innerHTML = '<div class="loading-spinner"></div> Processando...';
+    btnExecutar.disabled = true;
+    
+    const formData = new FormData();
+    formData.append('csrf_token', '<?= gerar_csrf_token() ?>');
+    formData.append('acao', acao);
+    ids.forEach(id => formData.append('ids[]', id));
+    
+    fetch('<?= SITE_URL ?>/admin/api/acao_massa.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.error('Erro: Resposta não é JSON:', text.substring(0, 200));
+                throw new Error('Erro do servidor. Tente novamente.');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.sucesso || data.processados > 0) {
+            mostrarToast(data.mensagem, data.erros > 0 ? 'warning' : 'success');
+            carregarParticipantes(); // Recarregar lista
+            cancelarSelecao(); // Limpar seleção
+        } else {
+            mostrarToast(data.mensagem || 'Erro ao processar ação em massa', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro na ação em massa:', error);
+        mostrarToast('Erro ao processar ação. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        // Restaurar botão
+        btnExecutar.innerHTML = textoOriginal;
+        btnExecutar.disabled = false;
+    });
 }
 
 // Máscaras de input
