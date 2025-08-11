@@ -293,71 +293,6 @@ function gerarQrPixCanvas() {
     }
 }
 
-// Função para verificar se PIX foi carregado corretamente
-function verificarPixCarregado() {
-    const qrLoading = document.getElementById('qr-loading');
-    const pixCode = document.getElementById('pix-code');
-    const qrImg = document.getElementById('qr-code-img');
-    
-    // PIX está carregado se:
-    // 1. Não há elemento de loading, OU
-    // 2. Há código PIX válido, OU 
-    // 3. Há imagem QR visível
-    const temLoading = qrLoading && qrLoading.style.display !== 'none';
-    const temPixCode = pixCode && pixCode.textContent.trim().length > 50;
-    const temQrImg = qrImg && qrImg.style.display !== 'none' && qrImg.src;
-    
-    const pixCarregado = !temLoading && (temPixCode || temQrImg);
-    
-    if (!pixCarregado) {
-        console.log('PIX ainda não carregado - Loading:', temLoading, 'PixCode:', temPixCode, 'QrImg:', temQrImg);
-    }
-    
-    return pixCarregado;
-}
-
-// Função para mostrar botão de reload quando PIX não carrega
-function mostrarBotaoReload() {
-    const container = document.querySelector('.pix-section') || document.querySelector('.pagamento-main');
-    if (!container) return;
-    
-    // Verificar se já existe o aviso
-    if (document.getElementById('aviso-reload-pix')) return;
-    
-    const avisoDiv = document.createElement('div');
-    avisoDiv.id = 'aviso-reload-pix';
-    avisoDiv.style.cssText = `
-        margin: 20px 0;
-        padding: 15px;
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 8px;
-        text-align: center;
-    `;
-    
-    avisoDiv.innerHTML = `
-        <strong>⏱️ QR Code demorou para carregar</strong><br>
-        <small>Clique no botão abaixo para tentar recarregar a página:</small><br><br>
-        <button onclick="window.location.reload()" style="
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        ">🔄 Recarregar Página</button>
-    `;
-    
-    // Inserir no topo da seção PIX
-    const pixSection = document.querySelector('.pix-section h2');
-    if (pixSection) {
-        pixSection.parentNode.insertBefore(avisoDiv, pixSection.nextSibling);
-    } else {
-        container.insertBefore(avisoDiv, container.firstChild);
-    }
-}
-
 // Inicialização quando DOM carrega
 document.addEventListener('DOMContentLoaded', function() {
     const img = document.getElementById('qr-code-img');
@@ -402,27 +337,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.TEMPO_EXPIRACAO) {
         inicializarTimer(window.TEMPO_EXPIRACAO);
     } else {
-        // CORREÇÃO OTIMIZADA: Se não há tempo de expiração, verificar se PIX não foi gerado
-        verificarPixCarregado();
-    }
-    
-    // Verificar PIX a cada 3 segundos se não estiver carregado (até 30s total)
-    let verificacoesRealizadas = 0;
-    const maxVerificacoes = 10; // 10 * 3s = 30s máximo
-    
-    const intervalVerificacao = setInterval(function() {
-        verificacoesRealizadas++;
+        // CORREÇÃO: Se não há tempo de expiração, verificar se PIX não foi gerado
+        const qrLoading = document.getElementById('qr-loading');
+        const pixCode = document.getElementById('pix-code');
         
-        const pixCarregado = verificarPixCarregado();
-        
-        if (pixCarregado || verificacoesRealizadas >= maxVerificacoes) {
-            clearInterval(intervalVerificacao);
+        if (qrLoading || (!pixCode || !pixCode.textContent.trim())) {
+            console.log('PIX não gerado na primeira carga - aguardando...');
             
-            if (!pixCarregado && verificacoesRealizadas >= maxVerificacoes) {
-                console.log('PIX não carregou após 30s - oferecendo reload...');
-                mostrarBotaoReload();
-            }
+            // Aguardar 5 segundos e recarregar se PIX ainda não existir
+            setTimeout(function() {
+                const pixCodeCheck = document.getElementById('pix-code');
+                const qrImg = document.getElementById('qr-code-img');
+                
+                if ((!pixCodeCheck || !pixCodeCheck.textContent.trim()) && 
+                    (!qrImg || qrImg.style.display === 'none')) {
+                    console.log('PIX ainda não gerado após 5s - recarregando página...');
+                    window.location.reload();
+                }
+            }, 5000);
         }
-    }, 3000);
-}
+    }
 });

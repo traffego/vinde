@@ -81,7 +81,7 @@ function obter_config_efi() {
 }
 
 /**
- * Autentica na API EFI e obtém token de acesso - OTIMIZADO
+ * Autentica na API EFI e obtém token de acesso
  * Seguindo documentação oficial: https://dev.efipay.com.br/docs/api-pix/credenciais
  * @return string|false Token de acesso ou false em caso de erro
  */
@@ -195,13 +195,13 @@ function efi_obter_token() {
 }
 
 /**
- * Obtém token válido (do cache ou novo) - OTIMIZADO
+ * Obtém token válido (do cache ou novo)
  * @return string|false Token válido ou false em caso de erro
  */
 function efi_obter_token_valido() {
-    // Verificar se existe token em cache válido (margem maior para evitar expiração durante uso)
+    // Verificar se existe token em cache válido
     if (isset($_SESSION['efi_token']) && isset($_SESSION['efi_token_expires'])) {
-        if (time() < $_SESSION['efi_token_expires'] - 600) { // 10 min de margem (era 5)
+        if (time() < $_SESSION['efi_token_expires'] - 300) { // 5 min de margem
             return $_SESSION['efi_token'];
         }
     }
@@ -213,39 +213,9 @@ function efi_obter_token_valido() {
         // Cache do token (válido por 1 hora conforme documentação)
         $_SESSION['efi_token'] = $token;
         $_SESSION['efi_token_expires'] = time() + 3600; // 1 hora
-        
-        // Log quando token é renovado (útil para debug)
-        error_log("EFI: Token renovado e cacheado por 1 hora");
     }
     
     return $token;
-}
-
-/**
- * Pre-carrega token EFI de forma assíncrona para acelerar próximas chamadas
- * Esta função pode ser chamada no início da página para preparar o token
- */
-function efi_precarregar_token() {
-    // Só pré-carregar se EFI estiver ativo
-    if (!efi_esta_ativo()) {
-        return false;
-    }
-    
-    // Se já tem token válido, não precisa pré-carregar
-    if (isset($_SESSION['efi_token']) && isset($_SESSION['efi_token_expires'])) {
-        if (time() < $_SESSION['efi_token_expires'] - 600) {
-            return true; // Token já válido
-        }
-    }
-    
-    // Tentar obter token (sem bloquear muito)
-    try {
-        $token = efi_obter_token();
-        return !empty($token);
-    } catch (Exception $e) {
-        error_log("EFI: Falha no pré-carregamento de token: " . $e->getMessage());
-        return false;
-    }
 }
 
 /**
