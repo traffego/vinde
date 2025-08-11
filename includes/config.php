@@ -16,7 +16,7 @@ define('DB_CHARSET', 'utf8mb4');
 
 // Configurações do Site
 define('SITE_URL', 'https://vinde.traffego.agency');
-define('SITE_NOME', 'Vinde - Eventos Católicos');
+define('SITE_NOME', 'Vinde - Eventos Cristãos');
 define('SITE_EMAIL', 'contato@vinde.com.br');
 define('ADMIN_EMAIL', 'admin@vinde.com.br');
 
@@ -41,7 +41,7 @@ define('PIX_CIDADE', '');
 // Não definir constantes de credenciais diretamente aqui para evitar divergência com o banco.
 
 // Configurações WhatsApp
-define('WHATSAPP_CONTATO', '5511999999999');
+define('WHATSAPP_CONTATO', '552171431212');
 define('WHATSAPP_API_TOKEN', ''); // Para integração futura
 
 // Timezone
