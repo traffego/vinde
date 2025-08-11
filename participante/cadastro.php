@@ -69,6 +69,7 @@ $csrf_token = gerar_csrf_token();
     <title>Criar Conta - Vinde</title>
     <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="<?= SITE_URL ?>/assets/js/main.js"></script>
     <style>
         .cadastro-participante {
             min-height: 100vh;
@@ -204,6 +205,34 @@ $csrf_token = gerar_csrf_token();
             font-size: 12px;
             color: var(--cor-texto-secundario);
             margin-top: 4px;
+        }
+
+        /* Estados de validação */
+        .form-input.error {
+            border-color: #e74c3c;
+            background-color: #ffeaea;
+        }
+
+        .form-input.success {
+            border-color: #27ae60;
+            background-color: #eafaf1;
+        }
+
+        .field-message {
+            font-size: 12px;
+            margin-top: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .field-message.error {
+            color: #e74c3c;
+            background-color: #ffeaea;
+        }
+
+        .field-message.success {
+            color: #27ae60;
+            background-color: #eafaf1;
         }
 
         @media (max-width: 768px) {
@@ -381,30 +410,17 @@ $csrf_token = gerar_csrf_token();
     </div>
 
     <script>
+        // Configurar validação de CPF conforme configuração do sistema
+        window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+        
         document.addEventListener('DOMContentLoaded', function() {
-            // Máscara para CPF
-            const cpfInput = document.getElementById('cpf');
-            cpfInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                e.target.value = value;
-            });
-
-            // Máscara para WhatsApp
-            const whatsappInput = document.getElementById('whatsapp');
-            whatsappInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                if (value.length <= 10) {
-                    value = value.replace(/(\d{2})(\d)/, '($1) $2');
-                    value = value.replace(/(\d{4})(\d)/, '$1-$2');
-                } else {
-                    value = value.replace(/(\d{2})(\d)/, '($1) $2');
-                    value = value.replace(/(\d{5})(\d)/, '$1-$2');
-                }
-                e.target.value = value;
-            });
+            // Inicializar validações automáticas do sistema
+            if (typeof initializeForms === 'function') {
+                initializeForms();
+            }
+            if (typeof initializeMasks === 'function') {
+                initializeMasks();
+            }
 
             // Validação de confirmação de senha
             const senhaInput = document.getElementById('senha');
@@ -418,8 +434,10 @@ $csrf_token = gerar_csrf_token();
                 }
             }
             
-            senhaInput.addEventListener('input', validarSenhas);
-            confirmarSenhaInput.addEventListener('input', validarSenhas);
+            if (senhaInput && confirmarSenhaInput) {
+                senhaInput.addEventListener('input', validarSenhas);
+                confirmarSenhaInput.addEventListener('input', validarSenhas);
+            }
         });
     </script>
 </body>

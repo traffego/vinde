@@ -125,6 +125,11 @@ function participante_criar_conta($dados) {
             return ['sucesso' => false, 'mensagem' => 'CPF deve ter 11 dígitos.'];
         }
         
+        // Validar CPF conforme configuração do sistema
+        if (cpf_obrigatorio() && !validar_cpf($cpf)) {
+            return ['sucesso' => false, 'mensagem' => 'CPF inválido.'];
+        }
+        
         // Verificar se CPF já existe
         if (participante_cpf_existe($cpf)) {
             return ['sucesso' => false, 'mensagem' => 'Este CPF já está cadastrado no sistema.'];
