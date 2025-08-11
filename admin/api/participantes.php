@@ -36,7 +36,7 @@ try {
     }
 
     if (!empty($filtros['status'])) {
-        $where_conditions[] = 'p.status = ?';
+        $where_conditions[] = 'i.status = ?';
         $params[] = $filtros['status'];
     }
     

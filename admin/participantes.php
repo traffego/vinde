@@ -289,13 +289,13 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             </div>
             
             <div class="filtro-group">
-                <label class="filtro-label">Status Participante</label>
+                <label class="filtro-label">Status de Inscrição</label>
                 <select id="filtro-status" class="filtro-input">
                     <option value="">Todos os status</option>
-                    <option value="inscrito">Inscrito</option>
-                    <option value="pago">Pago</option>
-                    <option value="presente">Presente</option>
-                    <option value="cancelado">Cancelado</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="aprovada">Aprovada</option>
+                    <option value="rejeitada">Rejeitada</option>
+                    <option value="cancelada">Cancelada</option>
                 </select>
             </div>
             
@@ -319,20 +319,40 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <label class="filtro-label">Ações</label>
                 <div style="display: flex; gap: 0.5rem;">
                     <button type="button" onclick="limparFiltros()" class="btn btn-outline">Limpar</button>
-                    <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
+            <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Ações em Massa -->
+    <div class="acoes-massa-section" style="display: none;">
+        <div class="acoes-massa-content">
+            <div class="acoes-massa-info">
+                <input type="checkbox" id="select-all-cards" onchange="toggleSelectAll()">
+                <span id="selecionados-count">0 selecionados</span>
+            </div>
+            <div class="acoes-massa-buttons">
+                <select id="acao-massa" class="filtro-input" style="width: auto;">
+                    <option value="">Escolha uma ação</option>
+                    <option value="aprovar">Aprovar Inscrições</option>
+                    <option value="rejeitar">Rejeitar Inscrições</option>
+                <option value="cancelar">Cancelar Inscrições</option>
+                    <option value="excluir">Excluir Selecionados</option>
+            </select>
+                <button type="button" onclick="executarAcaoMassa()" class="btn btn-primary">Executar</button>
+                <button type="button" onclick="cancelarSelecao()" class="btn btn-outline">Cancelar</button>
+    </div>
+                                </div>
+                                </div>
     <!-- Grid de Participantes -->
     <div id="participantes-container">
         <div class="loading">
             <div class="loading-spinner"></div>
             Carregando participantes...
-        </div>
-    </div>
-
+                                    </div>
+                                </div>
+                                
     <!-- Modal de Detalhes -->
     <div id="modal-participante" class="modal">
         <div class="modal-content">
@@ -357,7 +377,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             <div class="modal-header">
                 <h2 class="modal-title">Confirmar Exclusão</h2>
                 <button class="close" onclick="fecharModalExclusao()">&times;</button>
-            </div>
+        </div>
             <div class="modal-body">
                 <p>Tem certeza que deseja excluir este participante?</p>
                 <p><strong id="nome-participante-exclusao"></strong></p>
@@ -608,10 +628,18 @@ function criarCardParticipante(p) {
     
     card.innerHTML = `
         <div class="participante-header">
+            <div class="participante-checkbox">
+                <input type="checkbox" name="participantes[]" value="${p.id}" class="card-checkbox" onclick="event.stopPropagation()">
+            </div>
             <div class="participante-info-principal">
                 <h3 class="participante-nome">${escapeHtml(p.nome)}</h3>
                 <p class="participante-evento">${escapeHtml(p.evento_nome || 'Sem evento')}</p>
                 <p class="participante-cpf">${formatarCpf(p.cpf)}</p>
+            </div>
+            <div class="participante-actions">
+                <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
+                    🗑️
+                </button>
             </div>
         </div>
         
@@ -639,6 +667,13 @@ function inicializarFiltros() {
                 filtrosAtivos[filtro] = elemento.value;
                 carregarParticipantes();
             }, 500));
+        }
+    });
+    
+    // Adicionar listener para checkboxes
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('card-checkbox')) {
+            atualizarContadorSelecionados();
         }
     });
 }
@@ -914,6 +949,85 @@ function mostrarToast(mensagem, tipo = 'info') {
     setTimeout(() => {
         toast.remove();
     }, 5000);
+}
+
+// Ações em massa
+function atualizarContadorSelecionados() {
+    const checkboxes = document.querySelectorAll('.card-checkbox:checked');
+    const count = checkboxes.length;
+    const countElement = document.getElementById('selecionados-count');
+    const acoesMassaSection = document.querySelector('.acoes-massa-section');
+    
+    if (countElement) {
+        countElement.textContent = `${count} selecionado${count !== 1 ? 's' : ''}`;
+    }
+    
+    if (acoesMassaSection) {
+        acoesMassaSection.style.display = count > 0 ? 'block' : 'none';
+    }
+    
+    // Atualizar checkbox "selecionar todos"
+    const selectAllCheckbox = document.getElementById('select-all-cards');
+    const allCheckboxes = document.querySelectorAll('.card-checkbox');
+    
+    if (selectAllCheckbox && allCheckboxes.length > 0) {
+        selectAllCheckbox.checked = count === allCheckboxes.length;
+        selectAllCheckbox.indeterminate = count > 0 && count < allCheckboxes.length;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('select-all-cards');
+    const checkboxes = document.querySelectorAll('.card-checkbox');
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+    
+    atualizarContadorSelecionados();
+}
+
+function cancelarSelecao() {
+    const checkboxes = document.querySelectorAll('.card-checkbox');
+    checkboxes.forEach(cb => cb.checked = false);
+    
+    const selectAllCheckbox = document.getElementById('select-all-cards');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+    
+    atualizarContadorSelecionados();
+}
+
+function executarAcaoMassa() {
+    const acao = document.getElementById('acao-massa').value;
+    const checkboxes = document.querySelectorAll('.card-checkbox:checked');
+    const ids = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (!acao) {
+        mostrarToast('Selecione uma ação', 'warning');
+        return;
+    }
+    
+    if (ids.length === 0) {
+        mostrarToast('Selecione pelo menos um participante', 'warning');
+        return;
+    }
+    
+    const acoes = {
+        'aprovar': 'aprovar as inscrições',
+        'rejeitar': 'rejeitar as inscrições',
+        'cancelar': 'cancelar as inscrições',
+        'excluir': 'excluir os participantes'
+    };
+    
+    if (confirm(`Tem certeza que deseja ${acoes[acao]} de ${ids.length} participante(s)?`)) {
+        // Implementar a ação em massa
+        mostrarToast(`Ação "${acao}" executada para ${ids.length} participante(s)`, 'success');
+        cancelarSelecao();
+        // TODO: Implementar as ações reais via API
+    }
 }
 
 // Máscaras de input

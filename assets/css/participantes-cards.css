@@ -30,10 +30,47 @@
 
 .participante-header {
     margin-bottom: 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.participante-checkbox {
+    flex-shrink: 0;
+    margin-top: 0.25rem;
+}
+
+.card-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 .participante-info-principal {
-    width: 100%;
+    flex: 1;
+}
+
+.participante-actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+}
+
+.btn-delete-card {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.btn-delete-card:hover {
+    background: #fee2e2;
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .participante-nome {
@@ -266,6 +303,43 @@
     background: white;
 }
 
+/* Ações em massa */
+.acoes-massa-section {
+    background: #f8fafc;
+    border: 2px solid var(--cor-primaria);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    animation: slideInDown 0.3s ease;
+}
+
+.acoes-massa-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.acoes-massa-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.acoes-massa-info input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.acoes-massa-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .filtro-input:focus {
     outline: none;
     border-color: var(--cor-primaria);
@@ -378,6 +452,17 @@
     .participante-badges {
         flex-direction: column;
         gap: 0.5rem;
+    }
+    
+    .acoes-massa-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .acoes-massa-buttons {
+        justify-content: center;
+        flex-wrap: wrap;
     }
     
     .modal-content {
