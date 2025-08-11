@@ -245,11 +245,15 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
                                 <?php endif; ?>
                             </div>
                             
-                            <form method="POST" class="form-confirmacao">
+                            <form method="POST" class="form-confirmacao" id="form-confirmacao">
                                 <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
                                 
-                                <button type="submit" class="btn-confirmar">
-                                    <?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?>
+                                <button type="submit" class="btn-confirmar" id="btn-confirmar">
+                                    <span class="btn-text"><?= $evento['valor'] > 0 ? 'Confirmar e Pagar' : 'Confirmar Inscrição Gratuita' ?></span>
+                                    <span class="btn-loader" style="display: none;">
+                                        <span class="spinner"></span>
+                                        Processando...
+                                    </span>
                                 </button>
                             </form>
                         </div>
@@ -395,11 +399,44 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
     cursor: pointer;
     transition: all 0.3s ease;
     min-width: 250px;
+    position: relative;
+    overflow: hidden;
 }
 
-.btn-confirmar:hover {
+.btn-confirmar:hover:not(:disabled) {
     /* background: var(--cor-primaria-dark); */
     transform: translateY(-2px);
+}
+
+.btn-confirmar:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.btn-text,
+.btn-loader {
+    transition: opacity 0.3s ease;
 }
 
 .evento-card {
@@ -461,5 +498,35 @@ echo '<link rel="stylesheet" href="' . SITE_URL . '/assets/css/checkout.css">';
     color: #28a745;
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('form-confirmacao');
+    const btn = document.getElementById('btn-confirmar');
+    
+    if (form && btn) {
+        const btnText = btn.querySelector('.btn-text');
+        const btnLoader = btn.querySelector('.btn-loader');
+        
+        form.addEventListener('submit', function(e) {
+            // Mostrar loader e desabilitar botão
+            if (btnText && btnLoader) {
+                btnText.style.display = 'none';
+                btnLoader.style.display = 'flex';
+                btn.disabled = true;
+                
+                // Timeout de segurança para reabilitar o botão caso algo dê errado
+                setTimeout(function() {
+                    if (btn.disabled) {
+                        btnText.style.display = 'inline';
+                        btnLoader.style.display = 'none';
+                        btn.disabled = false;
+                    }
+                }, 30000); // 30 segundos
+            }
+        });
+    }
+});
+</script>
 
 <?php obter_rodape(); ?> 
