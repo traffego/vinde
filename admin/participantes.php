@@ -53,27 +53,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$participante_data) {
                             echo json_encode(['sucesso' => false, 'mensagem' => 'Participante não encontrado.']);
                             exit;
+                        }
+                        
+                        // Verificar se há pagamentos confirmados (status = 'pago') associados
+                        $pagamentos_pagos = buscar_um("SELECT COUNT(*) as total FROM pagamentos WHERE participante_id = ? AND status = 'pago'", [$participante_id])['total'];
+                        
+                        if ($pagamentos_pagos > 0) {
+                            echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Há pagamentos confirmados associados.']);
+                            exit;
+                        }
+                        
+                        // Verificar se há inscrições aprovadas
+                        $inscricoes_aprovadas = buscar_um("SELECT COUNT(*) as total FROM inscricoes WHERE participante_id = ? AND status = 'aprovada'", [$participante_id])['total'];
+                        
+                        if ($inscricoes_aprovadas > 0 && $participante_data['status'] === 'presente') {
+                            echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Ele já fez check-in no evento.']);
+                            exit;
+                        }
+                        
+                        // Excluir participante (o CASCADE vai remover inscrições e pagamentos relacionados)
+                        if (remover_registro('participantes', ['id' => $participante_id])) {
+                            registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
+                            echo json_encode(['sucesso' => true, 'mensagem' => 'Participante excluído com sucesso!']);
+                            exit;
                         } else {
-                            // Verificar se há pagamentos associados
-                            $pagamentos = contar_registros('pagamentos', ['participante_id' => $participante_id]);
-                            
-                            if ($pagamentos > 0 && $participante_data['status'] === 'pago') {
-                                echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Há pagamentos confirmados associados.']);
-                                exit;
-                            } else {
-                                if (remover_registro('participantes', ['id' => $participante_id])) {
-                                    registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
-                                    echo json_encode(['sucesso' => true, 'mensagem' => 'Participante excluído com sucesso!']);
-                                    exit;
-                                } else {
-                                    echo json_encode(['sucesso' => false, 'mensagem' => 'Erro ao excluir participante.']);
-                                    exit;
-                                }
-                            }
+                            echo json_encode(['sucesso' => false, 'mensagem' => 'Erro ao excluir participante.']);
+                            exit;
                         }
                     } catch (Exception $e) {
                         error_log("Erro ao excluir participante: " . $e->getMessage());
-                        echo json_encode(['sucesso' => false, 'mensagem' => 'Erro interno ao excluir participante.']);
+                        echo json_encode(['sucesso' => false, 'mensagem' => 'Erro interno ao excluir participante: ' . $e->getMessage()]);
                         exit;
                     }
                 }
@@ -280,13 +289,24 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             </div>
             
             <div class="filtro-group">
-                <label class="filtro-label">Status</label>
+                <label class="filtro-label">Status Participante</label>
                 <select id="filtro-status" class="filtro-input">
                     <option value="">Todos os status</option>
                     <option value="inscrito">Inscrito</option>
                     <option value="pago">Pago</option>
                     <option value="presente">Presente</option>
                     <option value="cancelado">Cancelado</option>
+                </select>
+            </div>
+            
+            <div class="filtro-group">
+                <label class="filtro-label">Status Pagamento</label>
+                <select id="filtro-pagamento" class="filtro-input">
+                    <option value="">Todos os pagamentos</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="pago">Pago</option>
+                    <option value="cancelado">Cancelado</option>
+                    <option value="estornado">Estornado</option>
                 </select>
             </div>
             
@@ -326,6 +346,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="fecharModal()">Fechar</button>
                 <button type="button" class="btn btn-primary" id="btn-editar-modal" onclick="editarParticipante()">Editar</button>
+                <button type="button" class="btn btn-danger" id="btn-excluir-modal" onclick="confirmarExclusaoModal()">Excluir</button>
             </div>
         </div>
     </div>
@@ -579,47 +600,33 @@ function criarCardParticipante(p) {
     card.className = 'participante-card';
     card.onclick = () => abrirModal(p.id);
     
+    // Status do participante (inscrito, pago, presente, cancelado)
+    const statusParticipante = p.status || 'inscrito';
+    
+    // Status do pagamento (pendente, pago, cancelado, estornado)
+    const statusPagamento = p.pagamento_status || 'pendente';
+    
     card.innerHTML = `
         <div class="participante-header">
             <div>
                 <h3 class="participante-nome">${escapeHtml(p.nome)}</h3>
                 <p class="participante-cpf">CPF: ${formatarCpf(p.cpf)}</p>
             </div>
-            <span class="status-badge status-${p.status_inscricao || p.status}">
-                ${ucfirst(p.status_inscricao || p.status)}
+            <span class="status-badge status-${statusParticipante}">
+                ${ucfirst(statusParticipante)}
             </span>
         </div>
         
         <div class="participante-info">
             <div class="info-row">
-                <span class="info-icon">📱</span>
-                <span class="info-text">${formatarTelefone(p.whatsapp)}</span>
+                <span class="info-icon">📅</span>
+                <span class="info-text">${escapeHtml(p.evento_nome || 'Sem evento')}</span>
             </div>
-            <div class="info-row">
-                <span class="info-icon">📧</span>
-                <span class="info-text">${escapeHtml(p.email)}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-icon">📍</span>
-                <span class="info-text">${escapeHtml(p.cidade)}, ${p.estado}</span>
-            </div>
-            ${p.pagamento_status ? `
             <div class="info-row">
                 <span class="info-icon">💳</span>
-                <span class="info-text">R$ ${formatarMoeda(p.valor || 0)} - ${ucfirst(p.pagamento_status)}</span>
-            </div>
-            ` : ''}
-        </div>
-        
-        <div class="participante-footer">
-            <span class="evento-badge">${escapeHtml(p.evento_nome || 'Sem evento')}</span>
-            <div class="card-actions">
-                <button class="btn-icon btn-edit" onclick="event.stopPropagation(); editarParticipante(${p.id})" title="Editar">
-                    ✏️
-                </button>
-                <button class="btn-icon btn-delete" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
-                    🗑️
-                </button>
+                <span class="info-text">
+                    ${p.valor > 0 ? `R$ ${formatarMoeda(p.valor)} - ${ucfirst(statusPagamento)}` : 'Gratuito'}
+                </span>
             </div>
         </div>
     `;
@@ -629,7 +636,7 @@ function criarCardParticipante(p) {
 
 // Inicializar filtros
 function inicializarFiltros() {
-    const filtros = ['busca', 'evento', 'status', 'cidade'];
+    const filtros = ['busca', 'evento', 'status', 'pagamento', 'cidade'];
     
     filtros.forEach(filtro => {
         const elemento = document.getElementById(`filtro-${filtro}`);
@@ -644,7 +651,7 @@ function inicializarFiltros() {
 
 // Limpar filtros
 function limparFiltros() {
-    const filtros = ['busca', 'evento', 'status', 'cidade'];
+    const filtros = ['busca', 'evento', 'status', 'pagamento', 'cidade'];
     
     filtros.forEach(filtro => {
         const elemento = document.getElementById(`filtro-${filtro}`);
@@ -728,8 +735,11 @@ function renderizarModalConteudo(p) {
         ` : ''}
     `;
     
-    // Atualizar botão de editar
+    // Atualizar botões de ação
     document.getElementById('btn-editar-modal').onclick = () => editarParticipante(p.id);
+    
+    // Salvar dados do participante atual para as ações
+    participanteAtual = p;
 }
 
 // Fechar modal
@@ -746,7 +756,17 @@ function editarParticipante(id = null) {
     }
 }
 
-// Confirmar exclusão
+// Confirmar exclusão via modal de detalhes
+function confirmarExclusaoModal() {
+    if (!participanteAtual) return;
+    
+    document.getElementById('nome-participante-exclusao').textContent = participanteAtual.nome;
+    document.getElementById('modal-exclusao').style.display = 'block';
+    
+    document.getElementById('btn-confirmar-exclusao').onclick = () => excluirParticipante(participanteAtual.id);
+}
+
+// Confirmar exclusão (função mantida para compatibilidade)
 function confirmarExclusao(id, nome) {
     participanteAtual = { id, nome };
     document.getElementById('nome-participante-exclusao').textContent = nome;

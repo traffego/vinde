@@ -13,6 +13,7 @@ try {
         'busca' => $_GET['busca'] ?? '',
         'evento' => $_GET['evento'] ?? '',
         'status' => $_GET['status'] ?? '',
+        'pagamento' => $_GET['pagamento'] ?? '',
         'cidade' => $_GET['cidade'] ?? '',
         'data_inicio' => $_GET['data_inicio'] ?? '',
         'data_fim' => $_GET['data_fim'] ?? ''
@@ -35,8 +36,13 @@ try {
     }
 
     if (!empty($filtros['status'])) {
-        $where_conditions[] = 'i.status = ?';
+        $where_conditions[] = 'p.status = ?';
         $params[] = $filtros['status'];
+    }
+    
+    if (!empty($filtros['pagamento'])) {
+        $where_conditions[] = 'pg.status = ?';
+        $params[] = $filtros['pagamento'];
     }
 
     if (!empty($filtros['cidade'])) {

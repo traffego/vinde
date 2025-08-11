@@ -68,6 +68,7 @@
 .status-aprovada { background: #d1fae5; color: #065f46; }
 .status-rejeitada { background: #fee2e2; color: #991b1b; }
 .status-cancelada { background: #fee2e2; color: #991b1b; }
+.status-estornado { background: #fbbf24; color: #92400e; }
 
 .participante-info {
     margin-bottom: 1rem;
@@ -99,6 +100,7 @@
     align-items: center;
     padding-top: 1rem;
     border-top: 1px solid #f3f4f6;
+    margin-top: 1rem;
 }
 
 .evento-badge {
@@ -402,6 +404,7 @@
     
     .filtros-grid {
         grid-template-columns: 1fr;
+        gap: 0.75rem;
     }
     
     .participante-header {
