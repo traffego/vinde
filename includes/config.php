@@ -9,8 +9,8 @@ if (!defined('SISTEMA_INSCRICOES')) {
 
 // Configurações do Banco de Dados
 define('DB_HOST', '187.33.241.40');
-define('DB_NAME', 'platafo5_vinde');
-define('DB_USER', 'platafo5_vinde');
+define('DB_NAME', 'platafo5_vinde2');
+define('DB_USER', 'platafo5_vinde2');
 define('DB_PASS', 'Traffego444#');
 define('DB_CHARSET', 'utf8mb4');
 
