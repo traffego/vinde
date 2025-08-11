@@ -129,80 +129,111 @@ if (empty($evento_imagem_path)) {
     $evento_imagem_path = 'https://via.placeholder.com/1200x630/1e40af/ffffff?text=' . urlencode($evento['nome']);
 }
 
-// Descrição otimizada para Open Graph
-$evento_descricao = $evento['descricao'] ? strip_tags($evento['descricao']) : $evento['nome'];
-$evento_descricao = substr($evento_descricao, 0, 160);
+// Variáveis para Open Graph - Padrão Simples
+$og_titulo = $evento['nome'];
+$og_descricao = $evento['descricao'] ? strip_tags($evento['descricao']) : $evento['nome'];
+$og_descricao = substr($og_descricao, 0, 160);
 if (strlen(strip_tags($evento['descricao'])) > 160) {
-    $evento_descricao .= '...';
+    $og_descricao .= '...';
 }
+$og_imagem = $evento_imagem_path;
+$og_url = $evento_url;
+$og_tipo = 'website';
+$og_site_name = SITE_NAME;
+$og_locale = SITE_LOCALE;
 
-// Meta tags específicas para Open Graph - Seguindo regras rigorosas
-$meta_tags = [];
+// Variáveis adicionais da imagem
+$og_imagem_width = DEFAULT_OG_IMAGE_WIDTH;
+$og_imagem_height = DEFAULT_OG_IMAGE_HEIGHT;
+$og_imagem_alt = $evento['nome'];
 
-// Facebook App ID (só adicionar se configurado)
-if (FACEBOOK_APP_ID && FACEBOOK_APP_ID !== false) {
-    $meta_tags['fb:app_id'] = FACEBOOK_APP_ID;
-}
-
-// Adicionar meta tags principais
-$meta_tags = array_merge($meta_tags, [
-    // Open Graph básico (obrigatório)
-    'og:title' => htmlspecialchars($evento['nome']),
-    'og:type' => 'website', // Mudança: 'event' pode não ser reconhecido por todas as plataformas
-    'og:image' => $evento_imagem_path,
-    'og:url' => $evento_url,
-    'og:description' => htmlspecialchars($evento_descricao),
-    
-    // Meta tags adicionais para melhor compatibilidade
-    'og:site_name' => SITE_NAME,
-    'og:locale' => SITE_LOCALE,
-    
-    // Especificações da imagem (IMPORTANTES para funcionamento)
-    'og:image:url' => $evento_imagem_path,
-    'og:image:secure_url' => str_replace('http://', 'https://', $evento_imagem_path),
-    'og:image:type' => 'image/jpeg', // Assumindo JPEG - será corrigido dinamicamente
-    'og:image:width' => DEFAULT_OG_IMAGE_WIDTH,
-    'og:image:height' => DEFAULT_OG_IMAGE_HEIGHT,
-    'og:image:alt' => htmlspecialchars($evento['nome']),
-    
-    // Meta tags para evento específico
-    'event:start_time' => date('c', strtotime($evento['data_inicio'] . ' ' . ($evento['horario_inicio'] ?: '00:00:00'))),
-    'event:location' => htmlspecialchars($evento['local'] . ' - ' . $evento['cidade'] . ', ' . $evento['estado']),
-    
-    // Twitter Cards (essencial para WhatsApp e Twitter)
-    'twitter:card' => 'summary_large_image',
-    'twitter:site' => TWITTER_HANDLE,
-    'twitter:title' => htmlspecialchars($evento['nome']),
-    'twitter:description' => htmlspecialchars($evento_descricao),
-    'twitter:image' => $evento_imagem_path,
-    'twitter:image:alt' => htmlspecialchars($evento['nome']),
-    
-    // Meta tags extras para melhor SEO
-    'description' => htmlspecialchars($evento_descricao),
-    'keywords' => 'evento católico, ' . strtolower($evento['cidade']) . ', ' . htmlspecialchars($evento['nome'])
-]);
-
-// Detectar tipo MIME da imagem para meta tag correta
+// Detectar tipo MIME da imagem
+$og_imagem_type = 'image/jpeg'; // padrão
 if ($evento['imagem']) {
     $extensao = strtolower(pathinfo($evento['imagem'], PATHINFO_EXTENSION));
     switch ($extensao) {
         case 'jpg':
         case 'jpeg':
-            $meta_tags['og:image:type'] = 'image/jpeg';
+            $og_imagem_type = 'image/jpeg';
             break;
         case 'png':
-            $meta_tags['og:image:type'] = 'image/png';
+            $og_imagem_type = 'image/png';
             break;
         case 'webp':
-            $meta_tags['og:image:type'] = 'image/webp';
+            $og_imagem_type = 'image/webp';
             break;
-        default:
-            $meta_tags['og:image:type'] = 'image/jpeg';
     }
 }
 
-obter_cabecalho($evento['nome'] . ' - Vinde', 'evento', $meta_tags);
+// Variáveis do Twitter
+$twitter_card = 'summary_large_image';
+$twitter_site = TWITTER_HANDLE;
+$twitter_titulo = $og_titulo;
+$twitter_descricao = $og_descricao;
+$twitter_imagem = $og_imagem;
 
+// Variáveis de evento específico
+$evento_start_time = date('c', strtotime($evento['data_inicio'] . ' ' . ($evento['horario_inicio'] ?: '00:00:00')));
+$evento_location = $evento['local'] . ' - ' . $evento['cidade'] . ', ' . $evento['estado'];
+
+// Meta description e keywords para SEO
+$meta_description = $og_descricao;
+$meta_keywords = 'evento católico, ' . strtolower($evento['cidade']) . ', ' . $og_titulo;
+
+// Renderizar cabeçalho customizado com meta tags diretas
+?>
+<!DOCTYPE html>
+<html lang='pt-BR'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title><?= htmlspecialchars($og_titulo) ?> - Vinde</title>
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="<?= htmlspecialchars($og_titulo) ?>">
+    <meta property="og:description" content="<?= htmlspecialchars($og_descricao) ?>">
+    <meta property="og:image" content="<?= htmlspecialchars($og_imagem) ?>">
+    <meta property="og:url" content="<?= htmlspecialchars($og_url) ?>">
+    <meta property="og:type" content="<?= htmlspecialchars($og_tipo) ?>">
+    <meta property="og:site_name" content="<?= htmlspecialchars($og_site_name) ?>">
+    <meta property="og:locale" content="<?= htmlspecialchars($og_locale) ?>">
+    
+    <!-- Especificações da Imagem -->
+    <meta property="og:image:url" content="<?= htmlspecialchars($og_imagem) ?>">
+    <meta property="og:image:secure_url" content="<?= htmlspecialchars(str_replace('http://', 'https://', $og_imagem)) ?>">
+    <meta property="og:image:type" content="<?= htmlspecialchars($og_imagem_type) ?>">
+    <meta property="og:image:width" content="<?= htmlspecialchars($og_imagem_width) ?>">
+    <meta property="og:image:height" content="<?= htmlspecialchars($og_imagem_height) ?>">
+    <meta property="og:image:alt" content="<?= htmlspecialchars($og_imagem_alt) ?>">
+    
+    <!-- Event Meta Tags -->
+    <meta property="event:start_time" content="<?= htmlspecialchars($evento_start_time) ?>">
+    <meta property="event:location" content="<?= htmlspecialchars($evento_location) ?>">
+    
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="<?= htmlspecialchars($twitter_card) ?>">
+    <meta name="twitter:site" content="<?= htmlspecialchars($twitter_site) ?>">
+    <meta name="twitter:title" content="<?= htmlspecialchars($twitter_titulo) ?>">
+    <meta name="twitter:description" content="<?= htmlspecialchars($twitter_descricao) ?>">
+    <meta name="twitter:image" content="<?= htmlspecialchars($twitter_imagem) ?>">
+    <meta name="twitter:image:alt" content="<?= htmlspecialchars($og_imagem_alt) ?>">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="<?= htmlspecialchars($meta_description) ?>">
+    <meta name="keywords" content="<?= htmlspecialchars($meta_keywords) ?>">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Stylesheets e outros recursos -->
+    <link rel='stylesheet' href='<?= SITE_URL ?>/assets/css/style.css'>
+    <link rel='preconnect' href='https://fonts.googleapis.com'>
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+    <link href='https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap' rel='stylesheet'>
+    <link rel='icon' type='image/x-icon' href='<?= SITE_URL ?>/assets/images/favicon.ico'>
+</head>
+<body class="evento-page">
+    <?php echo obter_menu_principal(); ?>
+
+<?php
 // DEBUG: Mostrar meta tags se parâmetro debug=1 estiver presente
 if (isset($_GET['debug']) && $_GET['debug'] == '1') {
     echo "<!-- DEBUG: Meta tags geradas para Open Graph -->";
@@ -214,26 +245,27 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
     echo "<li><strong>Campo imagem DB:</strong> " . htmlspecialchars($evento['imagem'] ?: 'VAZIO') . "</li>";
     echo "<li><strong>Caminho local:</strong> " . htmlspecialchars(__DIR__ . '/uploads/' . $evento['imagem']) . "</li>";
     echo "<li><strong>Arquivo existe:</strong> " . (file_exists(__DIR__ . '/uploads/' . $evento['imagem']) ? 'SIM' : 'NÃO') . "</li>";
-    echo "<li><strong>URL gerada:</strong> {$evento_imagem_path}</li>";
+    echo "<li><strong>URL gerada:</strong> {$og_imagem}</li>";
     echo "<li><strong>Domínio detectado:</strong> {$dominio}</li>";
     echo "<li><strong>Protocolo:</strong> {$protocolo}</li>";
-    echo "<li><strong>Facebook App ID:</strong> " . (FACEBOOK_APP_ID ? FACEBOOK_APP_ID : '<span style="color: orange;">Desabilitado (evita erro ID inválido)</span>') . "</li>";
+    echo "<li><strong>Facebook App ID:</strong> <span style='color: orange;'>Desabilitado (método direto nas meta tags)</span></li>";
     echo "</ul>";
     
     echo "<h4>🖼️ Teste da imagem:</h4>";
-    echo "<p><a href='{$evento_imagem_path}' target='_blank' style='background: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;'>Abrir imagem em nova aba</a></p>";
-    echo "<img src='{$evento_imagem_path}' style='max-width: 200px; border: 1px solid #ccc; margin: 10px 0;' onerror='this.style.display=\"none\"; this.nextSibling.style.display=\"block\";'>";
+    echo "<p><a href='{$og_imagem}' target='_blank' style='background: #007cba; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;'>Abrir imagem em nova aba</a></p>";
+    echo "<img src='{$og_imagem}' style='max-width: 200px; border: 1px solid #ccc; margin: 10px 0;' onerror='this.style.display=\"none\"; this.nextSibling.style.display=\"block\";'>";
     echo "<p style='display:none; color: red;'>❌ Erro ao carregar imagem</p>";
     
-    echo "<h4>📝 Meta tags geradas:</h4>";
+    echo "<h4>📝 Variáveis Open Graph:</h4>";
     echo "<pre style='background: white; padding: 10px; border: 1px solid #ddd; max-height: 300px; overflow-y: auto;'>";
-    foreach ($meta_tags as $property => $content) {
-        if (strpos($property, 'twitter:') === 0) {
-            echo htmlspecialchars("<meta name='{$property}' content='{$content}'>") . "\n";
-        } else {
-            echo htmlspecialchars("<meta property='{$property}' content='{$content}'>") . "\n";
-        }
-    }
+    echo "og:title = " . htmlspecialchars($og_titulo) . "\n";
+    echo "og:description = " . htmlspecialchars($og_descricao) . "\n";
+    echo "og:image = " . htmlspecialchars($og_imagem) . "\n";
+    echo "og:url = " . htmlspecialchars($og_url) . "\n";
+    echo "og:type = " . htmlspecialchars($og_tipo) . "\n";
+    echo "og:image:type = " . htmlspecialchars($og_imagem_type) . "\n";
+    echo "og:image:width = " . htmlspecialchars($og_imagem_width) . "\n";
+    echo "og:image:height = " . htmlspecialchars($og_imagem_height) . "\n";
     echo "</pre>";
     
     echo "<h4>🔗 Ferramentas de validação:</h4>";
