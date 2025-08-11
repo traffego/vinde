@@ -608,26 +608,20 @@ function criarCardParticipante(p) {
     
     card.innerHTML = `
         <div class="participante-header">
-            <div>
+            <div class="participante-info-principal">
                 <h3 class="participante-nome">${escapeHtml(p.nome)}</h3>
-                <p class="participante-cpf">CPF: ${formatarCpf(p.cpf)}</p>
+                <p class="participante-evento">${escapeHtml(p.evento_nome || 'Sem evento')}</p>
+                <p class="participante-cpf">${formatarCpf(p.cpf)}</p>
             </div>
+        </div>
+        
+        <div class="participante-badges">
             <span class="status-badge status-${statusParticipante}">
                 ${ucfirst(statusParticipante)}
             </span>
-        </div>
-        
-        <div class="participante-info">
-            <div class="info-row">
-                <span class="info-icon">📅</span>
-                <span class="info-text">${escapeHtml(p.evento_nome || 'Sem evento')}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-icon">💳</span>
-                <span class="info-text">
-                    ${p.valor > 0 ? `R$ ${formatarMoeda(p.valor)} - ${ucfirst(statusPagamento)}` : 'Gratuito'}
-                </span>
-            </div>
+            <span class="status-badge status-pagamento-${statusPagamento}">
+                ${p.valor > 0 ? `R$ ${formatarMoeda(p.valor)} - ${ucfirst(statusPagamento)}` : 'Gratuito'}
+            </span>
         </div>
     `;
     
