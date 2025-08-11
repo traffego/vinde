@@ -11,39 +11,7 @@ $evento_id = $_GET['evento'] ?? null;
 $erro = '';
 $sucesso = '';
 
-// Processar exclusão via GET (com CSRF token)
-if ($acao === 'excluir' && $participante_id && $_SERVER['REQUEST_METHOD'] === 'GET') {
-    if (!verificar_csrf_token($_GET['csrf_token'] ?? '')) {
-        $erro = 'Token de segurança inválido.';
-    } else {
-        try {
-            // Buscar dados do participante para o log
-            $participante_data = buscar_um("SELECT nome, status FROM participantes WHERE id = ?", [$participante_id]);
-            
-            if (!$participante_data) {
-                $erro = 'Participante não encontrado.';
-            } else {
-                // Verificar se há pagamentos associados
-                $pagamentos = contar_registros('pagamentos', ['participante_id' => $participante_id]);
-                
-                if ($pagamentos > 0 && $participante_data['status'] === 'pago') {
-                    $erro = 'Não é possível excluir este participante. Há pagamentos confirmados associados. Altere o status para cancelado primeiro.';
-                } else {
-                    if (remover_registro('participantes', ['id' => $participante_id])) {
-                        registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
-                        exibir_mensagem('Participante excluído com sucesso!', 'success');
-                        redirecionar(SITE_URL . '/admin/participantes.php');
-                    } else {
-                        $erro = 'Erro ao excluir participante.';
-                    }
-                }
-            }
-        } catch (Exception $e) {
-            error_log("Erro ao excluir participante: " . $e->getMessage());
-            $erro = 'Erro interno ao excluir participante.';
-        }
-    }
-}
+
 
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -72,6 +40,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $sucesso = 'Status alterado com sucesso!';
                     } else {
                         $erro = 'Erro ao alterar status.';
+                    }
+                }
+                break;
+
+            case 'excluir':
+                if ($participante_id) {
+                    try {
+                        // Buscar dados do participante para o log
+                        $participante_data = buscar_um("SELECT nome, status FROM participantes WHERE id = ?", [$participante_id]);
+                        
+                        if (!$participante_data) {
+                            echo json_encode(['sucesso' => false, 'mensagem' => 'Participante não encontrado.']);
+                            exit;
+                        } else {
+                            // Verificar se há pagamentos associados
+                            $pagamentos = contar_registros('pagamentos', ['participante_id' => $participante_id]);
+                            
+                            if ($pagamentos > 0 && $participante_data['status'] === 'pago') {
+                                echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Há pagamentos confirmados associados.']);
+                                exit;
+                            } else {
+                                if (remover_registro('participantes', ['id' => $participante_id])) {
+                                    registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
+                                    echo json_encode(['sucesso' => true, 'mensagem' => 'Participante excluído com sucesso!']);
+                                    exit;
+                                } else {
+                                    echo json_encode(['sucesso' => false, 'mensagem' => 'Erro ao excluir participante.']);
+                                    exit;
+                                }
+                            }
+                        }
+                    } catch (Exception $e) {
+                        error_log("Erro ao excluir participante: " . $e->getMessage());
+                        echo json_encode(['sucesso' => false, 'mensagem' => 'Erro interno ao excluir participante.']);
+                        exit;
                     }
                 }
                 break;
@@ -111,93 +114,21 @@ if (($acao === 'editar' || $acao === 'visualizar') && $participante_id) {
     }
 }
 
-// Buscar participantes para listagem
-$filtros = [
-    'busca' => $_GET['busca'] ?? '',
-    'evento' => $_GET['evento'] ?? '',
-    'status' => $_GET['status'] ?? '',
-    'cidade' => $_GET['cidade'] ?? '',
-    'data_inicio' => $_GET['data_inicio'] ?? '',
-    'data_fim' => $_GET['data_fim'] ?? ''
-];
 
-$where_conditions = ['1=1'];
-$params = [];
-
-if (!empty($filtros['busca'])) {
-    $where_conditions[] = '(p.nome LIKE ? OR p.cpf LIKE ? OR p.email LIKE ?)';
-    $busca = '%' . $filtros['busca'] . '%';
-    $params[] = $busca;
-    $params[] = $busca;
-    $params[] = $busca;
-}
-
-if (!empty($filtros['evento'])) {
-    $where_conditions[] = 'i.evento_id = ?';
-    $params[] = $filtros['evento'];
-}
-
-if (!empty($filtros['status'])) {
-    $where_conditions[] = 'i.status = ?';
-    $params[] = $filtros['status'];
-}
-
-if (!empty($filtros['cidade'])) {
-    $where_conditions[] = 'p.cidade LIKE ?';
-    $params[] = '%' . $filtros['cidade'] . '%';
-}
-
-if (!empty($filtros['data_inicio'])) {
-    $where_conditions[] = 'i.data_inscricao >= ?';
-    $params[] = $filtros['data_inicio'] . ' 00:00:00';
-}
-
-if (!empty($filtros['data_fim'])) {
-    $where_conditions[] = 'i.data_inscricao <= ?';
-    $params[] = $filtros['data_fim'] . ' 23:59:59';
-}
-
-$where_clause = implode(' AND ', $where_conditions);
-
-// Paginação
-$pagina = max(1, (int)($_GET['pagina'] ?? 1));
-$por_pagina = 20;
-$offset = ($pagina - 1) * $por_pagina;
-
-$total_participantes = buscar_um("
-    SELECT COUNT(*) as total 
-    FROM inscricoes i
-    JOIN participantes p ON i.participante_id = p.id
-    JOIN eventos e ON i.evento_id = e.id
-    WHERE {$where_clause}
-", $params)['total'];
-
-$total_paginas = ceil($total_participantes / $por_pagina);
-
-$participantes = buscar_todos("
-    SELECT 
-        i.id AS inscricao_id,
-        p.id,
-        p.nome, p.cpf, p.whatsapp, p.email, p.instagram, p.idade, p.cidade, p.estado,
-        e.id AS evento_id, e.nome AS evento_nome, e.slug AS evento_slug, e.data_inicio,
-        i.status AS status_inscricao,
-        pg.status AS pagamento_status, pg.valor, pg.pago_em,
-        i.data_inscricao AS criado_em,
-        p.checkin_timestamp
-    FROM inscricoes i
-    JOIN participantes p ON i.participante_id = p.id
-    JOIN eventos e ON i.evento_id = e.id
-    LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
-    WHERE {$where_clause}
-    ORDER BY i.data_inscricao DESC
-    LIMIT {$por_pagina} OFFSET {$offset}
-", $params);
 
 // Eventos para filtro
 $eventos = buscar_todos("SELECT id, nome FROM eventos ORDER BY data_inicio DESC");
 
-// Cidades para filtro
-$cidades = buscar_todos("SELECT DISTINCT cidade FROM participantes WHERE cidade IS NOT NULL ORDER BY cidade");
+// Estatísticas
+$stats = buscar_um("
+    SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'inscrito' THEN 1 ELSE 0 END) as inscritos,
+        SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) as pagos,
+        SUM(CASE WHEN status = 'presente' THEN 1 ELSE 0 END) as presentes
+    FROM participantes
+    WHERE status != 'cancelado'
+");
 
 /**
  * Salvar participante (criar ou editar)
@@ -306,21 +237,12 @@ $titulo_pagina = $titulos[$acao] ?? 'Participantes';
 obter_cabecalho_admin($titulo_pagina, 'participantes');
 ?>
 
+<link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/participantes-cards.css">
+
 <?php if ($acao === 'listar'): ?>
     
     <!-- Estatísticas Rápidas -->
     <div class="stats-grid">
-        <?php
-        $stats = buscar_um("
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'inscrito' THEN 1 ELSE 0 END) as inscritos,
-                SUM(CASE WHEN status = 'pago' THEN 1 ELSE 0 END) as pagos,
-                SUM(CASE WHEN status = 'presente' THEN 1 ELSE 0 END) as presentes
-            FROM participantes
-            WHERE status != 'cancelado'
-        ");
-        ?>
         <div class="stat-card">
             <h3><?= $stats['total'] ?></h3>
             <p>Total de Participantes</p>
@@ -339,202 +261,93 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         </div>
     </div>
 
-    <!-- Filtros Avançados -->
-    <div class="admin-filters">
-        <form method="GET" class="filters-row">
-            <div class="form-group-admin">
-                <input type="text" name="busca" placeholder="Buscar por nome, CPF ou email..." 
-                       value="<?= htmlspecialchars($filtros['busca']) ?>" class="form-input-admin">
+    <!-- Filtros -->
+    <div class="filtros-section">
+        <div class="filtros-grid">
+            <div class="filtro-group">
+                <label class="filtro-label">Buscar</label>
+                <input type="text" id="filtro-busca" class="filtro-input" placeholder="Nome, CPF ou email...">
             </div>
             
-            <div class="form-group-admin">
-                <select name="evento" class="form-select-admin">
+            <div class="filtro-group">
+                <label class="filtro-label">Evento</label>
+                <select id="filtro-evento" class="filtro-input">
                     <option value="">Todos os eventos</option>
                     <?php foreach ($eventos as $ev): ?>
-                        <option value="<?= $ev['id'] ?>" <?= $filtros['evento'] == $ev['id'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($ev['nome']) ?>
-                        </option>
+                        <option value="<?= $ev['id'] ?>"><?= htmlspecialchars($ev['nome']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
             
-            <div class="form-group-admin">
-                <select name="status" class="form-select-admin">
+            <div class="filtro-group">
+                <label class="filtro-label">Status</label>
+                <select id="filtro-status" class="filtro-input">
                     <option value="">Todos os status</option>
-                    <option value="inscrito" <?= $filtros['status'] === 'inscrito' ? 'selected' : '' ?>>Inscrito</option>
-                    <option value="pago" <?= $filtros['status'] === 'pago' ? 'selected' : '' ?>>Pago</option>
-                    <option value="presente" <?= $filtros['status'] === 'presente' ? 'selected' : '' ?>>Presente</option>
-                    <option value="cancelado" <?= $filtros['status'] === 'cancelado' ? 'selected' : '' ?>>Cancelado</option>
+                    <option value="inscrito">Inscrito</option>
+                    <option value="pago">Pago</option>
+                    <option value="presente">Presente</option>
+                    <option value="cancelado">Cancelado</option>
                 </select>
             </div>
             
-            <div class="form-group-admin">
-                <input type="text" name="cidade" placeholder="Cidade..." 
-                       value="<?= htmlspecialchars($filtros['cidade']) ?>" class="form-input-admin">
+            <div class="filtro-group">
+                <label class="filtro-label">Cidade</label>
+                <input type="text" id="filtro-cidade" class="filtro-input" placeholder="Cidade...">
             </div>
             
-            <div class="form-group-admin">
-                <input type="date" name="data_inicio" placeholder="Data início..." 
-                       value="<?= $filtros['data_inicio'] ?>" class="form-input-admin">
+            <div class="filtro-group">
+                <label class="filtro-label">Ações</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" onclick="limparFiltros()" class="btn btn-outline">Limpar</button>
+                    <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
+                </div>
             </div>
-            
-            <div class="form-group-admin">
-                <input type="date" name="data_fim" placeholder="Data fim..." 
-                       value="<?= $filtros['data_fim'] ?>" class="form-input-admin">
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Filtrar</button>
-            <a href="<?= SITE_URL ?>/admin/participantes.php" class="btn btn-outline">Limpar</a>
-            <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
-        </form>
-    </div>
-
-    <!-- Ações em Lote -->
-    <div class="bulk-actions">
-        <form method="POST" id="form-lote">
-            <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
-            <select name="acao_lote" class="form-select-admin">
-                <option value="">Ações em lote...</option>
-                <option value="marcar_pago">Marcar como Pago</option>
-                <option value="marcar_presente">Marcar como Presente</option>
-                <option value="cancelar">Cancelar Inscrições</option>
-                <option value="exportar">Exportar Selecionados</option>
-            </select>
-            <button type="button" onclick="executarAcaoLote()" class="btn btn-outline">Executar</button>
-        </form>
-    </div>
-
-    <!-- Tabela de Participantes -->
-    <div class="admin-table">
-        <table>
-            <thead>
-                <tr>
-                    <th><input type="checkbox" id="select-all"></th>
-                    <th>Participante</th>
-                    <th>Evento</th>
-                    <th>Contato</th>
-            <th>Status</th>
-                    <th>Pagamento</th>
-                    <th>Data Inscrição</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($participantes)): ?>
-                    <tr>
-                        <td colspan="8" style="text-align: center; padding: 40px; color: #6b7280;">
-                            Nenhum participante encontrado
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($participantes as $p): ?>
-                        <tr>
-                            <td>
-                                <input type="checkbox" name="participantes[]" value="<?= $p['id'] ?>" class="select-item">
-                            </td>
-                            <td>
-                                <div>
-                                    <strong><?= htmlspecialchars($p['nome']) ?></strong>
-                                    <br>
-                                    <small style="color: #6b7280;">
-                                        CPF: <?= formatarCpf($p['cpf']) ?><br>
-                                        <?= $p['idade'] ?> anos - <?= htmlspecialchars($p['cidade']) ?>, <?= $p['estado'] ?>
-                                    </small>
-                                </div>
-                            </td>
-                            <td>
-                                <a href="<?= SITE_URL ?>/evento/<?= $p['evento_id'] ?>" target="_blank">
-                                    <?= htmlspecialchars($p['evento_nome']) ?>
-                                </a>
-                                <br>
-                                <small style="color: #6b7280;">
-                                    <?= formatar_data($p['data_inicio']) ?>
-                                </small>
-                            </td>
-                            <td>
-                                <div>
-                                    📱 <?= formatarTelefone($p['whatsapp']) ?><br>
-                                    📧 <?= htmlspecialchars($p['email']) ?><br>
-                                    <?php if ($p['instagram']): ?>
-                                        📷 @<?= htmlspecialchars($p['instagram']) ?>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="status-badge-admin status-<?= $p['status_inscricao'] ?>">
-                                    <?= ucfirst($p['status_inscricao']) ?>
-                                </span>
-                                <?php if ($p['status_inscricao'] === 'presente' && $p['checkin_timestamp']): ?>
-                                    <br><small>Check-in: <?= formatar_data_hora($p['checkin_timestamp']) ?></small>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?php if ($p['valor'] > 0): ?>
-                                    <span class="status-badge-admin status-<?= $p['pagamento_status'] ?>">
-                                        <?= ucfirst($p['pagamento_status']) ?>
-                                    </span>
-                                    <br>R$ <?= formatar_moeda($p['valor']) ?>
-                                    <?php if ($p['pago_em']): ?>
-                                        <br><small><?= formatar_data($p['pago_em']) ?></small>
-                                    <?php endif; ?>
-                                <?php else: ?>
-                                    <span class="status-badge-admin status-gratuito">Gratuito</span>
-                                <?php endif; ?>
-                            </td>
-                            <td>
-                                <?= formatar_data_hora($p['criado_em']) ?>
-                            </td>
-                            <td class="actions">
-                                <a href="?acao=editar&id=<?= $p['id'] ?>" class="btn-table edit">Editar</a>
-                                
-                                <!-- Dropdown de status -->
-                                <div class="dropdown">
-                                    <button class="btn-table status" onclick="toggleDropdown(<?= $p['id'] ?>)">Status ▼</button>
-                                    <div class="dropdown-content" id="dropdown-<?= $p['id'] ?>">
-                                        <form method="POST" style="display: inline;">
-                                            <input type="hidden" name="csrf_token" value="<?= gerar_csrf_token() ?>">
-                                            <input type="hidden" name="acao" value="alterar_status">
-                                            <input type="hidden" name="id" value="<?= $p['id'] ?>">
-                                            <button type="submit" name="novo_status" value="inscrito">Inscrito</button>
-                                            <button type="submit" name="novo_status" value="pago">Pago</button>
-                                            <button type="submit" name="novo_status" value="presente">Presente</button>
-                                            <button type="submit" name="novo_status" value="cancelado" 
-                                                    onclick="return confirm('Confirma cancelamento?')">Cancelado</button>
-                                        </form>
-                                    </div>
-                                </div>
-                                
-                                <a href="?acao=excluir&id=<?= $p['id'] ?>&csrf_token=<?= gerar_csrf_token() ?>" 
-                                   class="btn-table delete" 
-                                   onclick="return confirmarExclusaoParticipante(this, '<?= htmlspecialchars($p['nome']) ?>')">Excluir</a>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Paginação -->
-    <?php if ($total_paginas > 1): ?>
-        <div class="pagination">
-            <?php if ($pagina > 1): ?>
-                <a href="?pagina=<?= $pagina - 1 ?>&<?= http_build_query($filtros) ?>">« Anterior</a>
-            <?php endif; ?>
-            
-            <?php for ($i = max(1, $pagina - 2); $i <= min($total_paginas, $pagina + 2); $i++): ?>
-                <?php if ($i === $pagina): ?>
-                    <span class="current"><?= $i ?></span>
-                <?php else: ?>
-                    <a href="?pagina=<?= $i ?>&<?= http_build_query($filtros) ?>"><?= $i ?></a>
-                <?php endif; ?>
-            <?php endfor; ?>
-            
-            <?php if ($pagina < $total_paginas): ?>
-                <a href="?pagina=<?= $pagina + 1 ?>&<?= http_build_query($filtros) ?>">Próxima »</a>
-            <?php endif; ?>
         </div>
-    <?php endif; ?>
+    </div>
+
+    <!-- Grid de Participantes -->
+    <div id="participantes-container">
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            Carregando participantes...
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="modal-participante" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Detalhes do Participante</h2>
+                <button class="close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body-content">
+                <!-- Conteúdo será carregado via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="fecharModal()">Fechar</button>
+                <button type="button" class="btn btn-primary" id="btn-editar-modal" onclick="editarParticipante()">Editar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="modal-exclusao" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Confirmar Exclusão</h2>
+                <button class="close" onclick="fecharModalExclusao()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este participante?</p>
+                <p><strong id="nome-participante-exclusao"></strong></p>
+                <p style="font-size: 0.875rem; color: #6b7280;">Esta ação não pode ser desfeita.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="fecharModalExclusao()">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btn-confirmar-exclusao">Excluir</button>
+            </div>
+        </div>
+    </div>
 
 <?php else: ?>
     
@@ -690,55 +503,414 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
 <?php endif; ?>
 
 <script>
-// Seleção em lote
-document.getElementById('select-all').addEventListener('change', function() {
-    const checkboxes = document.querySelectorAll('.select-item');
-    checkboxes.forEach(cb => cb.checked = this.checked);
+// Variáveis globais
+let participantesData = [];
+let filtrosAtivos = {};
+let participanteAtual = null;
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($acao === 'listar'): ?>
+        carregarParticipantes();
+        inicializarFiltros();
+    <?php endif; ?>
+    
+    // Máscaras de input
+    inicializarMascaras();
 });
 
-// Dropdown de status
-function toggleDropdown(id) {
-    const dropdown = document.getElementById('dropdown-' + id);
-    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+// Carregar participantes via AJAX
+function carregarParticipantes() {
+    const container = document.getElementById('participantes-container');
+    
+    // Construir query string com filtros
+    const params = new URLSearchParams(filtrosAtivos);
+    
+    fetch(`<?= SITE_URL ?>/admin/api/participantes.php?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.sucesso) {
+                participantesData = data.participantes || [];
+                renderizarParticipantes(participantesData);
+            } else {
+                throw new Error(data.erro || 'Erro desconhecido');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar participantes:', error);
+            container.innerHTML = `
+                <div class="no-results">
+                    <h3>Erro ao carregar participantes</h3>
+                    <p>Tente recarregar a página</p>
+                </div>
+            `;
+        });
 }
 
-// Fechar dropdowns ao clicar fora
-document.addEventListener('click', function(e) {
-    if (!e.target.matches('.btn-table.status')) {
-        const dropdowns = document.querySelectorAll('.dropdown-content');
-        dropdowns.forEach(d => d.style.display = 'none');
+// Renderizar grid de participantes
+function renderizarParticipantes(participantes) {
+    const container = document.getElementById('participantes-container');
+    
+    if (participantes.length === 0) {
+        container.innerHTML = `
+            <div class="no-results">
+                <h3>Nenhum participante encontrado</h3>
+                <p>Tente ajustar os filtros ou adicionar um novo participante</p>
+            </div>
+        `;
+        return;
     }
-});
+    
+    const grid = document.createElement('div');
+    grid.className = 'participantes-grid';
+    
+    participantes.forEach(p => {
+        const card = criarCardParticipante(p);
+        grid.appendChild(card);
+    });
+    
+    container.innerHTML = '';
+    container.appendChild(grid);
+}
 
-// Ações em lote
-function executarAcaoLote() {
-    const form = document.getElementById('form-lote');
-    const acao = form.querySelector('[name="acao_lote"]').value;
-    const selecionados = document.querySelectorAll('.select-item:checked');
+// Criar card individual do participante
+function criarCardParticipante(p) {
+    const card = document.createElement('div');
+    card.className = 'participante-card';
+    card.onclick = () => abrirModal(p.id);
     
-    if (!acao) {
-        alert('Selecione uma ação');
-        return;
-    }
+    card.innerHTML = `
+        <div class="participante-header">
+            <div>
+                <h3 class="participante-nome">${escapeHtml(p.nome)}</h3>
+                <p class="participante-cpf">CPF: ${formatarCpf(p.cpf)}</p>
+            </div>
+            <span class="status-badge status-${p.status_inscricao || p.status}">
+                ${ucfirst(p.status_inscricao || p.status)}
+            </span>
+        </div>
+        
+        <div class="participante-info">
+            <div class="info-row">
+                <span class="info-icon">📱</span>
+                <span class="info-text">${formatarTelefone(p.whatsapp)}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-icon">📧</span>
+                <span class="info-text">${escapeHtml(p.email)}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-icon">📍</span>
+                <span class="info-text">${escapeHtml(p.cidade)}, ${p.estado}</span>
+            </div>
+            ${p.pagamento_status ? `
+            <div class="info-row">
+                <span class="info-icon">💳</span>
+                <span class="info-text">R$ ${formatarMoeda(p.valor || 0)} - ${ucfirst(p.pagamento_status)}</span>
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="participante-footer">
+            <span class="evento-badge">${escapeHtml(p.evento_nome || 'Sem evento')}</span>
+            <div class="card-actions">
+                <button class="btn-icon btn-edit" onclick="event.stopPropagation(); editarParticipante(${p.id})" title="Editar">
+                    ✏️
+                </button>
+                <button class="btn-icon btn-delete" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    `;
     
-    if (selecionados.length === 0) {
-        alert('Selecione pelo menos um participante');
-        return;
-    }
+    return card;
+}
+
+// Inicializar filtros
+function inicializarFiltros() {
+    const filtros = ['busca', 'evento', 'status', 'cidade'];
     
-    if (confirm(`Confirma a ação "${acao}" para ${selecionados.length} participante(s)?`)) {
-        // Aqui você implementaria a lógica para ações em lote
-        alert('Funcionalidade em desenvolvimento');
+    filtros.forEach(filtro => {
+        const elemento = document.getElementById(`filtro-${filtro}`);
+        if (elemento) {
+            elemento.addEventListener('input', debounce(() => {
+                filtrosAtivos[filtro] = elemento.value;
+                carregarParticipantes();
+            }, 500));
+        }
+    });
+}
+
+// Limpar filtros
+function limparFiltros() {
+    const filtros = ['busca', 'evento', 'status', 'cidade'];
+    
+    filtros.forEach(filtro => {
+        const elemento = document.getElementById(`filtro-${filtro}`);
+        if (elemento) {
+            elemento.value = '';
+        }
+    });
+    
+    filtrosAtivos = {};
+    carregarParticipantes();
+}
+
+// Abrir modal com detalhes
+function abrirModal(participanteId) {
+    const participante = participantesData.find(p => p.id == participanteId);
+    if (!participante) return;
+    
+    participanteAtual = participante;
+    
+    // Carregar dados completos via AJAX
+    fetch(`<?= SITE_URL ?>/admin/api/participante.php?id=${participanteId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.sucesso) {
+                renderizarModalConteudo(data.participante);
+                document.getElementById('modal-participante').style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar dados do participante:', error);
+        });
+}
+
+// Renderizar conteúdo do modal
+function renderizarModalConteudo(p) {
+    const content = document.getElementById('modal-body-content');
+    
+    content.innerHTML = `
+        <div class="modal-grid">
+            <div class="modal-section">
+                <h4>Dados Pessoais</h4>
+                <p><strong>Nome:</strong> ${escapeHtml(p.nome)}</p>
+                <p><strong>CPF:</strong> ${formatarCpf(p.cpf)}</p>
+                <p><strong>Idade:</strong> ${p.idade} anos</p>
+                <p><strong>Status:</strong> 
+                    <span class="status-badge status-${p.status}">${ucfirst(p.status)}</span>
+                </p>
+            </div>
+            
+            <div class="modal-section">
+                <h4>Contato</h4>
+                <p><strong>WhatsApp:</strong> ${formatarTelefone(p.whatsapp)}</p>
+                <p><strong>Email:</strong> ${escapeHtml(p.email)}</p>
+                ${p.instagram ? `<p><strong>Instagram:</strong> @${escapeHtml(p.instagram)}</p>` : ''}
+            </div>
+            
+            <div class="modal-section">
+                <h4>Localização</h4>
+                <p><strong>Cidade:</strong> ${escapeHtml(p.cidade)}</p>
+                <p><strong>Estado:</strong> ${p.estado}</p>
+            </div>
+            
+            <div class="modal-section">
+                <h4>Evento</h4>
+                <p><strong>Nome:</strong> ${escapeHtml(p.evento_nome || 'N/A')}</p>
+                ${p.data_inicio ? `<p><strong>Data:</strong> ${formatarData(p.data_inicio)}</p>` : ''}
+                ${p.pagamento_status ? `
+                    <p><strong>Pagamento:</strong> 
+                        <span class="status-badge status-${p.pagamento_status}">${ucfirst(p.pagamento_status)}</span>
+                    </p>
+                    ${p.valor ? `<p><strong>Valor:</strong> R$ ${formatarMoeda(p.valor)}</p>` : ''}
+                ` : ''}
+            </div>
+        </div>
+        
+        ${p.criado_em ? `
+            <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                <p><strong>Criado em:</strong> ${formatarDataHora(p.criado_em)}</p>
+                ${p.checkin_timestamp ? `<p><strong>Check-in:</strong> ${formatarDataHora(p.checkin_timestamp)}</p>` : ''}
+            </div>
+        ` : ''}
+    `;
+    
+    // Atualizar botão de editar
+    document.getElementById('btn-editar-modal').onclick = () => editarParticipante(p.id);
+}
+
+// Fechar modal
+function fecharModal() {
+    document.getElementById('modal-participante').style.display = 'none';
+    participanteAtual = null;
+}
+
+// Editar participante
+function editarParticipante(id = null) {
+    const participanteId = id || (participanteAtual ? participanteAtual.id : null);
+    if (participanteId) {
+        window.location.href = `<?= SITE_URL ?>/admin/participantes.php?acao=editar&id=${participanteId}`;
     }
+}
+
+// Confirmar exclusão
+function confirmarExclusao(id, nome) {
+    participanteAtual = { id, nome };
+    document.getElementById('nome-participante-exclusao').textContent = nome;
+    document.getElementById('modal-exclusao').style.display = 'block';
+    
+    document.getElementById('btn-confirmar-exclusao').onclick = () => excluirParticipante(id);
+}
+
+// Fechar modal de exclusão
+function fecharModalExclusao() {
+    document.getElementById('modal-exclusao').style.display = 'none';
+    participanteAtual = null;
+}
+
+// Excluir participante
+function excluirParticipante(id) {
+    const btn = document.getElementById('btn-confirmar-exclusao');
+    btn.innerHTML = '<div class="loading-spinner"></div> Excluindo...';
+    btn.disabled = true;
+    
+    const formData = new FormData();
+    formData.append('csrf_token', '<?= gerar_csrf_token() ?>');
+    formData.append('acao', 'excluir');
+    formData.append('id', id);
+    
+    fetch('<?= SITE_URL ?>/admin/participantes.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            fecharModalExclusao();
+            carregarParticipantes();
+            mostrarToast('Participante excluído com sucesso!', 'success');
+        } else {
+            mostrarToast(data.mensagem || 'Erro ao excluir participante', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao excluir participante:', error);
+        mostrarToast('Erro ao excluir participante', 'error');
+    })
+    .finally(() => {
+        btn.innerHTML = 'Excluir';
+        btn.disabled = false;
+    });
+}
+
+// Fechar modais ao clicar fora
+window.onclick = function(event) {
+    const modalParticipante = document.getElementById('modal-participante');
+    const modalExclusao = document.getElementById('modal-exclusao');
+    
+    if (event.target === modalParticipante) {
+        fecharModal();
+    }
+    if (event.target === modalExclusao) {
+        fecharModalExclusao();
+    }
+}
+
+// Funções utilitárias
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function ucfirst(str) {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function formatarCpf(cpf) {
+    if (!cpf) return '';
+    const limpo = cpf.replace(/\D/g, '');
+    return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
+function formatarTelefone(tel) {
+    if (!tel) return '';
+    const cleaned = tel.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+        return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+    }
+    return tel;
+}
+
+function formatarMoeda(valor) {
+    return parseFloat(valor || 0).toFixed(2).replace('.', ',');
+}
+
+function formatarData(data) {
+    if (!data) return '';
+    return new Date(data).toLocaleDateString('pt-BR');
+}
+
+function formatarDataHora(data) {
+    if (!data) return '';
+    return new Date(data).toLocaleString('pt-BR');
+}
+
+function mostrarToast(mensagem, tipo = 'info') {
+    // Remover toasts existentes
+    const existentes = document.querySelectorAll('.toast');
+    existentes.forEach(t => t.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${tipo}`;
+    
+    const cores = {
+        success: { bg: '#dcfce7', border: '#10b981', color: '#065f46' },
+        error: { bg: '#fef2f2', border: '#ef4444', color: '#991b1b' },
+        warning: { bg: '#fef3c7', border: '#f59e0b', color: '#92400e' },
+        info: { bg: '#dbeafe', border: '#3b82f6', color: '#1e40af' }
+    };
+    
+    const cor = cores[tipo] || cores.info;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 2000;
+        max-width: 400px;
+        background: ${cor.bg};
+        border: 1px solid ${cor.border};
+        color: ${cor.color};
+        animation: slideInRight 0.3s ease;
+    `;
+    
+    toast.textContent = mensagem;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 5000);
 }
 
 // Máscaras de input
-document.addEventListener('DOMContentLoaded', function() {
+function inicializarMascaras() {
     // Máscara CPF
     const cpfInputs = document.querySelectorAll('[data-mask="cpf"]');
     cpfInputs.forEach(input => {
         input.addEventListener('input', function() {
-            this.value = this.value.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            let valor = this.value.replace(/\D/g, '');
+            valor = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            this.value = valor;
         });
     });
     
@@ -753,63 +925,7 @@ document.addEventListener('DOMContentLoaded', function() {
             this.value = value;
         });
     });
-});
-
-// Confirmação de exclusão para participantes
-function confirmarExclusaoParticipante(elemento, nome) {
-    const confirmacao = confirm(
-        `Tem certeza que deseja excluir o participante "${nome}"?\n\n` +
-        `Esta ação não pode ser desfeita e irá remover:\n` +
-        `• Todos os dados do participante\n` +
-        `• Histórico de pagamentos\n` +
-        `• QR codes associados\n\n` +
-        `Digite "EXCLUIR" para confirmar:`
-    );
-    
-    if (confirmacao) {
-        const confirmacaoTexto = prompt('Digite "EXCLUIR" para confirmar a exclusão:');
-        if (confirmacaoTexto === 'EXCLUIR') {
-            // Adicionar loading
-            elemento.innerHTML = '⏳ Excluindo...';
-            elemento.style.pointerEvents = 'none';
-            return true;
-        } else {
-            alert('Exclusão cancelada. O texto de confirmação não confere.');
-            return false;
-        }
-    }
-    return false;
 }
-
-// Melhorar UX das tabelas
-document.addEventListener('DOMContentLoaded', function() {
-    // Highlight da linha ao passar o mouse
-    const linhas = document.querySelectorAll('.admin-table tbody tr');
-    linhas.forEach(linha => {
-        linha.addEventListener('mouseenter', function() {
-            this.style.backgroundColor = '#f8fafc';
-        });
-        linha.addEventListener('mouseleave', function() {
-            this.style.backgroundColor = '';
-        });
-    });
-    
-    // Auto-submit dos filtros após 500ms de inatividade
-    const filtros = document.querySelectorAll('.admin-filters input, .admin-filters select');
-    let timeoutId;
-    
-    filtros.forEach(filtro => {
-        filtro.addEventListener('input', function() {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => {
-                this.form.submit();
-            }, 500);
-        });
-    });
-});
-
-// Definir configuração global de CPF
-window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
 </script>
 
 <?php
