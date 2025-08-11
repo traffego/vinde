@@ -578,7 +578,18 @@ function carregarParticipantes(resetar = true) {
                 temMaisParticipantes = data.tem_mais || false;
                 offsetAtual = data.proximo_offset || offsetAtual;
                 
-                renderizarParticipantes(participantesData, resetar);
+                // Debug temporário
+                console.log('Debug Scroll:', {
+                    total: data.total,
+                    offset_atual: data.offset,
+                    por_pagina: data.por_pagina,
+                    tem_mais: data.tem_mais,
+                    proximo_offset: data.proximo_offset,
+                    participantes_carregados: novosParticipantes.length,
+                    total_na_memoria: participantesData.length
+                });
+                
+                renderizarParticipantes(resetar ? participantesData : novosParticipantes, resetar);
             } else {
                 throw new Error(data.erro || 'Erro desconhecido');
             }
@@ -623,13 +634,13 @@ function renderizarParticipantes(participantes, resetar = true) {
         container.appendChild(grid);
     }
     
-    // Adicionar apenas novos participantes se não for reset
-    const participantesParaAdicionar = resetar ? participantes : participantes.slice(-20);
-    
-    participantesParaAdicionar.forEach(p => {
+    // Se for reset, adicionar todos. Se não, adicionar apenas os novos participantes
+    participantes.forEach(p => {
         const card = criarCardParticipante(p);
         grid.appendChild(card);
     });
+    
+    console.log('Renderizados:', participantes.length, 'participantes. Reset:', resetar);
     
     // Adicionar loading indicator se há mais para carregar
     if (temMaisParticipantes && !carregandoMais) {
@@ -1119,14 +1130,27 @@ function inicializarScrollInfinito() {
 }
 
 function verificarScrollCarregar() {
-    if (carregandoMais || !temMaisParticipantes) return;
+    if (carregandoMais || !temMaisParticipantes) {
+        console.log('Scroll ignorado:', { carregandoMais, temMaisParticipantes });
+        return;
+    }
     
     const scrollTop = window.pageYOffset;
     const windowHeight = window.innerHeight;
     const documentHeight = document.documentElement.scrollHeight;
+    const distanciaDoFinal = documentHeight - (scrollTop + windowHeight);
+    
+    console.log('Verificando scroll:', {
+        scrollTop,
+        windowHeight,
+        documentHeight,
+        distanciaDoFinal,
+        trigger: distanciaDoFinal <= 300
+    });
     
     // Carregar mais quando estiver a 300px do final
-    if (scrollTop + windowHeight >= documentHeight - 300) {
+    if (distanciaDoFinal <= 300) {
+        console.log('Trigger ativado! Carregando mais...');
         carregarParticipantes(false);
     }
 }
