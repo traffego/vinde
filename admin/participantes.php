@@ -15,7 +15,17 @@ $sucesso = '';
 
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Para ações AJAX, definir header JSON logo no início
+    if (isset($_POST['acao']) && $_POST['acao'] === 'excluir') {
+        header('Content-Type: application/json');
+        ob_clean(); // Limpar qualquer output anterior
+    }
+    
     if (!verificar_csrf_token($_POST['csrf_token'] ?? '')) {
+        if (isset($_POST['acao']) && $_POST['acao'] === 'excluir') {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Token de segurança inválido.']);
+            exit;
+        }
         $erro = 'Token de segurança inválido.';
     } else {
         switch ($acao) {
@@ -45,46 +55,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'excluir':
-                if ($participante_id) {
-                    try {
-                        // Buscar dados do participante para o log
-                        $participante_data = buscar_um("SELECT nome, status FROM participantes WHERE id = ?", [$participante_id]);
-                        
-                        if (!$participante_data) {
-                            echo json_encode(['sucesso' => false, 'mensagem' => 'Participante não encontrado.']);
-                            exit;
-                        }
-                        
-                        // Verificar se há pagamentos confirmados (status = 'pago') associados
-                        $pagamentos_pagos = buscar_um("SELECT COUNT(*) as total FROM pagamentos WHERE participante_id = ? AND status = 'pago'", [$participante_id])['total'];
-                        
-                        if ($pagamentos_pagos > 0) {
-                            echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Há pagamentos confirmados associados.']);
-                            exit;
-                        }
-                        
-                        // Verificar se há inscrições aprovadas
-                        $inscricoes_aprovadas = buscar_um("SELECT COUNT(*) as total FROM inscricoes WHERE participante_id = ? AND status = 'aprovada'", [$participante_id])['total'];
-                        
-                        if ($inscricoes_aprovadas > 0 && $participante_data['status'] === 'presente') {
-                            echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Ele já fez check-in no evento.']);
-                            exit;
-                        }
-                        
-                        // Excluir participante (o CASCADE vai remover inscrições e pagamentos relacionados)
-                        if (remover_registro('participantes', ['id' => $participante_id])) {
-                            registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
-                            echo json_encode(['sucesso' => true, 'mensagem' => 'Participante excluído com sucesso!']);
-                            exit;
-                        } else {
-                            echo json_encode(['sucesso' => false, 'mensagem' => 'Erro ao excluir participante.']);
-                            exit;
-                        }
-                    } catch (Exception $e) {
-                        error_log("Erro ao excluir participante: " . $e->getMessage());
-                        echo json_encode(['sucesso' => false, 'mensagem' => 'Erro interno ao excluir participante: ' . $e->getMessage()]);
+                // Header JSON já foi definido no início
+                
+                if (!$participante_id) {
+                    echo json_encode(['sucesso' => false, 'mensagem' => 'ID do participante não fornecido.']);
+                    exit;
+                }
+                
+                try {
+                    // Buscar dados do participante para o log
+                    $participante_data = buscar_um("SELECT nome, status FROM participantes WHERE id = ?", [$participante_id]);
+                    
+                    if (!$participante_data) {
+                        echo json_encode(['sucesso' => false, 'mensagem' => 'Participante não encontrado.']);
                         exit;
                     }
+                    
+                    // Verificar se há pagamentos confirmados (status = 'pago') associados
+                    $pagamentos_pagos = buscar_um("SELECT COUNT(*) as total FROM pagamentos WHERE participante_id = ? AND status = 'pago'", [$participante_id]);
+                    $total_pagamentos_pagos = $pagamentos_pagos ? $pagamentos_pagos['total'] : 0;
+                    
+                    if ($total_pagamentos_pagos > 0) {
+                        echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Há pagamentos confirmados associados.']);
+                        exit;
+                    }
+                    
+                    // Verificar se há inscrições aprovadas
+                    $inscricoes_aprovadas = buscar_um("SELECT COUNT(*) as total FROM inscricoes WHERE participante_id = ? AND status = 'aprovada'", [$participante_id]);
+                    $total_inscricoes_aprovadas = $inscricoes_aprovadas ? $inscricoes_aprovadas['total'] : 0;
+                    
+                    if ($total_inscricoes_aprovadas > 0 && $participante_data['status'] === 'presente') {
+                        echo json_encode(['sucesso' => false, 'mensagem' => 'Não é possível excluir este participante. Ele já fez check-in no evento.']);
+                        exit;
+                    }
+                    
+                    // Excluir participante (o CASCADE vai remover inscrições e pagamentos relacionados)
+                    $resultado = remover_registro('participantes', ['id' => $participante_id]);
+                    
+                    if ($resultado) {
+                        registrar_log('participante_excluido', "Participante: {$participante_data['nome']} (ID: {$participante_id})");
+                        echo json_encode(['sucesso' => true, 'mensagem' => 'Participante excluído com sucesso!']);
+                    } else {
+                        echo json_encode(['sucesso' => false, 'mensagem' => 'Erro ao excluir participante no banco de dados.']);
+                    }
+                    exit;
+                    
+                } catch (Exception $e) {
+                    error_log("Erro ao excluir participante ID {$participante_id}: " . $e->getMessage());
+                    error_log("Stack trace: " . $e->getTraceAsString());
+                    echo json_encode([
+                        'sucesso' => false, 
+                        'mensagem' => 'Erro interno: ' . $e->getMessage(),
+                        'debug' => [
+                            'file' => $e->getFile(),
+                            'line' => $e->getLine(),
+                            'participante_id' => $participante_id
+                        ]
+                    ]);
+                    exit;
                 }
                 break;
         }
@@ -825,7 +853,17 @@ function excluirParticipante(id) {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        // Verificar se a resposta é JSON válido
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.error('Resposta não é JSON:', text);
+                throw new Error('Resposta do servidor não é JSON válido');
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.sucesso) {
             fecharModalExclusao();
@@ -837,7 +875,7 @@ function excluirParticipante(id) {
     })
     .catch(error => {
         console.error('Erro ao excluir participante:', error);
-        mostrarToast('Erro ao excluir participante', 'error');
+        mostrarToast('Erro de comunicação com o servidor: ' + error.message, 'error');
     })
     .finally(() => {
         btn.innerHTML = 'Excluir';
