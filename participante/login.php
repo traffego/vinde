@@ -19,6 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (empty($cpf)) {
             $erro = 'Por favor, informe seu CPF.';
+        } elseif (!validar_cpf($cpf)) {
+            $erro = 'CPF inválido. Por favor, digite um CPF válido.';
         } else {
             // Verificar se é tentativa de login (com senha) ou verificação de CPF
             if (isset($_POST['senha']) && !empty($_POST['senha'])) {
@@ -210,6 +212,16 @@ $csrf_token = gerar_csrf_token();
         .btn-voltar:hover {
             background: #5a6268;
         }
+
+        .form-input.invalid {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+        }
+
+        .cpf-error {
+            margin-top: 8px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body class="login-participante">
@@ -312,14 +324,101 @@ $csrf_token = gerar_csrf_token();
         document.addEventListener('DOMContentLoaded', function() {
             // Máscara para CPF
             const cpfInput = document.getElementById('cpf');
+            const form = document.querySelector('form');
+            
             if (cpfInput) {
+                // Aplicar máscara de CPF
                 cpfInput.addEventListener('input', function(e) {
                     let value = e.target.value.replace(/\D/g, '');
                     value = value.replace(/(\d{3})(\d)/, '$1.$2');
                     value = value.replace(/(\d{3})(\d)/, '$1.$2');
                     value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
                     e.target.value = value;
+                    
+                    // Remover mensagem de erro anterior se existir
+                    removeErrorMessage();
                 });
+                
+                // Validação em tempo real quando o campo perde o foco
+                cpfInput.addEventListener('blur', function(e) {
+                    const cpf = e.target.value;
+                    if (cpf && !validarCPF(cpf)) {
+                        showErrorMessage('CPF inválido. Por favor, digite um CPF válido.');
+                        e.target.classList.add('invalid');
+                    } else {
+                        removeErrorMessage();
+                        e.target.classList.remove('invalid');
+                    }
+                });
+            }
+            
+            // Validação antes do envio do formulário
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const cpf = cpfInput ? cpfInput.value : '';
+                    
+                    if (cpf && !validarCPF(cpf)) {
+                        e.preventDefault();
+                        showErrorMessage('CPF inválido. Por favor, digite um CPF válido.');
+                        cpfInput.focus();
+                        cpfInput.classList.add('invalid');
+                        return false;
+                    }
+                });
+            }
+            
+            // Função para validar CPF
+            function validarCPF(cpf) {
+                // Remove caracteres não numéricos
+                cpf = cpf.replace(/[^\d]/g, '');
+                
+                // Verifica se tem 11 dígitos
+                if (cpf.length !== 11) return false;
+                
+                // Verifica se todos os dígitos são iguais
+                if (/^(\d)\1{10}$/.test(cpf)) return false;
+                
+                // Validação dos dígitos verificadores
+                let soma = 0;
+                for (let i = 0; i < 9; i++) {
+                    soma += parseInt(cpf.charAt(i)) * (10 - i);
+                }
+                let resto = 11 - (soma % 11);
+                let digito1 = (resto < 2) ? 0 : resto;
+                
+                if (parseInt(cpf.charAt(9)) !== digito1) return false;
+                
+                soma = 0;
+                for (let i = 0; i < 10; i++) {
+                    soma += parseInt(cpf.charAt(i)) * (11 - i);
+                }
+                resto = 11 - (soma % 11);
+                let digito2 = (resto < 2) ? 0 : resto;
+                
+                return parseInt(cpf.charAt(10)) === digito2;
+            }
+            
+            // Função para mostrar mensagem de erro
+            function showErrorMessage(message) {
+                removeErrorMessage();
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message cpf-error';
+                errorDiv.textContent = message;
+                
+                const formGroup = cpfInput.closest('.form-group');
+                formGroup.appendChild(errorDiv);
+            }
+            
+            // Função para remover mensagem de erro
+            function removeErrorMessage() {
+                const existingError = document.querySelector('.cpf-error');
+                if (existingError) {
+                    existingError.remove();
+                }
+                if (cpfInput) {
+                    cpfInput.classList.remove('invalid');
+                }
             }
         });
     </script>
