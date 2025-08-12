@@ -92,12 +92,7 @@ function processar_inscricao($dados, $evento_id) {
         $erros = [];
         
         if (empty($dados['nome'])) $erros[] = 'Nome é obrigatório';
-        // Validar CPF conforme configuração
-        if (empty($dados['cpf'])) {
-            $erros[] = 'CPF é obrigatório';
-        } elseif (cpf_obrigatorio() && !validar_cpf($dados['cpf'])) {
-            $erros[] = 'CPF inválido';
-        }
+        if (empty($dados['cpf']) || !validar_cpf($dados['cpf'])) $erros[] = 'CPF inválido';
         if (empty($dados['whatsapp']) || !validar_telefone($dados['whatsapp'])) $erros[] = 'WhatsApp inválido';
         if (empty($dados['email']) || !filter_var($dados['email'], FILTER_VALIDATE_EMAIL)) $erros[] = 'Email inválido';
         if (empty($dados['idade']) || !is_numeric($dados['idade']) || $dados['idade'] < 1 || $dados['idade'] > 120) {
