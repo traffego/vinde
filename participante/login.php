@@ -145,7 +145,7 @@ $csrf_token = gerar_csrf_token();
         }
 
         .btn-login:hover {
-            background: var(--cor-primaria-dark);
+            /* background: var(--cor-primaria-dark); */
             transform: translateY(-2px);
         }
 
