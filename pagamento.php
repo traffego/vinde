@@ -428,11 +428,7 @@ obter_cabecalho('Pagamento - ' . $evento['nome']);
                                 onerror="this.style.display='none';var w=document.getElementById('qr-canvas-wrapper');if(w){w.style.display='inline-block';}gerarQrPixCanvas();"
                             >
                         <?php endif; ?>
-                        <?php if (!empty($pagamento['pix_qrcode_data'])): ?>
-                            <div id="qr-canvas-wrapper" style="display: <?= empty($pagamento['pix_qrcode_url']) ? 'inline-block' : 'none' ?>;">
-                                <canvas id="qr-canvas-pix"></canvas>
-                            </div>
-                        <?php endif; ?>
+                        
                     </div>
                 <?php else: ?>
                     <!-- Loading do PIX em geração -->
