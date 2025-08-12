@@ -21,6 +21,7 @@ require_once __DIR__ . '/qrcode.php';
 require_once __DIR__ . '/qr_generator.php';
 require_once __DIR__ . '/efi_bank.php';
 require_once __DIR__ . '/pix_simples.php';
+require_once __DIR__ . '/manutencao.php';
 
 // Inicializar sessão
 iniciar_sessao();
@@ -28,6 +29,10 @@ iniciar_sessao();
 // Conectar ao banco de dados
 try {
     conectar_banco();
+    
+    // VERIFICAÇÃO DO MODO MANUTENÇÃO
+    verificar_modo_manutencao();
+    
 } catch (Exception $e) {
     if (defined('AMBIENTE') && AMBIENTE === 'desenvolvimento') {
         die("Erro de conexão: " . $e->getMessage());

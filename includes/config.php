@@ -92,4 +92,21 @@ define('ENABLE_CACHE', true);
 define('SISTEMA_VERSAO', '1.0.0');
 define('SISTEMA_DATA', '2024-01-01');
 
+// ====================================
+// MODO MANUTENÇÃO
+// ====================================
+// Para ativar: altere MODO_MANUTENCAO para true
+// Para desativar: altere MODO_MANUTENCAO para false
+define('MODO_MANUTENCAO', false);
+
+// Configurações do modo manutenção
+define('MANUTENCAO_TITULO', 'Sistema em Manutenção');
+define('MANUTENCAO_MENSAGEM', 'Estamos realizando melhorias no sistema. Voltaremos em breve!');
+define('MANUTENCAO_PREVISAO', ''); // Ex: 'Previsão de retorno: 14:00'
+define('MANUTENCAO_CONTATO', WHATSAPP_CONTATO);
+
+// IPs liberados durante a manutenção (admins podem acessar)
+// Adicione IPs separados por vírgula: '192.168.1.1,10.0.0.1'
+define('MANUTENCAO_IPS_LIBERADOS', '');
+
 ?> 
