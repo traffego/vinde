@@ -213,9 +213,10 @@
     background: #e7f3ff;
     border: 1px solid #b8daff;
     border-radius: 8px;
-    padding: 16px; /* reduzido */
-    margin: 16px 0; /* reduzido */
-    font-size: 13px; /* menor */
+    padding: 16px;
+    margin: 16px 0;
+    font-size: 12px;
+    text-align: left;
 }
 
 .instrucoes-pix h4 {
