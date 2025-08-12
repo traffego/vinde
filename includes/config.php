@@ -89,7 +89,7 @@ define('CACHE_TIME', 3600); // 1 hora
 define('ENABLE_CACHE', true);
 
 // Versão do sistema
-define('SISTEMA_VERSAO', '1.0.0');
+define('SISTEMA_VERSAO', '1.0.1');
 define('SISTEMA_DATA', '2024-01-01');
 
 // ====================================
