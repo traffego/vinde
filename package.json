@@ -1,0 +1,24 @@
+{
+  "name": "vinde",
+  "version": "1.0.0",
+  "description": "Sistema completo de gestão de inscrições para eventos católicos desenvolvido em **PHP procedural puro** com arquitetura LAMP (Linux, Apache, MySQL, PHP).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/traffego/vinde.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/traffego/vinde/issues"
+  },
+  "homepage": "https://github.com/traffego/vinde#readme",
+  "dependencies": {
+    "brazilian-values": "^0.13.1"
+  }
+}

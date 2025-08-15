@@ -35,8 +35,43 @@ function limpar_telefone($telefone) {
  * @return bool
  */
 function validar_cpf($cpf) {
-    $cpf = preg_replace('/[^0-9]/', '', $cpf);
+    // Usando a biblioteca brazilian-values via Node.js para validação mais robusta
+    $cpf_limpo = preg_replace('/[^0-9]/', '', $cpf);
     
+    // Verificações básicas antes de chamar a biblioteca
+    if (strlen($cpf_limpo) != 11) return false;
+    if (preg_match('/(\d)\1{10}/', $cpf_limpo)) return false;
+    
+    // Caminho para o diretório do projeto
+    $project_dir = dirname(__DIR__);
+    
+    // Comando Node.js para validar CPF usando brazilian-values
+    $node_script = '
+        const { isCPF } = require("' . addslashes($project_dir) . '/node_modules/brazilian-values/dist/brazilian-values.js");
+        console.log(isCPF("' . $cpf . '") ? "true" : "false");
+    ';
+    
+    // Executar o script Node.js
+    $temp_file = tempnam(sys_get_temp_dir(), 'cpf_validation_');
+    file_put_contents($temp_file, $node_script);
+    
+    $output = shell_exec("node \"$temp_file\" 2>&1");
+    unlink($temp_file);
+    
+    // Se houver erro na execução do Node.js, usar validação fallback
+    if ($output === null || strpos($output, 'Error') !== false) {
+        return validar_cpf_fallback($cpf_limpo);
+    }
+    
+    return trim($output) === 'true';
+}
+
+/**
+ * Função de fallback para validação de CPF (caso Node.js não esteja disponível)
+ * @param string $cpf CPF limpo (apenas números)
+ * @return bool
+ */
+function validar_cpf_fallback($cpf) {
     if (strlen($cpf) != 11) return false;
     if (preg_match('/(\d)\1{10}/', $cpf)) return false;
 
@@ -587,4 +622,4 @@ function obter_mensagem() {
 }
 
 
-?> 
+?>

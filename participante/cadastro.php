@@ -380,12 +380,52 @@ $csrf_token = gerar_csrf_token();
         </div>
     </div>
 
+    <!-- Biblioteca Brazilian Values para validação de CPF -->
+    <script src="https://unpkg.com/brazilian-values@0.13.1/dist/brazilian-values.umd.min.js"></script>
+    
     <script>
         // Configuração global para validação de CPF
         window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
         
+        // Função de validação de CPF usando brazilian-values
+        function validarCPF(cpf) {
+            if (!cpf) return !window.cpfObrigatorio;
+            
+            // Remove formatação
+            const cpfLimpo = cpf.replace(/[^\d]/g, '');
+            
+            // Verifica se tem 11 dígitos
+            if (cpfLimpo.length !== 11) return false;
+            
+            // Usa a biblioteca brazilian-values
+            if (typeof BrazilianValues !== 'undefined' && BrazilianValues.isCPF) {
+                return BrazilianValues.isCPF(cpf);
+            }
+            
+            // Fallback manual se a biblioteca não carregar
+            if (/^(\d)\1{10}$/.test(cpfLimpo)) return false;
+            
+            let soma = 0;
+            for (let i = 0; i < 9; i++) {
+                soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
+            }
+            let resto = 11 - (soma % 11);
+            let digito1 = resto < 2 ? 0 : resto;
+            
+            if (parseInt(cpfLimpo.charAt(9)) !== digito1) return false;
+            
+            soma = 0;
+            for (let i = 0; i < 10; i++) {
+                soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
+            }
+            resto = 11 - (soma % 11);
+            let digito2 = resto < 2 ? 0 : resto;
+            
+            return parseInt(cpfLimpo.charAt(10)) === digito2;
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
-            // Máscara para CPF
+            // Máscara e validação para CPF
             const cpfInput = document.getElementById('cpf');
             cpfInput.addEventListener('input', function(e) {
                 let value = e.target.value.replace(/\D/g, '');
@@ -393,6 +433,30 @@ $csrf_token = gerar_csrf_token();
                 value = value.replace(/(\d{3})(\d)/, '$1.$2');
                 value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
                 e.target.value = value;
+            });
+            
+            // Validação em tempo real do CPF
+            cpfInput.addEventListener('blur', function(e) {
+                const cpf = e.target.value;
+                if (window.cpfObrigatorio && cpf && !validarCPF(cpf)) {
+                    e.target.setCustomValidity('CPF inválido');
+                    e.target.reportValidity();
+                } else {
+                    e.target.setCustomValidity('');
+                }
+            });
+            
+            // Validação no submit do formulário
+            const form = document.querySelector('form');
+            form.addEventListener('submit', function(e) {
+                const cpf = cpfInput.value;
+                if (window.cpfObrigatorio && cpf && !validarCPF(cpf)) {
+                    e.preventDefault();
+                    cpfInput.setCustomValidity('CPF inválido');
+                    cpfInput.reportValidity();
+                    cpfInput.focus();
+                    return false;
+                }
             });
 
             // Máscara para WhatsApp

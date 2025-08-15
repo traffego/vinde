@@ -524,9 +524,49 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
 
 <?php endif; ?>
 
+<!-- Biblioteca Brazilian Values para validação de CPF -->
+<script src="https://unpkg.com/brazilian-values@0.13.1/dist/brazilian-values.umd.min.js"></script>
+
 <script>
 // Configuração global para validação de CPF
 window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+
+// Função de validação de CPF usando brazilian-values
+function validarCPF(cpf) {
+    if (!cpf) return !window.cpfObrigatorio;
+    
+    // Remove formatação
+    const cpfLimpo = cpf.replace(/[^\d]/g, '');
+    
+    // Verifica se tem 11 dígitos
+    if (cpfLimpo.length !== 11) return false;
+    
+    // Usa a biblioteca brazilian-values
+    if (typeof BrazilianValues !== 'undefined' && BrazilianValues.isCPF) {
+        return BrazilianValues.isCPF(cpf);
+    }
+    
+    // Fallback manual se a biblioteca não carregar
+    if (/^(\d)\1{10}$/.test(cpfLimpo)) return false;
+    
+    let soma = 0;
+    for (let i = 0; i < 9; i++) {
+        soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
+    }
+    let resto = 11 - (soma % 11);
+    let digito1 = resto < 2 ? 0 : resto;
+    
+    if (parseInt(cpfLimpo.charAt(9)) !== digito1) return false;
+    
+    soma = 0;
+    for (let i = 0; i < 10; i++) {
+        soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
+    }
+    resto = 11 - (soma % 11);
+    let digito2 = resto < 2 ? 0 : resto;
+    
+    return parseInt(cpfLimpo.charAt(10)) === digito2;
+}
 
 // Variáveis globais
 let participantesData = [];
@@ -1182,13 +1222,24 @@ function removerLoadingIndicator() {
 
 // Máscaras de input
 function inicializarMascaras() {
-    // Máscara CPF
+    // Máscara e validação CPF
     const cpfInputs = document.querySelectorAll('[data-mask="cpf"]');
     cpfInputs.forEach(input => {
         input.addEventListener('input', function() {
             let valor = this.value.replace(/\D/g, '');
             valor = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
             this.value = valor;
+        });
+        
+        // Validação em tempo real do CPF
+        input.addEventListener('blur', function() {
+            const cpf = this.value;
+            if (window.cpfObrigatorio && cpf && !validarCPF(cpf)) {
+                this.setCustomValidity('CPF inválido');
+                this.reportValidity();
+            } else {
+                this.setCustomValidity('');
+            }
         });
     });
     

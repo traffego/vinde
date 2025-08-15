@@ -320,9 +320,49 @@ $csrf_token = gerar_csrf_token();
         </div>
     </div>
 
+    <!-- Biblioteca Brazilian Values para validação de CPF -->
+    <script src="https://unpkg.com/brazilian-values@0.13.1/dist/brazilian-values.umd.min.js"></script>
+    
     <script>
         // Configuração global para validação de CPF
         window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+        
+        // Função de validação de CPF usando brazilian-values
+        function validarCPF(cpf) {
+            if (!cpf) return !window.cpfObrigatorio;
+            
+            // Remove formatação
+            const cpfLimpo = cpf.replace(/[^\d]/g, '');
+            
+            // Verifica se tem 11 dígitos
+            if (cpfLimpo.length !== 11) return false;
+            
+            // Usa a biblioteca brazilian-values
+            if (typeof BrazilianValues !== 'undefined' && BrazilianValues.isCPF) {
+                return BrazilianValues.isCPF(cpf);
+            }
+            
+            // Fallback manual se a biblioteca não carregar
+            if (/^(\d)\1{10}$/.test(cpfLimpo)) return false;
+            
+            let soma = 0;
+            for (let i = 0; i < 9; i++) {
+                soma += parseInt(cpfLimpo.charAt(i)) * (10 - i);
+            }
+            let resto = 11 - (soma % 11);
+            let digito1 = resto < 2 ? 0 : resto;
+            
+            if (parseInt(cpfLimpo.charAt(9)) !== digito1) return false;
+            
+            soma = 0;
+            for (let i = 0; i < 10; i++) {
+                soma += parseInt(cpfLimpo.charAt(i)) * (11 - i);
+            }
+            resto = 11 - (soma % 11);
+            let digito2 = resto < 2 ? 0 : resto;
+            
+            return parseInt(cpfLimpo.charAt(10)) === digito2;
+        }
         
         document.addEventListener('DOMContentLoaded', function() {
             // Máscara para CPF
@@ -370,36 +410,7 @@ $csrf_token = gerar_csrf_token();
                 });
             }
             
-            // Função para validar CPF
-            function validarCPF(cpf) {
-                // Remove caracteres não numéricos
-                cpf = cpf.replace(/[^\d]/g, '');
-                
-                // Verifica se tem 11 dígitos
-                if (cpf.length !== 11) return false;
-                
-                // Verifica se todos os dígitos são iguais
-                if (/^(\d)\1{10}$/.test(cpf)) return false;
-                
-                // Validação dos dígitos verificadores
-                let soma = 0;
-                for (let i = 0; i < 9; i++) {
-                    soma += parseInt(cpf.charAt(i)) * (10 - i);
-                }
-                let resto = 11 - (soma % 11);
-                let digito1 = (resto < 2) ? 0 : resto;
-                
-                if (parseInt(cpf.charAt(9)) !== digito1) return false;
-                
-                soma = 0;
-                for (let i = 0; i < 10; i++) {
-                    soma += parseInt(cpf.charAt(i)) * (11 - i);
-                }
-                resto = 11 - (soma % 11);
-                let digito2 = (resto < 2) ? 0 : resto;
-                
-                return parseInt(cpf.charAt(10)) === digito2;
-            }
+            // Função validarCPF já foi definida globalmente acima
             
             // Função para mostrar mensagem de erro
             function showErrorMessage(message) {
