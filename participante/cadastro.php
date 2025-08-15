@@ -256,13 +256,13 @@ $csrf_token = gerar_csrf_token();
             <!-- CPF e Idade -->
             <div class="form-row">
                 <div class="form-group">
-                    <label for="cpf" class="form-label">CPF <span class="required">*</span></label>
+                    <label for="cpf" class="form-label">CPF <?= cpf_obrigatorio() ? '<span class="required">*</span>' : '(opcional)' ?></label>
                     <input type="text" 
                            id="cpf" 
                            name="cpf" 
                            class="form-input" 
                            placeholder="000.000.000-00"
-                           required 
+                           <?= cpf_obrigatorio() ? 'required' : '' ?> 
                            maxlength="14"
                            value="<?= htmlspecialchars($_POST['cpf'] ?? $cpf_url) ?>">
                 </div>
@@ -381,6 +381,9 @@ $csrf_token = gerar_csrf_token();
     </div>
 
     <script>
+        // Configuração global para validação de CPF
+        window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Máscara para CPF
             const cpfInput = document.getElementById('cpf');
@@ -423,4 +426,4 @@ $csrf_token = gerar_csrf_token();
         });
     </script>
 </body>
-</html> 
+</html>

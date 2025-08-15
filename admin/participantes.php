@@ -525,6 +525,9 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
 <?php endif; ?>
 
 <script>
+// Configuração global para validação de CPF
+window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+
 // Variáveis globais
 let participantesData = [];
 let filtrosAtivos = {};
@@ -1205,4 +1208,4 @@ function inicializarMascaras() {
 
 <?php
 obter_rodape_admin();
-?> 
+?>

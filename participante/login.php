@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (empty($cpf)) {
             $erro = 'Por favor, informe seu CPF.';
-        } elseif (!validar_cpf($cpf)) {
+        } elseif (cpf_obrigatorio() && !validar_cpf($cpf)) {
             $erro = 'CPF inválido. Por favor, digite um CPF válido.';
         } else {
             // Verificar se é tentativa de login (com senha) ou verificação de CPF
@@ -321,6 +321,9 @@ $csrf_token = gerar_csrf_token();
     </div>
 
     <script>
+        // Configuração global para validação de CPF
+        window.cpfObrigatorio = <?= cpf_obrigatorio() ? 'true' : 'false' ?>;
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Máscara para CPF
             const cpfInput = document.getElementById('cpf');
@@ -423,4 +426,4 @@ $csrf_token = gerar_csrf_token();
         });
     </script>
 </body>
-</html> 
+</html>

@@ -107,22 +107,36 @@ function participante_criar_conta($dados) {
         // Validações
         $erros = [];
         
-        // Campos obrigatórios
-        $campos_obrigatorios = ['nome', 'cpf', 'whatsapp', 'email', 'idade', 'cidade', 'senha'];
+        // Campos obrigatórios básicos
+        $campos_obrigatorios = ['nome', 'whatsapp', 'email', 'idade', 'cidade', 'senha'];
         foreach ($campos_obrigatorios as $campo) {
             if (empty($dados[$campo])) {
                 $erros[] = "Campo '{$campo}' é obrigatório.";
             }
         }
         
-        if (!empty($erros)) {
-            return ['sucesso' => false, 'mensagem' => implode(' ', $erros)];
+        // Validar CPF conforme configuração
+        if (cpf_obrigatorio()) {
+            if (empty($dados['cpf'])) {
+                $erros[] = 'CPF é obrigatório.';
+            } else {
+                $cpf = preg_replace('/[^0-9]/', '', $dados['cpf']);
+                if (strlen($cpf) !== 11) {
+                    $erros[] = 'CPF deve ter 11 dígitos.';
+                } elseif (!validar_cpf($cpf)) {
+                    $erros[] = 'CPF inválido.';
+                }
+            }
+        } else {
+            // CPF opcional - apenas limpar se fornecido
+            $cpf = !empty($dados['cpf']) ? preg_replace('/[^0-9]/', '', $dados['cpf']) : '';
+            if (!empty($cpf) && (strlen($cpf) !== 11 || !validar_cpf($cpf))) {
+                $erros[] = 'CPF inválido.';
+            }
         }
         
-        // Limpar e validar CPF
-        $cpf = preg_replace('/[^0-9]/', '', $dados['cpf']);
-        if (strlen($cpf) !== 11) {
-            return ['sucesso' => false, 'mensagem' => 'CPF deve ter 11 dígitos.'];
+        if (!empty($erros)) {
+            return ['sucesso' => false, 'mensagem' => implode(' ', $erros)];
         }
         
         // Verificar se CPF já existe
@@ -506,4 +520,4 @@ function participante_fazer_login_antigo($cpf, $whatsapp) {
     return participante_fazer_login($cpf, $whatsapp);
 }
 
-?> 
+?>
