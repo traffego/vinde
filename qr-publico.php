@@ -161,6 +161,17 @@ if (!$participante) {
     die('❌ Participante não encontrado ou não inscrito em eventos válidos');
 }
 
+// Verificar se é uma requisição AJAX para status
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'status' => $participante['status'] ?? 'inscrito',
+        'checkin_timestamp' => $participante['checkin_timestamp'] ?? null,
+        'checkin_operador' => $participante['checkin_operador'] ?? null
+    ]);
+    exit;
+}
+
 // Gerar QR token se não existir
 if (empty($participante['qr_token'])) {
     $qr_token = bin2hex(random_bytes(16));
@@ -339,6 +350,85 @@ $whatsapp_url = "https://wa.me/?text={$whatsapp_text}";
             color: #744210;
         }
         
+        .status-presente {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .checkin-info {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .checkin-timestamp {
+            font-weight: 600;
+            color: #155724;
+            margin-bottom: 5px;
+        }
+        
+        .checkin-operador {
+             font-size: 0.9em;
+             color: #6c757d;
+         }
+         
+         .checkin-success-notification {
+             position: fixed;
+             top: 20px;
+             left: 50%;
+             transform: translateX(-50%);
+             background: #28a745;
+             color: white;
+             padding: 15px 25px;
+             border-radius: 10px;
+             box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+             z-index: 1000;
+             animation: slideDown 0.5s ease-out;
+             display: none;
+         }
+         
+         @keyframes slideDown {
+             from {
+                 opacity: 0;
+                 transform: translateX(-50%) translateY(-20px);
+             }
+             to {
+                 opacity: 1;
+                 transform: translateX(-50%) translateY(0);
+             }
+         }
+         
+         .confetti {
+             position: fixed;
+             width: 10px;
+             height: 10px;
+             background: #f39c12;
+             animation: confetti-fall 3s linear infinite;
+             z-index: 999;
+         }
+         
+         @keyframes confetti-fall {
+             0% {
+                 transform: translateY(-100vh) rotate(0deg);
+                 opacity: 1;
+             }
+             100% {
+                 transform: translateY(100vh) rotate(720deg);
+                 opacity: 0;
+             }
+         }
+        
         .footer-info {
             margin-top: 25px;
             padding-top: 20px;
@@ -385,11 +475,28 @@ $whatsapp_url = "https://wa.me/?text={$whatsapp_text}";
         
         <!-- Status -->
         <?php 
-        $status = $participante['status_inscricao'] ?? 'aprovada';
-        $status_class = $status === 'aprovada' ? 'status-aprovada' : 'status-pendente';
-        $status_text = $status === 'aprovada' ? '✅ Inscrito' : '⏳ Pendente';
+        // Verificar status de check-in primeiro
+        $participante_status = $participante['status'] ?? 'inscrito';
+        if ($participante_status === 'presente') {
+            $status_class = 'status-presente';
+            $status_text = '🎉 Check-in Realizado!';
+            $checkin_timestamp = $participante['checkin_timestamp'] ?? null;
+        } else {
+            $status = $participante['status_inscricao'] ?? 'aprovada';
+            $status_class = $status === 'aprovada' ? 'status-aprovada' : 'status-pendente';
+            $status_text = $status === 'aprovada' ? '✅ Inscrito' : '⏳ Pendente';
+        }
         ?>
         <div class="status-badge <?= $status_class ?>"><?= $status_text ?></div>
+        
+        <?php if ($participante_status === 'presente' && $checkin_timestamp): ?>
+            <div class="checkin-info">
+                <div class="checkin-timestamp">📅 Check-in realizado em: <?= date('d/m/Y H:i', strtotime($checkin_timestamp)) ?></div>
+                <?php if (!empty($participante['checkin_operador'])): ?>
+                    <div class="checkin-operador">👤 Por: <?= htmlspecialchars($participante['checkin_operador']) ?></div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         
         <!-- QR Code -->
         <div class="qr-code">
@@ -397,8 +504,13 @@ $whatsapp_url = "https://wa.me/?text={$whatsapp_text}";
         </div>
         
         <div class="qr-instructions">
-            📱 <strong>Apresente este QR Code na entrada do evento</strong><br>
-            Mantenha esta tela aberta ou baixe a imagem
+            <?php if ($participante_status === 'presente'): ?>
+                🎉 <strong>Você já fez check-in!</strong><br>
+                Seu QR Code foi validado com sucesso
+            <?php else: ?>
+                📱 <strong>Apresente este QR Code na entrada do evento</strong><br>
+                Mantenha esta tela aberta ou baixe a imagem
+            <?php endif; ?>
         </div>
         
         <!-- Ações -->
@@ -454,6 +566,78 @@ $whatsapp_url = "https://wa.me/?text={$whatsapp_text}";
                 link.href = canvas.toDataURL();
                 link.click();
             }
+        }
+        
+        // Verificar status de check-in automaticamente
+        let checkinVerificado = <?= $participante_status === 'presente' ? 'true' : 'false' ?>;
+        
+        function verificarStatusCheckin() {
+             if (checkinVerificado) return; // Já foi verificado
+             
+             // Fazer uma requisição para verificar o status atual
+             fetch(window.location.href + '&ajax=1')
+                 .then(response => response.json())
+                 .then(data => {
+                     if (data.status === 'presente' && !checkinVerificado) {
+                         checkinVerificado = true;
+                         
+                         // Mostrar notificação de sucesso
+                         mostrarNotificacaoCheckin();
+                         
+                         // Criar efeito de confetes
+                         criarConfetes();
+                         
+                         // Recarregar a página após 2 segundos para mostrar o feedback completo
+                         setTimeout(() => {
+                             window.location.reload();
+                         }, 2000);
+                     }
+                 })
+                 .catch(error => {
+                     console.log('Erro ao verificar status:', error);
+                 });
+         }
+         
+         function mostrarNotificacaoCheckin() {
+             // Criar notificação
+             const notification = document.createElement('div');
+             notification.className = 'checkin-success-notification';
+             notification.innerHTML = '🎉 Check-in realizado com sucesso! 🎉';
+             notification.style.display = 'block';
+             
+             document.body.appendChild(notification);
+             
+             // Remover após 3 segundos
+             setTimeout(() => {
+                 notification.remove();
+             }, 3000);
+         }
+         
+         function criarConfetes() {
+             const cores = ['#f39c12', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f1c40f'];
+             
+             for (let i = 0; i < 50; i++) {
+                 setTimeout(() => {
+                     const confete = document.createElement('div');
+                     confete.className = 'confetti';
+                     confete.style.left = Math.random() * 100 + 'vw';
+                     confete.style.backgroundColor = cores[Math.floor(Math.random() * cores.length)];
+                     confete.style.animationDelay = Math.random() * 3 + 's';
+                     confete.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                     
+                     document.body.appendChild(confete);
+                     
+                     // Remover após a animação
+                     setTimeout(() => {
+                         confete.remove();
+                     }, 5000);
+                 }, i * 50);
+             }
+         }
+        
+        // Verificar a cada 5 segundos se ainda não fez check-in
+        if (!checkinVerificado) {
+            setInterval(verificarStatusCheckin, 5000);
         }
     </script>
 </body>
