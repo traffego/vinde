@@ -25,7 +25,7 @@ if ($is_localhost) {
     define('DB_CHARSET', 'utf8mb4');
     define('SITE_URL', 'http://localhost/vinde');
 } else {
-    Configurações do Banco de Dados ONLINE
+    // Configurações do Banco de Dados ONLINE
     define('DB_HOST', '187.33.241.40');
     define('DB_NAME', 'platafo5_vinde');
     define('DB_USER', 'platafo5_vinde');
