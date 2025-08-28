@@ -1,34 +1,13 @@
-# Configuração .htaccess para servidor remoto
-# Versão simplificada e mais compatível
+# Backup do .htaccess original - caso precise restaurar
 
+# Teste mínimo - apenas o essencial
 RewriteEngine On
 
-# Definir RewriteBase para servidor remoto
-RewriteBase /
+# URL amigável para eventos
+RewriteRule ^evento/([a-zA-Z0-9\-]+)/?$ evento.php?slug=$1 [QSA,L]
 
-# Não reescrever se o arquivo ou diretório existir
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# Não reescrever as áreas admin e participante
-RewriteRule ^admin/ - [L]
-RewriteRule ^participante/ - [L]
-RewriteRule ^api/ - [L]
-RewriteRule ^assets/ - [L]
-RewriteRule ^uploads/ - [L]
-RewriteRule ^certificados/ - [L]
-
-# URLs amigáveis para eventos
-# /evento/123 -> evento.php?id=123
-RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
-
-# Configurações de segurança básicas
-<Files ".htaccess">
-    Order allow,deny
-    Deny from all
-</Files>
-
+# Bloquear acesso a includes
+RewriteRule ^includes/ - [F,L] 
 # # Ativar mod_rewrite
 # RewriteEngine On
 
