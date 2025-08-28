@@ -82,7 +82,7 @@ try {
             FROM inscricoes i
             JOIN participantes p ON i.participante_id = p.id
             JOIN eventos e ON i.evento_id = e.id
-            LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+            LEFT JOIN pagamentos pg ON (pg.inscricao_id = i.id OR pg.participante_id = p.id)
             WHERE {$where_clause}
         ", $params)['total'];
 
@@ -100,7 +100,7 @@ try {
             FROM inscricoes i
             JOIN participantes p ON i.participante_id = p.id
             JOIN eventos e ON i.evento_id = e.id
-            LEFT JOIN pagamentos pg ON pg.inscricao_id = i.id
+            LEFT JOIN pagamentos pg ON (pg.inscricao_id = i.id OR pg.participante_id = p.id)
             WHERE {$where_clause}
             ORDER BY i.data_inscricao DESC
             LIMIT {$por_pagina} OFFSET {$offset}
