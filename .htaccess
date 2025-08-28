@@ -1,14 +1,10 @@
-# Ativar mod_rewrite
+# Configuração .htaccess para servidor remoto
+# Versão simplificada e mais compatível
+
 RewriteEngine On
 
-# Detectar ambiente e definir RewriteBase apropriado
-RewriteCond %{HTTP_HOST} ^localhost(:[0-9]+)?$ [OR]
-RewriteCond %{HTTP_HOST} ^127\.0\.0\.1(:[0-9]+)?$
-RewriteRule .* - [E=BASE:/vinde/]
-
-RewriteCond %{HTTP_HOST} !^localhost(:[0-9]+)?$
-RewriteCond %{HTTP_HOST} !^127\.0\.0\.1(:[0-9]+)?$
-RewriteRule .* - [E=BASE:/]
+# Definir RewriteBase para servidor remoto
+RewriteBase /
 
 # Não reescrever se o arquivo ou diretório existir
 RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -18,10 +14,45 @@ RewriteRule ^ - [L]
 # Não reescrever as áreas admin e participante
 RewriteRule ^admin/ - [L]
 RewriteRule ^participante/ - [L]
+RewriteRule ^api/ - [L]
+RewriteRule ^assets/ - [L]
+RewriteRule ^uploads/ - [L]
+RewriteRule ^certificados/ - [L]
 
 # URLs amigáveis para eventos
 # /evento/123 -> evento.php?id=123
 RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
 
-# Caso exista alguma outra reescrita genérica acima no servidor, este arquivo garante
-# que admin/ e participante/ não sejam afetados.
+# Configurações de segurança básicas
+<Files ".htaccess">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# # Ativar mod_rewrite
+# RewriteEngine On
+
+# # Detectar ambiente e definir RewriteBase apropriado
+# RewriteCond %{HTTP_HOST} ^localhost(:[0-9]+)?$ [OR]
+# RewriteCond %{HTTP_HOST} ^127\.0\.0\.1(:[0-9]+)?$
+# RewriteRule .* - [E=BASE:/vinde/]
+
+# RewriteCond %{HTTP_HOST} !^localhost(:[0-9]+)?$
+# RewriteCond %{HTTP_HOST} !^127\.0\.0\.1(:[0-9]+)?$
+# RewriteRule .* - [E=BASE:/]
+
+# # Não reescrever se o arquivo ou diretório existir
+# RewriteCond %{REQUEST_FILENAME} -f [OR]
+# RewriteCond %{REQUEST_FILENAME} -d
+# RewriteRule ^ - [L]
+
+# # Não reescrever as áreas admin e participante
+# RewriteRule ^admin/ - [L]
+# RewriteRule ^participante/ - [L]
+
+# # URLs amigáveis para eventos
+# # /evento/123 -> evento.php?id=123
+# RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
+
+# # Caso exista alguma outra reescrita genérica acima no servidor, este arquivo garante
+# # que admin/ e participante/ não sejam afetados.

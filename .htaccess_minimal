@@ -1,0 +1,16 @@
+# .htaccess minimalista para servidores restritivos
+
+RewriteEngine On
+
+# Não reescrever arquivos e diretórios existentes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# URLs amigáveis para eventos
+RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
+
+# Proteger .htaccess
+<Files ".htaccess">
+    Order deny,allow
+    Deny from all
+</Files>
