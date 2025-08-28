@@ -7,15 +7,35 @@ if (!defined('SISTEMA_INSCRICOES')) {
     die('Acesso negado');
 }
 
-// Configurações do Banco de Dados
-define('DB_HOST', '187.33.241.40');
-define('DB_NAME', 'platafo5_vinde');
-define('DB_USER', 'platafo5_vinde');
-define('DB_PASS', 'Traffego444#');
-define('DB_CHARSET', 'utf8mb4');
+// Detectar ambiente automaticamente
+$is_localhost = (
+    $_SERVER['HTTP_HOST'] === 'localhost' || 
+    $_SERVER['HTTP_HOST'] === '127.0.0.1' || 
+    strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0 ||
+    $_SERVER['SERVER_NAME'] === 'localhost' ||
+    $_SERVER['SERVER_NAME'] === '127.0.0.1'
+);
 
-// Configurações do Site
-define('SITE_URL', 'https://vinde.traffego.agency');
+if ($is_localhost) {
+    // Configurações do Banco de Dados LOCALHOST
+    define('DB_HOST', 'localhost');
+    define('DB_NAME', 'vinde2');
+    define('DB_USER', 'root');
+    define('DB_PASS', '');
+    define('DB_CHARSET', 'utf8mb4');
+    define('SITE_URL', 'http://localhost/vinde');
+} else {
+    // Configurações do Banco de Dados ONLINE
+    // define('DB_HOST', '187.33.241.40');
+    // define('DB_NAME', 'platafo5_vinde');
+    // define('DB_USER', 'platafo5_vinde');
+    // define('DB_PASS', 'Traffego444#');
+    // define('DB_CHARSET', 'utf8mb4');
+    // define('SITE_URL', 'https://vinde.traffego.agency');
+}
+
+
+
 define('SITE_NOME', 'Vinde - Eventos Cristãos');
 define('SITE_EMAIL', 'contato@vinde.com.br');
 define('ADMIN_EMAIL', 'admin@vinde.com.br');
@@ -109,4 +129,4 @@ define('MANUTENCAO_CONTATO', WHATSAPP_CONTATO);
 // Adicione IPs separados por vírgula: '192.168.1.1,10.0.0.1'
 define('MANUTENCAO_IPS_LIBERADOS', '');
 
-?> 
+?>

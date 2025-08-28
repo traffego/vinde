@@ -180,6 +180,30 @@ function formatar_status_pagamento($status, $valor) {
             transform: translateY(-1px);
         }
 
+        .btn-qr-rapido {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-qr-rapido:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
         .main-content {
             max-width: 1200px;
             margin: 0 auto;
@@ -483,12 +507,17 @@ function formatar_status_pagamento($status, $valor) {
                     <div class="user-name"><?= htmlspecialchars($participante['nome']) ?></div>
                     <div class="user-email"><?= htmlspecialchars($participante['email']) ?></div>
                 </div>
-                <a href="logout.php" class="btn-logout">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-                    </svg>
-                    Sair
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <a href="qr-rapido.php" class="btn-qr-rapido">
+                    📱 QR Rápido
                 </a>
+                    <a href="logout.php" class="btn-logout">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                        </svg>
+                        Sair
+                    </a>
+                </div>
             </div>
         </div>
     </header>
@@ -562,10 +591,13 @@ function formatar_status_pagamento($status, $valor) {
                                 ?>
 
                                 <?php if ($statusInscricao === 'aprovada' && $inscricaoId): ?>
-                                    <button class="btn-qr" onclick="mostrarQR(<?= (int)$participante['id'] ?>, <?= (int)$evento['evento_id'] ?>, '<?= htmlspecialchars($evento['nome']) ?>')">
-                                        📱 Ver QR Code
+                                    <a href="meu-qr.php?evento=<?= (int)$evento['evento_id'] ?>" class="btn-qr" style="text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                        📱 Meu QR Code
+                                    </a>
+                                    <button class="btn-secondary" onclick="mostrarQR(<?= (int)$participante['id'] ?>, <?= (int)$evento['evento_id'] ?>, '<?= htmlspecialchars($evento['nome']) ?>')" style="font-size: 12px; padding: 8px 12px;">
+                                        👁️ Preview
                                     </button>
-                                    <a href="<?= SITE_URL ?>/confirmacao.php?inscricao=<?= (int)$inscricaoId ?>" class="btn-secondary" target="_blank">📄 Comprovante</a>
+                                    <a href="<?= SITE_URL ?>/confirmacao.php?inscricao=<?= (int)$inscricaoId ?>" class="btn-secondary" target="_blank" style="font-size: 12px; padding: 8px 12px;">📄 Comprovante</a>
                                 <?php endif; ?>
 
                                 <?php if ($inscricaoId && $valorEvento > 0 && $pagamentoStatus === 'pendente' && $statusInscricao === 'pendente'): ?>
@@ -699,4 +731,4 @@ function formatar_status_pagamento($status, $valor) {
         }
     </script>
 </body>
-</html> 
+</html>

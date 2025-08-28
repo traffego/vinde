@@ -227,7 +227,7 @@ $titulo_pagina = $titulos[$acao] ?? 'Participantes';
 obter_cabecalho_admin($titulo_pagina, 'participantes');
 ?>
 
-<link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/participantes-cards.css">
+<link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/participantes-cards.css?v=<?= time() ?>">
 
 <?php if ($acao === 'listar'): ?>
     
@@ -367,6 +367,44 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="fecharModalExclusao()">Cancelar</button>
                 <button type="button" class="btn btn-danger" id="btn-confirmar-exclusao">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Atualização de Pagamento -->
+    <div id="modal-pagamento" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Atualizar Status de Pagamento</h2>
+                <button class="close" onclick="fecharModalPagamento()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Participante: <strong id="nome-participante-pagamento"></strong></p>
+                
+                <div class="form-group-admin">
+                    <label class="form-label-admin">Novo Status *</label>
+                    <select id="novo-status-pagamento" class="form-select-admin" required>
+                        <option value="">Selecione um status</option>
+                        <option value="pendente">Pendente</option>
+                        <option value="pago">Pago</option>
+                        <option value="cancelado">Cancelado</option>
+                        <option value="estornado">Estornado</option>
+                    </select>
+                </div>
+                
+                <div class="form-group-admin">
+                    <label class="form-label-admin">Observações</label>
+                    <textarea id="observacoes-pagamento" class="form-input-admin" rows="3" 
+                              placeholder="Motivo da alteração, observações adicionais..."></textarea>
+                </div>
+                
+                <p style="font-size: 0.875rem; color: #6b7280; margin-top: 1rem;">
+                    💡 Esta ação irá atualizar automaticamente o status do participante e da inscrição.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="fecharModalPagamento()">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-confirmar-pagamento">Atualizar</button>
             </div>
         </div>
     </div>
@@ -703,6 +741,19 @@ function criarCardParticipante(p) {
     // Status do pagamento (pendente, pago, cancelado, estornado)
     const statusPagamento = p.pagamento_status || 'pendente';
     
+    // Formatar data de criação
+    let dataCriacao = '';
+    if (p.criado_em) {
+        const data = new Date(p.criado_em);
+        dataCriacao = data.toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+    
     card.innerHTML = `
         <div class="participante-header">
             <div class="participante-checkbox">
@@ -710,13 +761,31 @@ function criarCardParticipante(p) {
             </div>
             <div class="participante-info-principal">
                 <h3 class="participante-nome">${escapeHtml(p.nome)}</h3>
-                <p class="participante-evento">${escapeHtml(p.evento_nome || 'Sem evento')}</p>
+                <div class="participante-evento-info">
+                    <p class="participante-evento">${escapeHtml(p.evento_nome || 'Sem evento')}</p>
+                    ${dataCriacao ? `<p class="participante-data-criacao">Criado: ${dataCriacao}</p>` : ''}
+                </div>
                 <p class="participante-cpf">${formatarCpf(p.cpf)}</p>
             </div>
             <div class="participante-actions">
-                <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
-                    🗑️
-                </button>
+                <select class="dropdown-pagamento" onchange="event.stopPropagation(); alterarStatusPagamento(this, ${p.id})" onclick="event.stopPropagation()">
+                    <option value="">Status Pagamento</option>
+                    <option value="pendente" ${statusPagamento === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="pago" ${statusPagamento === 'pago' ? 'selected' : ''}>Pago</option>
+                    <option value="cancelado" ${statusPagamento === 'cancelado' ? 'selected' : ''}>Cancelado</option>
+                    <option value="estornado" ${statusPagamento === 'estornado' ? 'selected' : ''}>Estornado</option>
+                </select>
+                ${statusParticipante === 'presente' ? 
+                    `<button class="btn-checkin btn-checkin-desfeito" onclick="event.stopPropagation(); desfazerCheckin(${p.id}, '${escapeHtml(p.nome)}')" title="Desfazer Check-in">
+                        ✓ Presente
+                    </button>` :
+                    `<button class="btn-checkin" onclick="event.stopPropagation(); fazerCheckin(${p.id}, '${escapeHtml(p.nome)}')" title="Fazer Check-in">
+                        Check-in
+                    </button>`
+                }
+                <span class="badge-excluir" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
+                    excluir
+                </span>
             </div>
         </div>
         
@@ -1220,6 +1289,151 @@ function removerLoadingIndicator() {
     }
 }
 
+// Atualizar status de pagamento
+function atualizarStatusPagamento(participanteId, nomeParticipante) {
+    document.getElementById('nome-participante-pagamento').textContent = nomeParticipante;
+    document.getElementById('modal-pagamento').style.display = 'block';
+    
+    // Configurar ação do botão confirmar
+    document.getElementById('btn-confirmar-pagamento').onclick = () => {
+        const novoStatus = document.getElementById('novo-status-pagamento').value;
+        const observacoes = document.getElementById('observacoes-pagamento').value;
+        
+        if (!novoStatus) {
+            mostrarToast('Selecione um status', 'warning');
+            return;
+        }
+        
+        executarAtualizacaoPagamento(participanteId, novoStatus, observacoes);
+    };
+}
+
+// Executar atualização de pagamento
+function executarAtualizacaoPagamento(participanteId, novoStatus, observacoes) {
+    const btn = document.getElementById('btn-confirmar-pagamento');
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<div class="loading-spinner"></div> Atualizando...';
+    btn.disabled = true;
+    
+    const dados = {
+        participante_id: participanteId,
+        status: novoStatus,
+        observacoes: observacoes
+    };
+    
+    fetch('<?= obter_url_base() ?>/admin/api/atualizar_pagamento.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            mostrarToast(data.mensagem, 'success');
+            fecharModalPagamento();
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.erro || 'Erro ao atualizar pagamento', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar pagamento:', error);
+        mostrarToast('Erro ao atualizar pagamento. Tente novamente.', 'error');
+    })
+    .finally(() => {
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+    });
+}
+
+// Nova função para alterar status via dropdown
+function alterarStatusPagamento(selectElement, participanteId) {
+    const novoStatus = selectElement.value;
+    
+    if (!novoStatus) {
+        return; // Se selecionou a opção vazia, não faz nada
+    }
+    
+    // Confirmar a alteração
+    const participante = participantesData.find(p => p.id == participanteId);
+    const nomeParticipante = participante ? participante.nome : 'Participante';
+    
+    if (!confirm(`Alterar status de pagamento de ${nomeParticipante} para "${novoStatus.toUpperCase()}"?`)) {
+        // Se cancelou, volta para o status anterior
+        const statusAtual = participante ? participante.pagamento_status : 'pendente';
+        selectElement.value = statusAtual;
+        return;
+    }
+    
+    // Executar a alteração
+    const dados = {
+        participante_id: participanteId,
+        status: novoStatus,
+        observacoes: `Status alterado via dropdown para: ${novoStatus}`
+    };
+    
+    fetch('<?= obter_url_base() ?>/admin/api/atualizar_pagamento.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => {
+        // Sempre tentar fazer parse do JSON, independente do status HTTP
+        return response.text().then(text => {
+            try {
+                const data = JSON.parse(text);
+                return { data, status: response.status, ok: response.ok };
+            } catch (e) {
+                console.error('Erro ao fazer parse do JSON:', text);
+                throw new Error('Resposta inválida do servidor');
+            }
+        });
+    })
+    .then(({ data, status, ok }) => {
+        console.log('Resposta da API:', { data, status, ok });
+        
+        // Verificar se a operação foi bem-sucedida baseado no conteúdo da resposta
+        if (data.sucesso) {
+            // Atualizar o array local primeiro para evitar inconsistências
+            if (participante) {
+                participante.pagamento_status = novoStatus;
+            }
+            
+            // Atualizar também o participantesData global
+            const participanteIndex = participantesData.findIndex(p => p.id == participanteId);
+            if (participanteIndex !== -1) {
+                participantesData[participanteIndex].pagamento_status = novoStatus;
+            }
+            
+            mostrarToast(data.mensagem || 'Status atualizado com sucesso!', 'success');
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.erro || 'Erro ao atualizar pagamento', 'error');
+            // Reverter o select para o status anterior
+            const statusAtual = participante ? participante.pagamento_status : 'pendente';
+            selectElement.value = statusAtual;
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar pagamento:', error);
+        mostrarToast('Erro ao atualizar pagamento. Tente novamente.', 'error');
+        // Reverter o select para o status anterior
+        const statusAtual = participante ? participante.pagamento_status : 'pendente';
+        selectElement.value = statusAtual;
+    });
+}
+
+// Fechar modal de pagamento
+function fecharModalPagamento() {
+    document.getElementById('modal-pagamento').style.display = 'none';
+    document.getElementById('novo-status-pagamento').value = '';
+    document.getElementById('observacoes-pagamento').value = '';
+}
+
 // Máscaras de input
 function inicializarMascaras() {
     // Máscara e validação CPF
@@ -1253,6 +1467,72 @@ function inicializarMascaras() {
             }
             this.value = value;
         });
+    });
+}
+
+// Função para fazer check-in
+function fazerCheckin(participanteId, nomeParticipante) {
+    if (!confirm(`Confirmar check-in de ${nomeParticipante}?`)) {
+        return;
+    }
+    
+    const dados = {
+        action: 'checkin_manual',
+        participante_id: participanteId
+    };
+    
+    fetch('<?= obter_url_base() ?>/admin/api/checkin.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message || 'Check-in realizado com sucesso!', 'success');
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.message || 'Erro ao fazer check-in', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao fazer check-in:', error);
+        mostrarToast('Erro ao fazer check-in. Tente novamente.', 'error');
+    });
+}
+
+// Função para desfazer check-in
+function desfazerCheckin(participanteId, nomeParticipante) {
+    if (!confirm(`Desfazer check-in de ${nomeParticipante}?`)) {
+        return;
+    }
+    
+    const dados = {
+        action: 'undo_checkin',
+        participante_id: participanteId
+    };
+    
+    fetch('<?= obter_url_base() ?>/admin/api/checkin.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message || 'Check-in desfeito com sucesso!', 'success');
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.message || 'Erro ao desfazer check-in', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao desfazer check-in:', error);
+        mostrarToast('Erro ao desfazer check-in. Tente novamente.', 'error');
     });
 }
 </script>

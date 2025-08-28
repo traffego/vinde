@@ -804,7 +804,7 @@ function efi_criar_pix_completo($dados_pagamento) {
             'efi_response' => $cobranca,
             'qr_response' => $qrcode,
             'status' => $cobranca['status'] ?? 'ATIVA',
-            'payload_source' => $payload_valido ? 'efi_bank' : 'pix_simples'
+            'payload_source' => 'efi_bank'
         ];
         
         // Log de sucesso
@@ -1022,4 +1022,4 @@ function efi_configurar_pix_basico() {
     }
 }
 
-?> 
+?>

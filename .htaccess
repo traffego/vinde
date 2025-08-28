@@ -1,6 +1,14 @@
 # Ativar mod_rewrite
 RewriteEngine On
-RewriteBase /
+
+# Detectar ambiente e definir RewriteBase apropriado
+RewriteCond %{HTTP_HOST} ^localhost(:[0-9]+)?$ [OR]
+RewriteCond %{HTTP_HOST} ^127\.0\.0\.1(:[0-9]+)?$
+RewriteRule .* - [E=BASE:/vinde/]
+
+RewriteCond %{HTTP_HOST} !^localhost(:[0-9]+)?$
+RewriteCond %{HTTP_HOST} !^127\.0\.0\.1(:[0-9]+)?$
+RewriteRule .* - [E=BASE:/]
 
 # Não reescrever se o arquivo ou diretório existir
 RewriteCond %{REQUEST_FILENAME} -f [OR]
@@ -11,12 +19,9 @@ RewriteRule ^ - [L]
 RewriteRule ^admin/ - [L]
 RewriteRule ^participante/ - [L]
 
-# URLs amigáveis para eventos (opcional)
+# URLs amigáveis para eventos
 # /evento/123 -> evento.php?id=123
-RewriteRule ^evento/([0-9]+)$ evento.php?id=$1 [L,QSA]
-
-# /evento/nome-do-evento -> evento.php?slug=nome-do-evento
-RewriteRule ^evento/([A-Za-z0-9\-\_]+)$ evento.php?slug=$1 [L,QSA]
+RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
 
 # Caso exista alguma outra reescrita genérica acima no servidor, este arquivo garante
-# que admin/ e participante/ não sejam afetados. 
+# que admin/ e participante/ não sejam afetados.

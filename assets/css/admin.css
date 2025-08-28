@@ -623,7 +623,8 @@
 .status-finalizado { background: #e5e7eb; color: #374151; }
 
 /* === ÍCONES ADICIONAIS === */
-.icon-payment::before { content: '💳'; } 
+.icon-payment::before { content: '💳'; }
+.icon-link::before { content: '🔗'; } 
 
 /* ===== ESTILOS DA PÁGINA DE CHECK-IN ===== */
 
@@ -1063,4 +1064,4 @@
     .toast {
         max-width: none;
     }
-} 
+}

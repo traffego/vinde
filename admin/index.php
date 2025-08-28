@@ -56,6 +56,48 @@ obter_cabecalho_admin('Dashboard', 'dashboard');
 ?>
 
 <div class="dashboard">
+    <!-- Ações Rápidas -->
+    <div class="quick-actions">
+        <h2>Ações Rápidas</h2>
+        <div class="actions-grid">
+            <a href="<?= SITE_URL ?>/admin/eventos.php?acao=novo" class="action-card">
+                <div class="action-icon">➕</div>
+                <h3>Novo Evento</h3>
+                <p>Criar um novo evento católico</p>
+            </a>
+            
+            <a href="<?= SITE_URL ?>/admin/checkin.php" class="action-card">
+                <div class="action-icon">📱</div>
+                <h3>Check-in</h3>
+                <p>Fazer check-in via QR Code</p>
+            </a>
+            
+            <a href="<?= SITE_URL ?>/admin/gerar-links-qr.php" class="action-card">
+                <div class="action-icon">🔗</div>
+                <h3>Links QR</h3>
+                <p>Gerar links públicos para QR Codes</p>
+            </a>
+            
+            <a href="<?= SITE_URL ?>/admin/relatorios.php" class="action-card">
+                <div class="action-icon">📊</div>
+                <h3>Relatórios</h3>
+                <p>Gerar relatórios e estatísticas</p>
+            </a>
+            
+            <a href="<?= SITE_URL ?>/admin/configuracoes.php" class="action-card">
+                <div class="action-icon">⚙️</div>
+                <h3>Configurações</h3>
+                <p>Configurar sistema e PIX</p>
+            </a>
+            
+            <a href="<?= SITE_URL ?>/admin/limpar_cache.php" class="action-card cache-action">
+                <div class="action-icon">🧹</div>
+                <h3>Limpar Cache</h3>
+                <p>Force atualizações estéticas</p>
+            </a>
+        </div>
+    </div>
+    
     <!-- Cards de Estatísticas -->
     <div class="stats-grid">
         <div class="stat-card primary">
@@ -198,42 +240,6 @@ obter_cabecalho_admin('Dashboard', 'dashboard');
                     </div>
                 <?php endif; ?>
             </div>
-        </div>
-    </div>
-    
-    <!-- Ações Rápidas -->
-    <div class="quick-actions">
-        <h2>Ações Rápidas</h2>
-        <div class="actions-grid">
-            <a href="<?= SITE_URL ?>/admin/eventos.php?acao=novo" class="action-card">
-                <div class="action-icon">➕</div>
-                <h3>Novo Evento</h3>
-                <p>Criar um novo evento católico</p>
-            </a>
-            
-            <a href="<?= SITE_URL ?>/admin/checkin.php" class="action-card">
-                <div class="action-icon">📱</div>
-                <h3>Check-in</h3>
-                <p>Fazer check-in via QR Code</p>
-            </a>
-            
-            <a href="<?= SITE_URL ?>/admin/relatorios.php" class="action-card">
-                <div class="action-icon">📊</div>
-                <h3>Relatórios</h3>
-                <p>Gerar relatórios e estatísticas</p>
-            </a>
-            
-            <a href="<?= SITE_URL ?>/admin/configuracoes.php" class="action-card">
-                <div class="action-icon">⚙️</div>
-                <h3>Configurações</h3>
-                <p>Configurar sistema e PIX</p>
-            </a>
-            
-            <a href="<?= SITE_URL ?>/admin/limpar_cache.php" class="action-card cache-action">
-                <div class="action-icon">🧹</div>
-                <h3>Limpar Cache</h3>
-                <p>Force atualizações estéticas</p>
-            </a>
         </div>
     </div>
 </div>
@@ -556,4 +562,4 @@ obter_cabecalho_admin('Dashboard', 'dashboard');
 
 <?php
 obter_rodape_admin();
-?> 
+?>

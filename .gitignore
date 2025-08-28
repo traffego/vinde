@@ -135,4 +135,9 @@ pagamentos.log
 # Arquivos de setup específicos
 *_SETUP.md
 INSTALL.md
-DEPLOY.md 
+DEPLOY.md
+
+# ========================================
+# PASTA DE ARQUIVOS PARA APAGAR
+# ========================================
+apagar/

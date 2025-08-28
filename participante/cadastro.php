@@ -40,16 +40,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($resultado['sucesso']) {
                 $sucesso = $resultado['mensagem'];
                 
-                // Fazer login automático após cadastro
-                $login_result = participante_fazer_login($dados['cpf'], $dados['senha']);
+                // Login automático após cadastro bem-sucedido
+                // Buscar dados do participante recém-criado
+                $participante = buscar_um(
+                    "SELECT id, nome, cpf, email, whatsapp FROM participantes WHERE id = ?",
+                    [$resultado['participante_id']]
+                );
                 
-                if ($login_result['sucesso']) {
+                if ($participante) {
+                    // Definir sessão diretamente (login automático)
+                    $_SESSION['participante_id'] = $participante['id'];
+                    $_SESSION['participante_cpf'] = $participante['cpf'];
+                    $_SESSION['participante_nome'] = $participante['nome'];
+                    $_SESSION['participante_email'] = $participante['email'];
+                    $_SESSION['participante_whatsapp'] = $participante['whatsapp'];
+                    $_SESSION['participante_ultimo_acesso'] = time();
+                    
+                    // Log do login automático
+                    registrar_log('participante_login_automatico', "CPF: {$participante['cpf']}");
+                    
+                    // Limpar qualquer output buffer antes do redirecionamento
+                    if (ob_get_level()) {
+                        ob_end_clean();
+                    }
+                    
                     // Redirecionar para inscrição no evento ou área do participante
                     if ($evento_id) {
                         redirecionar(SITE_URL . '/inscricao.php?evento_id=' . urlencode($evento_id));
                     } else {
                         redirecionar(SITE_URL . '/participante/');
                     }
+                } else {
+                    $erro = 'Conta criada, mas erro no login automático. Faça login manualmente.';
                 }
             } else {
                 $erro = $resultado['mensagem'];

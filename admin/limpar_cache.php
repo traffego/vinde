@@ -8,7 +8,7 @@ require_once '../includes/init.php';
 require_once '../includes/auth.php';
 
 // Verificar se usuário está logado como admin
-verificar_admin();
+requer_login();
 
 $resultado = ['sucesso' => false, 'mensagem' => ''];
 $acoes_executadas = [];

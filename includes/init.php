@@ -20,7 +20,6 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/qrcode.php';
 require_once __DIR__ . '/qr_generator.php';
 require_once __DIR__ . '/efi_bank.php';
-require_once __DIR__ . '/pix_simples.php';
 require_once __DIR__ . '/manutencao.php';
 
 // Inicializar sessão
@@ -207,6 +206,7 @@ function obter_cabecalho_admin($titulo = 'Painel Administrativo', $pagina = 'das
                     <li><a href='" . SITE_URL . "/admin/eventos.php' class='nav-link'><i class='icon-calendar'></i> Eventos</a></li>
                     <li><a href='" . SITE_URL . "/admin/participantes.php' class='nav-link'><i class='icon-users'></i> Participantes</a></li>
                     <li><a href='" . SITE_URL . "/admin/checkin.php' class='nav-link'><i class='icon-qr'></i> Check-in</a></li>
+                    <li><a href='" . SITE_URL . "/admin/gerar-links-qr.php' class='nav-link'><i class='icon-link'></i> Links QR</a></li>
                     <li><a href='" . SITE_URL . "/admin/relatorios.php' class='nav-link'><i class='icon-chart'></i> Relatórios</a></li>
                     <li><a href='" . SITE_URL . "/admin/efi_config.php' class='nav-link'><i class='icon-payment'></i> API Pagamento</a></li>
                     <li><a href='" . SITE_URL . "/admin/configuracoes.php' class='nav-link'><i class='icon-settings'></i> Configurações</a></li>
@@ -301,4 +301,4 @@ function exibir_erro_500($mensagem = 'Erro interno do servidor') {
     exit;
 }
 
-?> 
+?>

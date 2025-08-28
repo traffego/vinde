@@ -201,29 +201,9 @@ function processar_inscricao($dados, $evento_id) {
                         }
                     }
                 } else {
-                    // Fallback para PIX simples se EFI Bank falhar
-                    $descricao = "Inscricao: " . substr($evento['nome'], 0, 20) . " - " . substr($dados['nome'], 0, 15);
-                    $cobranca_simples = criar_cobranca_pix_simples($participante_id, $valor, $descricao);
-                    
-                    if ($cobranca_simples) {
-                        $pagamento_dados['pix_qrcode_data'] = $cobranca_simples['payload'];
-                        $pagamento_dados['pix_qrcode_url'] = $cobranca_simples['qrcode_url'];
-                        $pagamento_dados['pix_expires_at'] = $cobranca_simples['expires_at'];
-                    }
+                    // Erro: EFI Bank não configurado ou falhou
+                    throw new Exception('Sistema de pagamento indisponível. Tente novamente mais tarde.');
                 }
-            } else {
-                // Usar PIX simples
-                $descricao = "Inscricao: " . substr($evento['nome'], 0, 20) . " - " . substr($dados['nome'], 0, 15);
-                $cobranca_simples = criar_cobranca_pix_simples($participante_id, $valor, $descricao);
-                
-                if ($cobranca_simples) {
-                    $pagamento_dados['pix_qrcode_data'] = $cobranca_simples['payload'];
-                    $pagamento_dados['pix_qrcode_url'] = $cobranca_simples['qrcode_url'];
-                    $pagamento_dados['pix_expires_at'] = $cobranca_simples['expires_at'];
-                    
-                    registrar_log('efi_cobranca_criada', "TXID: {$txid} | Valor: R$ {$valor} | Participante: {$dados['nome']}");
-                }
-            }
             
             inserir_registro('pagamentos', $pagamento_dados);
         } else {
@@ -790,4 +770,4 @@ window.addEventListener('DOMContentLoaded', function() {
 
 <?php
 obter_rodape();
-?> 
+?>
