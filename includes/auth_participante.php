@@ -489,7 +489,7 @@ function gerar_qr_checkin($participante_id, $evento_id) {
     
     // Dados do QR Code para check-in
     $qr_data = [
-        'type' => 'checkin',
+        'tipo' => 'checkin',
         'inscricao_id' => $inscricao['inscricao_id'],
         'participante_id' => $participante_id,
         'evento_id' => $evento_id,
