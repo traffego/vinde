@@ -1,37 +1,27 @@
-# Backup do .htaccess original - caso precise restaurar
-
-# Teste mínimo - apenas o essencial
+# Ativar mod_rewrite
 RewriteEngine On
 
-# URL amigável para eventos
-RewriteRule ^evento/([a-zA-Z0-9\-]+)/?$ evento.php?slug=$1 [QSA,L]
+# Detectar ambiente e definir RewriteBase apropriado
+RewriteCond %{HTTP_HOST} ^localhost(:[0-9]+)?$ [OR]
+RewriteCond %{HTTP_HOST} ^127\.0\.0\.1(:[0-9]+)?$
+RewriteRule .* - [E=BASE:/vinde/]
 
-# Bloquear acesso a includes
-RewriteRule ^includes/ - [F,L] 
-# # Ativar mod_rewrite
-# RewriteEngine On
+RewriteCond %{HTTP_HOST} !^localhost(:[0-9]+)?$
+RewriteCond %{HTTP_HOST} !^127\.0\.0\.1(:[0-9]+)?$
+RewriteRule .* - [E=BASE:/]
 
-# # Detectar ambiente e definir RewriteBase apropriado
-# RewriteCond %{HTTP_HOST} ^localhost(:[0-9]+)?$ [OR]
-# RewriteCond %{HTTP_HOST} ^127\.0\.0\.1(:[0-9]+)?$
-# RewriteRule .* - [E=BASE:/vinde/]
+# Não reescrever se o arquivo ou diretório existir
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
 
-# RewriteCond %{HTTP_HOST} !^localhost(:[0-9]+)?$
-# RewriteCond %{HTTP_HOST} !^127\.0\.0\.1(:[0-9]+)?$
-# RewriteRule .* - [E=BASE:/]
+# Não reescrever as áreas admin e participante
+RewriteRule ^admin/ - [L]
+RewriteRule ^participante/ - [L]
 
-# # Não reescrever se o arquivo ou diretório existir
-# RewriteCond %{REQUEST_FILENAME} -f [OR]
-# RewriteCond %{REQUEST_FILENAME} -d
-# RewriteRule ^ - [L]
+# URLs amigáveis para eventos
+# /evento/123 -> evento.php?id=123
+RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
 
-# # Não reescrever as áreas admin e participante
-# RewriteRule ^admin/ - [L]
-# RewriteRule ^participante/ - [L]
-
-# # URLs amigáveis para eventos
-# # /evento/123 -> evento.php?id=123
-# RewriteRule ^evento/([0-9]+)/?$ evento.php?id=$1 [L,QSA]
-
-# # Caso exista alguma outra reescrita genérica acima no servidor, este arquivo garante
-# # que admin/ e participante/ não sejam afetados.
+# Caso exista alguma outra reescrita genérica acima no servidor, este arquivo garante
+# que admin/ e participante/ não sejam afetados.
