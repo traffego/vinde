@@ -83,7 +83,7 @@ try {
             JOIN participantes p ON i.participante_id = p.id
             JOIN eventos e ON i.evento_id = e.id
             LEFT JOIN pagamentos pg ON (pg.inscricao_id = i.id OR pg.participante_id = p.id)
-            WHERE {$where_clause}
+            WHERE {$where_clause} AND p.status IN ('inscrito', 'pago', 'presente')
         ", $params)['total'];
 
         $participantes = buscar_todos("
@@ -101,7 +101,7 @@ try {
             JOIN participantes p ON i.participante_id = p.id
             JOIN eventos e ON i.evento_id = e.id
             LEFT JOIN pagamentos pg ON (pg.inscricao_id = i.id OR pg.participante_id = p.id)
-            WHERE {$where_clause}
+            WHERE {$where_clause} AND p.status IN ('inscrito', 'pago', 'presente')
             ORDER BY i.data_inscricao DESC
             LIMIT {$por_pagina} OFFSET {$offset}
         ", $params);
@@ -160,7 +160,7 @@ try {
             SELECT COUNT(*) as total 
             FROM participantes p
             LEFT JOIN eventos e ON p.evento_id = e.id
-            WHERE {$where_clause} AND p.status != 'cancelado'
+            WHERE {$where_clause} AND p.status IN ('inscrito', 'pago', 'presente')
         ", $params)['total'];
 
         $participantes = buscar_todos("
@@ -173,6 +173,7 @@ try {
                 CASE 
                     WHEN p.status = 'pago' THEN 'pago'
                     WHEN p.status = 'inscrito' THEN 'pendente'
+                    WHEN p.status = 'presente' THEN 'pago'
                     ELSE 'pendente'
                 END AS pagamento_status, 
                 0 AS valor, 
@@ -182,7 +183,7 @@ try {
                 p.status
             FROM participantes p
             LEFT JOIN eventos e ON p.evento_id = e.id
-            WHERE {$where_clause} AND p.status != 'cancelado'
+            WHERE {$where_clause} AND p.status IN ('inscrito', 'pago', 'presente')
             ORDER BY p.criado_em DESC
             LIMIT {$por_pagina} OFFSET {$offset}
         ", $params);
