@@ -31,6 +31,8 @@ try {
     $status_inscricao = $input['status_inscricao'] ?? null;
     $valor_pago = $input['valor_pago'] ?? null;
     $metodo_pagamento = $input['metodo_pagamento'] ?? null;
+    $fazer_checkin = isset($input['fazer_checkin']) ? (bool)$input['fazer_checkin'] : false;
+    $cancelar_checkin = isset($input['cancelar_checkin']) ? (bool)$input['cancelar_checkin'] : false;
     
     if (!$participante_id) {
         throw new Exception('ID do participante é obrigatório');
@@ -147,11 +149,21 @@ try {
         }
         
         // Atualizar status do participante baseado no pagamento
-        if ($status_pagamento === 'pago' || $status_inscricao === 'aprovada') {
-            executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$participante_id]);
-        } elseif ($status_pagamento === 'cancelado' || $status_inscricao === 'cancelada') {
-            executar("UPDATE participantes SET status = 'cancelado' WHERE id = ?", [$participante_id]);
-        }
+    if ($status_pagamento === 'pago' || $status_inscricao === 'aprovada') {
+        executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$participante_id]);
+    } elseif ($status_pagamento === 'cancelado' || $status_inscricao === 'cancelada') {
+        executar("UPDATE participantes SET status = 'cancelado' WHERE id = ?", [$participante_id]);
+    }
+    
+    // Fazer check-in se solicitado
+    if ($fazer_checkin && ($status_pagamento === 'pago' || $status_inscricao === 'aprovada')) {
+        executar("UPDATE participantes SET checkin_realizado = 1, data_checkin = NOW() WHERE id = ?", [$participante_id]);
+    }
+    
+    // Cancelar check-in se solicitado
+    if ($cancelar_checkin) {
+        executar("UPDATE participantes SET checkin_realizado = 0, data_checkin = NULL WHERE id = ?", [$participante_id]);
+    }
         
     } else {
         // Sistema antigo - usar apenas tabela participantes
@@ -177,9 +189,16 @@ try {
         }
     }
     
+    $mensagem_sucesso = 'Status atualizado com sucesso';
+    if ($fazer_checkin) {
+        $mensagem_sucesso = 'Pagamento confirmado e check-in realizado com sucesso';
+    } elseif ($cancelar_checkin) {
+        $mensagem_sucesso = 'Pagamento e check-in cancelados com sucesso';
+    }
+    
     echo json_encode([
         'sucesso' => true,
-        'mensagem' => 'Status atualizado com sucesso'
+        'mensagem' => $mensagem_sucesso
     ]);
     
 } catch (Exception $e) {

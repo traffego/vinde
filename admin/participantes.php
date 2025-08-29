@@ -371,62 +371,42 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         </div>
     </div>
 
-    <!-- Modal de Atualização de Status -->
-    <div id="modal-atualizar-status" class="modal">
-        <div class="modal-content" style="max-width: 600px;">
+    <!-- Modal de Confirmação de Pagamento -->
+    <div id="modal-confirmar-pagamento" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
-                <h2 class="modal-title">Atualizar Status</h2>
-                <button class="close" onclick="fecharModalAtualizarStatus()">&times;</button>
+                <h2 class="modal-title" id="titulo-modal-pagamento">Confirmar Pagamento</h2>
+                <button class="close" onclick="fecharModalConfirmarPagamento()">&times;</button>
             </div>
             <div class="modal-body">
-                <p><strong>Participante:</strong> <span id="status-participante-nome"></span></p>
+                <p><strong>Participante:</strong> <span id="pagamento-participante-nome"></span></p>
                 
-                <input type="hidden" id="status-participante-id">
-                <input type="hidden" id="status-inscricao-id">
+                <input type="hidden" id="pagamento-participante-id">
+                <input type="hidden" id="pagamento-status-atual">
+                <input type="hidden" id="pagamento-checkin-atual">
                 
-                <div class="modal-grid">
-                    <div class="modal-section">
-                        <label for="status-atual-participante">Status da Inscrição:</label>
-                        <select id="status-atual-participante" class="form-control">
-                            <option value="ativo">Ativo</option>
-                            <option value="pendente">Pendente</option>
-                            <option value="cancelado">Cancelado</option>
-                            <option value="lista_espera">Lista de Espera</option>
-                        </select>
-                    </div>
-                    
-                    <div class="modal-section">
-                        <label for="status-atual-pagamento">Status do Pagamento:</label>
-                        <select id="status-atual-pagamento" class="form-control">
-                            <option value="pendente">Pendente</option>
-                            <option value="pago">Pago</option>
-                            <option value="cancelado">Cancelado</option>
-                            <option value="reembolsado">Reembolsado</option>
-                        </select>
-                    </div>
-                    
-                    <div class="modal-section">
-                        <label for="valor-pago">Valor Pago (R$):</label>
-                        <input type="number" id="valor-pago" class="form-control" step="0.01" min="0" placeholder="0.00">
-                    </div>
-                    
-                    <div class="modal-section">
-                        <label for="metodo-pagamento">Método de Pagamento:</label>
-                        <select id="metodo-pagamento" class="form-control">
-                            <option value="">Selecione...</option>
-                            <option value="pix">PIX</option>
-                            <option value="cartao_credito">Cartão de Crédito</option>
-                            <option value="cartao_debito">Cartão de Débito</option>
-                            <option value="boleto">Boleto</option>
-                            <option value="transferencia">Transferência</option>
-                            <option value="dinheiro">Dinheiro</option>
-                        </select>
-                    </div>
+                <div class="opcoes-pagamento" id="opcoes-confirmar" style="display: none;">
+                    <p style="margin-bottom: 20px; color: #374151;">Escolha uma opção:</p>
+                    <button type="button" class="btn btn-primary btn-opcao" onclick="confirmarPagamento('apenas_pagar')" style="width: 100%; margin-bottom: 10px;">
+                        ✅ Apenas Pagar
+                    </button>
+                    <button type="button" class="btn btn-success btn-opcao" onclick="confirmarPagamento('pagar_e_checkin')" style="width: 100%;">
+                        ✅ Pagar e Fazer Check-in
+                    </button>
+                </div>
+                
+                <div class="opcoes-pagamento" id="opcoes-cancelar" style="display: none;">
+                    <p style="margin-bottom: 20px; color: #374151;">Escolha uma opção:</p>
+                    <button type="button" class="btn btn-warning btn-opcao" onclick="cancelarPagamento('apenas_cancelar')" style="width: 100%; margin-bottom: 10px;">
+                        ❌ Cancelar apenas o Pagamento
+                    </button>
+                    <button type="button" class="btn btn-danger btn-opcao" onclick="cancelarPagamento('cancelar_e_checkin')" style="width: 100%;">
+                        ❌ Cancelar Pagamento e Check-in
+                    </button>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline" onclick="fecharModalAtualizarStatus()">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="salvarAtualizacaoStatus()">Salvar Alterações</button>
+                <button type="button" class="btn btn-outline" onclick="fecharModalConfirmarPagamento()">Cancelar</button>
             </div>
         </div>
     </div>
@@ -790,8 +770,8 @@ function criarCardParticipante(p) {
                             ${statusParticipante === 'cancelado' ? '❌ Cancelado' : '⏳ Pendente'}
                         </button>`
                 }
-                <button class="btn-atualizar-status" onclick="event.stopPropagation(); abrirModalAtualizarStatus(${p.id}, '${escapeHtml(p.nome)}', '${statusParticipante}', '${statusPagamento}', ${p.inscricao_id || 'null'})" title="Atualizar Status">
-                    🔄
+                <button class="btn-confirmar-pagamento ${statusPagamento === 'pago' ? 'btn-cancelar' : 'btn-confirmar'}" onclick="event.stopPropagation(); abrirModalConfirmarPagamento(${p.id}, '${escapeHtml(p.nome)}', '${statusPagamento}', ${p.checkin_realizado ? 'true' : 'false'})" title="${statusPagamento === 'pago' ? 'Cancelar Pagamento' : 'Confirmar Pagamento'}">
+                    ${statusPagamento === 'pago' ? '❌' : '✅'}
                 </button>
                 <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')"; title="Excluir">
                     🗑️
@@ -1402,37 +1382,43 @@ function desfazerCheckinCard(participanteId, nomeParticipante) {
     });
 }
 
-// Função para abrir modal de atualizar status
-function abrirModalAtualizarStatus(participanteId, nomeParticipante, statusParticipante, statusPagamento, inscricaoId) {
-    document.getElementById('modal-atualizar-status').style.display = 'block';
-    document.getElementById('status-participante-id').value = participanteId;
-    document.getElementById('status-inscricao-id').value = inscricaoId || '';
-    document.getElementById('status-participante-nome').textContent = nomeParticipante;
-    document.getElementById('status-atual-participante').value = statusParticipante;
-    document.getElementById('status-atual-pagamento').value = statusPagamento;
+// Função para abrir modal de confirmar pagamento
+function abrirModalConfirmarPagamento(participanteId, nomeParticipante, statusPagamento, checkinRealizado) {
+    document.getElementById('modal-confirmar-pagamento').style.display = 'block';
+    document.getElementById('pagamento-participante-id').value = participanteId;
+    document.getElementById('pagamento-participante-nome').textContent = nomeParticipante;
+    document.getElementById('pagamento-status-atual').value = statusPagamento;
+    document.getElementById('pagamento-checkin-atual').value = checkinRealizado;
+    
+    const tituloModal = document.getElementById('titulo-modal-pagamento');
+    const opcoesConfirmar = document.getElementById('opcoes-confirmar');
+    const opcoesCancelar = document.getElementById('opcoes-cancelar');
+    
+    if (statusPagamento === 'pago') {
+        tituloModal.textContent = 'Cancelar Pagamento';
+        opcoesConfirmar.style.display = 'none';
+        opcoesCancelar.style.display = 'block';
+    } else {
+        tituloModal.textContent = 'Confirmar Pagamento';
+        opcoesConfirmar.style.display = 'block';
+        opcoesCancelar.style.display = 'none';
+    }
 }
 
-// Função para fechar modal de atualizar status
-function fecharModalAtualizarStatus() {
-    document.getElementById('modal-atualizar-status').style.display = 'none';
+// Função para fechar modal de confirmar pagamento
+function fecharModalConfirmarPagamento() {
+    document.getElementById('modal-confirmar-pagamento').style.display = 'none';
 }
 
-// Função para salvar alterações de status
-function salvarAtualizacaoStatus() {
-    const participanteId = document.getElementById('status-participante-id').value;
-    const inscricaoId = document.getElementById('status-inscricao-id').value;
-    const statusInscricao = document.getElementById('status-atual-participante').value;
-    const statusPagamento = document.getElementById('status-atual-pagamento').value;
-    const valorPago = document.getElementById('valor-pago').value;
-    const metodoPagamento = document.getElementById('metodo-pagamento').value;
+// Função para confirmar pagamento
+function confirmarPagamento(acao) {
+    const participanteId = document.getElementById('pagamento-participante-id').value;
+    const fazerCheckin = acao === 'pagar_e_checkin';
     
     const dados = {
         participante_id: participanteId,
-        inscricao_id: inscricaoId || null,
-        status_inscricao: statusInscricao,
-        status_pagamento: statusPagamento,
-        valor_pago: valorPago ? parseFloat(valorPago) : null,
-        metodo_pagamento: metodoPagamento || null
+        status_pagamento: 'pago',
+        fazer_checkin: fazerCheckin
     };
     
     fetch('<?= SITE_URL ?>/admin/api/atualizar_status.php', {
@@ -1445,16 +1431,52 @@ function salvarAtualizacaoStatus() {
     .then(response => response.json())
     .then(data => {
         if (data.sucesso) {
-            mostrarToast(data.mensagem || 'Status atualizado com sucesso!', 'success');
-            fecharModalAtualizarStatus();
-            carregarParticipantes(true); // Recarregar lista
+            const mensagem = fazerCheckin ? 'Pagamento confirmado e check-in realizado!' : 'Pagamento confirmado com sucesso!';
+            mostrarToast(data.mensagem || mensagem, 'success');
+            fecharModalConfirmarPagamento();
+            carregarParticipantes(true);
         } else {
-            mostrarToast(data.erro || 'Erro ao atualizar status', 'error');
+            mostrarToast(data.erro || 'Erro ao confirmar pagamento', 'error');
         }
     })
     .catch(error => {
-        console.error('Erro ao atualizar status:', error);
-        mostrarToast('Erro ao atualizar status. Tente novamente.', 'error');
+        console.error('Erro ao confirmar pagamento:', error);
+        mostrarToast('Erro ao confirmar pagamento. Tente novamente.', 'error');
+    });
+}
+
+// Função para cancelar pagamento
+function cancelarPagamento(acao) {
+    const participanteId = document.getElementById('pagamento-participante-id').value;
+    const cancelarCheckin = acao === 'cancelar_e_checkin';
+    
+    const dados = {
+        participante_id: participanteId,
+        status_pagamento: 'cancelado',
+        cancelar_checkin: cancelarCheckin
+    };
+    
+    fetch('<?= SITE_URL ?>/admin/api/atualizar_status.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            const mensagem = cancelarCheckin ? 'Pagamento e check-in cancelados!' : 'Pagamento cancelado com sucesso!';
+            mostrarToast(data.mensagem || mensagem, 'success');
+            fecharModalConfirmarPagamento();
+            carregarParticipantes(true);
+        } else {
+            mostrarToast(data.erro || 'Erro ao cancelar pagamento', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao cancelar pagamento:', error);
+        mostrarToast('Erro ao cancelar pagamento. Tente novamente.', 'error');
     });
 }
 </script>

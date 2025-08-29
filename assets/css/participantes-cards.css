@@ -103,7 +103,7 @@
 }
 
 /* Manter estilos antigos para compatibilidade */
-.btn-delete-card, .btn-pagamento-card {
+.btn-delete-card, .btn-pagamento-card, .btn-confirmar-pagamento {
     background: none;
     border: none;
     font-size: 1rem;
@@ -124,6 +124,79 @@
     background: #dbeafe;
     opacity: 1;
     transform: scale(1.1);
+}
+
+.btn-confirmar-pagamento.btn-confirmar:hover {
+    background-color: #dcfce7;
+    color: #16a34a;
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.btn-confirmar-pagamento.btn-cancelar:hover {
+    background-color: #fef3c7;
+    color: #d97706;
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* Estilos para as opções do modal */
+.opcoes-pagamento {
+    margin-top: 1rem;
+}
+
+.btn-opcao {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 12px 20px;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.btn-opcao:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-opcao.btn-primary {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.btn-opcao.btn-primary:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+.btn-opcao.btn-success {
+    background-color: #10b981;
+    border-color: #10b981;
+}
+
+.btn-opcao.btn-success:hover {
+    background-color: #059669;
+    border-color: #059669;
+}
+
+.btn-opcao.btn-warning {
+    background-color: #f59e0b;
+    border-color: #f59e0b;
+    color: white;
+}
+
+.btn-opcao.btn-warning:hover {
+    background-color: #d97706;
+    border-color: #d97706;
+}
+
+.btn-opcao.btn-danger {
+    background-color: #ef4444;
+    border-color: #ef4444;
+}
+
+.btn-opcao.btn-danger:hover {
+    background-color: #dc2626;
+    border-color: #dc2626;
 }
 
 .participante-nome {
