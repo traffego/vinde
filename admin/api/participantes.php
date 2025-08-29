@@ -1,11 +1,18 @@
 <?php
 require_once '../../includes/init.php';
 
-// Verificar login
-requer_login();
-
-// Definir header JSON
+// Definir header JSON primeiro
 header('Content-Type: application/json');
+
+// Verificar login para requisições AJAX
+if (!esta_logado()) {
+    echo json_encode([
+        'sucesso' => false,
+        'erro' => 'Sessão expirada. Faça login novamente.',
+        'codigo' => 'NAO_AUTENTICADO'
+    ]);
+    exit;
+}
 
 try {
     // Verificar se sistema foi migrado

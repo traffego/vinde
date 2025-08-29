@@ -649,6 +649,13 @@ function carregarParticipantes(resetar = true) {
     fetch(`<?= SITE_URL ?>/admin/api/participantes.php?${params}`)
         .then(response => response.json())
         .then(data => {
+            // Verificar se usuário não está autenticado
+            if (data.codigo === 'NAO_AUTENTICADO') {
+                alert('Sessão expirada. Você será redirecionado para o login.');
+                window.location.href = '<?= SITE_URL ?>/admin/login.php';
+                return;
+            }
+            
             if (data.sucesso) {
                 const novosParticipantes = data.participantes || [];
                 
