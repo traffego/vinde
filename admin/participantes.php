@@ -327,12 +327,14 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                                 </div>
                                 </div>
     <!-- Grid de Participantes -->
-    <div id="participantes-container">
-        <div class="loading">
+    <div id="participantes-container" class="participantes-container" style="min-height: 200px;">
+        <div class="loading-container" id="loading-inicial">
             <div class="loading-spinner"></div>
-            Carregando participantes...
-                                    </div>
-                                </div>
+            <p>Carregando participantes...</p>
+        </div>
+        <!-- Grid será inserido aqui pelo JavaScript -->
+        <div class="participantes-grid" id="participantes-grid" style="display: none;"></div>
+    </div>
                                 
     <!-- Modal de Detalhes -->
     <div id="modal-participante" class="modal">
@@ -694,34 +696,55 @@ function carregarParticipantes(resetar = true) {
 
 // Renderizar grid de participantes
 function renderizarParticipantes(participantes, resetar = true) {
+    console.log('Renderizando participantes:', { count: participantes.length, resetar });
+    
     const container = document.getElementById('participantes-container');
+    const loadingInicial = document.getElementById('loading-inicial');
+    const grid = document.getElementById('participantes-grid');
+    
+    // Esconder loading inicial
+    if (loadingInicial) {
+        loadingInicial.style.display = 'none';
+    }
+    
+    // Mostrar grid
+    if (grid) {
+        grid.style.display = 'grid';
+    }
+    
+    if (resetar && grid) {
+        grid.innerHTML = '';
+    }
+    
+    // Remover indicador de carregamento de scroll se existir
+    const scrollLoading = document.getElementById('scroll-loading');
+    if (scrollLoading) {
+        scrollLoading.remove();
+    }
     
     if (participantes.length === 0 && resetar) {
+        if (grid) {
+            grid.style.display = 'none';
+        }
         container.innerHTML = `
-            <div class="no-results">
+            <div class="empty-state">
+                <div class="empty-icon">🔍</div>
                 <h3>Nenhum participante encontrado</h3>
-                <p>Tente ajustar os filtros ou adicionar um novo participante</p>
+                <p>Tente ajustar os filtros ou adicionar novos participantes.</p>
             </div>
         `;
         return;
     }
     
-    let grid = container.querySelector('.participantes-grid');
-    
-    if (resetar || !grid) {
-        grid = document.createElement('div');
-        grid.className = 'participantes-grid';
-        container.innerHTML = '';
-        container.appendChild(grid);
+    // Adicionar cards dos participantes
+    if (grid) {
+        participantes.forEach(participante => {
+            const card = criarCardParticipante(participante);
+            grid.appendChild(card);
+        });
+        
+        console.log('Participantes renderizados. Total de cards no DOM:', grid.children.length);
     }
-    
-    // Se for reset, adicionar todos. Se não, adicionar apenas os novos participantes
-    participantes.forEach(p => {
-        const card = criarCardParticipante(p);
-        grid.appendChild(card);
-    });
-    
-    console.log('Renderizados:', participantes.length, 'participantes. Reset:', resetar);
     
     // Adicionar loading indicator se há mais para carregar
     if (temMaisParticipantes && !carregandoMais) {
