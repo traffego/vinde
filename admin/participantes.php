@@ -251,59 +251,9 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         </div>
     </div>
 
-    <!-- Filtros -->
-    <div class="filtros-section">
-        <div class="filtros-grid">
-            <div class="filtro-group">
-                <label class="filtro-label">Buscar</label>
-                <input type="text" id="filtro-busca" class="filtro-input" placeholder="Nome, CPF ou email...">
-            </div>
-            
-            <div class="filtro-group">
-                <label class="filtro-label">Evento</label>
-                <select id="filtro-evento" class="filtro-input">
-                    <option value="">Todos os eventos</option>
-                    <?php foreach ($eventos as $ev): ?>
-                        <option value="<?= $ev['id'] ?>"><?= htmlspecialchars($ev['nome']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            
-            <div class="filtro-group">
-                <label class="filtro-label">Status de Inscrição</label>
-                <select id="filtro-status" class="filtro-input">
-                    <option value="">Todos os status</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="aprovada">Aprovada</option>
-                    <option value="rejeitada">Rejeitada</option>
-                    <option value="cancelada">Cancelada</option>
-                </select>
-            </div>
-            
-            <div class="filtro-group">
-                <label class="filtro-label">Status Pagamento</label>
-                <select id="filtro-pagamento" class="filtro-input">
-                    <option value="">Todos os pagamentos</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="pago">Pago</option>
-                    <option value="cancelado">Cancelado</option>
-                    <option value="estornado">Estornado</option>
-                </select>
-            </div>
-            
-            <div class="filtro-group">
-                <label class="filtro-label">Cidade</label>
-                <input type="text" id="filtro-cidade" class="filtro-input" placeholder="Cidade...">
-            </div>
-            
-            <div class="filtro-group">
-                <label class="filtro-label">Ações</label>
-                <div style="display: flex; gap: 0.5rem;">
-                    <button type="button" onclick="limparFiltros()" class="btn btn-outline">Limpar</button>
-            <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
-                </div>
-            </div>
-        </div>
+    <!-- Ações Principais -->
+    <div class="acoes-principais" style="margin-bottom: 2rem; text-align: right;">
+        <a href="<?= SITE_URL ?>/admin/participantes.php?acao=criar" class="btn btn-primary">Novo Participante</a>
     </div>
 
     <!-- Ações em Massa -->
@@ -610,7 +560,6 @@ function validarCPF(cpf) {
 
 // Variáveis globais
 let participantesData = [];
-let filtrosAtivos = {};
 let participanteAtual = null;
 let offsetAtual = 0;
 let carregandoMais = false;
@@ -620,7 +569,7 @@ let temMaisParticipantes = true;
 document.addEventListener('DOMContentLoaded', function() {
     <?php if ($acao === 'listar'): ?>
         carregarParticipantes(true); // Sempre resetar quando filtrar
-        inicializarFiltros();
+        inicializarListeners();
         inicializarScrollInfinito();
     <?php endif; ?>
     
@@ -642,8 +591,8 @@ function carregarParticipantes(resetar = true) {
         container.innerHTML = '<div class="loading-container"><div class="loading-spinner"></div><p>Carregando participantes...</p></div>';
     }
     
-    // Construir query string com filtros
-    const params = new URLSearchParams(filtrosAtivos);
+    // Construir query string
+    const params = new URLSearchParams();
     params.append('offset', offsetAtual);
     
     fetch(`<?= SITE_URL ?>/admin/api/participantes.php?${params}`)
@@ -832,41 +781,14 @@ function criarCardParticipante(p) {
     return card;
 }
 
-// Inicializar filtros
-function inicializarFiltros() {
-    const filtros = ['busca', 'evento', 'status', 'pagamento', 'cidade'];
-    
-    filtros.forEach(filtro => {
-        const elemento = document.getElementById(`filtro-${filtro}`);
-        if (elemento) {
-            elemento.addEventListener('input', debounce(() => {
-                filtrosAtivos[filtro] = elemento.value;
-                carregarParticipantes(true); // Sempre resetar quando filtrar
-            }, 500));
-        }
-    });
-    
+// Inicializar listeners para checkboxes
+function inicializarListeners() {
     // Adicionar listener para checkboxes
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('card-checkbox')) {
             atualizarContadorSelecionados();
         }
     });
-}
-
-// Limpar filtros
-function limparFiltros() {
-    const filtros = ['busca', 'evento', 'status', 'pagamento', 'cidade'];
-    
-    filtros.forEach(filtro => {
-        const elemento = document.getElementById(`filtro-${filtro}`);
-        if (elemento) {
-            elemento.value = '';
-        }
-    });
-    
-    filtrosAtivos = {};
-    carregarParticipantes();
 }
 
 // Abrir modal com detalhes
@@ -1045,18 +967,6 @@ window.onclick = function(event) {
 }
 
 // Funções utilitárias
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
