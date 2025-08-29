@@ -522,7 +522,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         </form>
     </div>
 
-<?php endif; ?>
+<?php endif; 
 
 <!-- Biblioteca Brazilian Values para validação de CPF -->
 <script src="https://unpkg.com/brazilian-values@0.13.1/dist/brazilian-values.umd.min.js"></script>
@@ -703,6 +703,10 @@ function criarCardParticipante(p) {
     // Status do pagamento (pendente, pago, cancelado, estornado)
     const statusPagamento = p.pagamento_status || 'pendente';
     
+    // Determinar se pode fazer check-in
+    const podeCheckin = statusParticipante !== 'presente' && statusParticipante !== 'cancelado' && 
+                       (p.valor == 0 || statusPagamento === 'pago');
+    
     card.innerHTML = `
         <div class="participante-header">
             <div class="participante-checkbox">
@@ -714,6 +718,18 @@ function criarCardParticipante(p) {
                 <p class="participante-cpf">${formatarCpf(p.cpf)}</p>
             </div>
             <div class="participante-actions">
+                ${statusParticipante === 'presente' ? 
+                    `<button class="btn-checkin-card btn-desfazer" onclick="event.stopPropagation(); desfazerCheckinCard(${p.id}, '${escapeHtml(p.nome)}')" title="Desfazer Check-in">
+                        ↩️ Desfazer
+                    </button>` :
+                    podeCheckin ? 
+                        `<button class="btn-checkin-card btn-fazer" onclick="event.stopPropagation(); fazerCheckinCard(${p.id}, '${escapeHtml(p.nome)}')" title="Fazer Check-in">
+                            ✅ Check-in
+                        </button>` :
+                        `<button class="btn-checkin-card btn-disabled" disabled title="${statusParticipante === 'cancelado' ? 'Participante cancelado' : 'Pagamento pendente'}">
+                            ${statusParticipante === 'cancelado' ? '❌ Cancelado' : '⏳ Pendente'}
+                        </button>`
+                }
                 <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
                     🗑️
                 </button>
@@ -727,6 +743,8 @@ function criarCardParticipante(p) {
             <span class="status-badge status-pagamento-${statusPagamento}">
                 ${p.valor > 0 ? `R$ ${formatarMoeda(p.valor)} - ${ucfirst(statusPagamento)}` : 'Gratuito'}
             </span>
+            ${statusParticipante === 'presente' && p.checkin_timestamp ? 
+                `<span class="checkin-timestamp">Check-in: ${formatarDataHora(p.checkin_timestamp)}</span>` : ''}
         </div>
     `;
     
@@ -1253,6 +1271,71 @@ function inicializarMascaras() {
             }
             this.value = value;
         });
+    });
+}
+
+// Funções de Check-in
+function fazerCheckinCard(participanteId, nomeParticipante) {
+    if (!confirm(`Confirmar check-in de ${nomeParticipante}?`)) {
+        return;
+    }
+    
+    const dados = {
+        action: 'checkin_manual',
+        participante_id: participanteId
+    };
+    
+    fetch('<?= SITE_URL ?>/admin/api/checkin.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message || 'Check-in realizado com sucesso!', 'success');
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.message || 'Erro ao fazer check-in', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao fazer check-in:', error);
+        mostrarToast('Erro ao fazer check-in. Tente novamente.', 'error');
+    });
+}
+
+function desfazerCheckinCard(participanteId, nomeParticipante) {
+    if (!confirm(`Desfazer check-in de ${nomeParticipante}?`)) {
+        return;
+    }
+    
+    const dados = {
+        action: 'desfazer_checkin',
+        participante_id: participanteId
+    };
+    
+    fetch('<?= SITE_URL ?>/admin/api/checkin.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarToast(data.message || 'Check-in desfeito com sucesso!', 'success');
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.message || 'Erro ao desfazer check-in', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao desfazer check-in:', error);
+        mostrarToast('Erro ao desfazer check-in. Tente novamente.', 'error');
     });
 }
 </script>
