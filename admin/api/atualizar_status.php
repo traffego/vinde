@@ -145,6 +145,8 @@ try {
             executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$participante_id]);
         } elseif ($status_pagamento === 'cancelado' || $status_inscricao === 'cancelada') {
             executar("UPDATE participantes SET status = 'cancelado' WHERE id = ?", [$participante_id]);
+        } elseif ($status_pagamento === 'pendente') {
+            executar("UPDATE participantes SET status = 'inscrito' WHERE id = ?", [$participante_id]);
         }
         
         // Fazer check-in se solicitado
@@ -167,6 +169,8 @@ try {
             $updates[] = "status = 'pago'";
         } elseif ($status_pagamento === 'cancelado') {
             $updates[] = "status = 'cancelado'";
+        } elseif ($status_pagamento === 'pendente') {
+            $updates[] = "status = 'inscrito'";
         }
         
         if (!empty($updates)) {
@@ -185,7 +189,13 @@ try {
     if ($fazer_checkin) {
         $mensagem_sucesso = 'Pagamento confirmado e check-in realizado com sucesso';
     } elseif ($cancelar_checkin) {
-        $mensagem_sucesso = 'Pagamento e check-in cancelados com sucesso';
+        if ($status_pagamento === 'pendente') {
+            $mensagem_sucesso = 'Status alterado para pendente e check-in cancelado com sucesso';
+        } else {
+            $mensagem_sucesso = 'Pagamento e check-in cancelados com sucesso';
+        }
+    } elseif ($status_pagamento === 'pendente') {
+        $mensagem_sucesso = 'Status do pagamento alterado para pendente com sucesso';
     }
     
     echo json_encode([

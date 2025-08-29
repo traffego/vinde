@@ -398,10 +398,10 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
                 <div class="opcoes-pagamento" id="opcoes-cancelar" style="display: none;">
                     <p style="margin-bottom: 20px; color: #374151;">Escolha uma opção:</p>
                     <button type="button" class="btn btn-warning btn-opcao" onclick="cancelarPagamento('apenas_cancelar')" style="width: 100%; margin-bottom: 10px;">
-                        ❌ Cancelar apenas o Pagamento
+                        ⏳ Alterar Pagamento para Pendente
                     </button>
                     <button type="button" class="btn btn-danger btn-opcao" onclick="cancelarPagamento('cancelar_e_checkin')" style="width: 100%;">
-                        ❌ Cancelar Pagamento e Check-in
+                        ⏳ Alterar para Pendente e Cancelar Check-in
                     </button>
                 </div>
             </div>
@@ -770,7 +770,7 @@ function criarCardParticipante(p) {
                             ${statusParticipante === 'cancelado' ? '❌ Cancelado' : '⏳ Pendente'}
                         </button>`
                 }
-                <button class="btn-confirmar-pagamento ${statusPagamento === 'pago' ? 'btn-cancelar' : 'btn-confirmar'}" onclick="event.stopPropagation(); abrirModalConfirmarPagamento(${p.id}, '${escapeHtml(p.nome)}', '${statusPagamento}', ${p.checkin_realizado ? 'true' : 'false'})" title="${statusPagamento === 'pago' ? 'Cancelar Pagamento' : 'Confirmar Pagamento'}">
+                <button class="btn-confirmar-pagamento ${statusPagamento === 'pago' ? 'btn-cancelar' : 'btn-confirmar'}" onclick="event.stopPropagation(); abrirModalConfirmarPagamento(${p.id}, '${escapeHtml(p.nome)}', '${statusPagamento}', ${p.checkin_realizado ? 'true' : 'false'})" title="${statusPagamento === 'pago' ? 'Alterar para Pendente' : 'Confirmar Pagamento'}">
                     ${statusPagamento === 'pago' ? '❌' : '✅'}
                 </button>
                 <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')"; title="Excluir">
@@ -1395,7 +1395,7 @@ function abrirModalConfirmarPagamento(participanteId, nomeParticipante, statusPa
     const opcoesCancelar = document.getElementById('opcoes-cancelar');
     
     if (statusPagamento === 'pago') {
-        tituloModal.textContent = 'Cancelar Pagamento';
+        tituloModal.textContent = 'Alterar Status do Pagamento';
         opcoesConfirmar.style.display = 'none';
         opcoesCancelar.style.display = 'block';
     } else {
@@ -1452,7 +1452,7 @@ function cancelarPagamento(acao) {
     
     const dados = {
         participante_id: participanteId,
-        status_pagamento: 'cancelado',
+        status_pagamento: 'pendente',
         cancelar_checkin: cancelarCheckin
     };
     
@@ -1466,17 +1466,17 @@ function cancelarPagamento(acao) {
     .then(response => response.json())
     .then(data => {
         if (data.sucesso) {
-            const mensagem = cancelarCheckin ? 'Pagamento e check-in cancelados!' : 'Pagamento cancelado com sucesso!';
+            const mensagem = cancelarCheckin ? 'Status alterado para pendente e check-in cancelado!' : 'Status do pagamento alterado para pendente!';
             mostrarToast(data.mensagem || mensagem, 'success');
             fecharModalConfirmarPagamento();
             carregarParticipantes(true);
         } else {
-            mostrarToast(data.erro || 'Erro ao cancelar pagamento', 'error');
+            mostrarToast(data.erro || 'Erro ao alterar status do pagamento', 'error');
         }
     })
     .catch(error => {
-        console.error('Erro ao cancelar pagamento:', error);
-        mostrarToast('Erro ao cancelar pagamento. Tente novamente.', 'error');
+        console.error('Erro ao alterar status do pagamento:', error);
+        mostrarToast('Erro ao alterar status do pagamento. Tente novamente.', 'error');
     });
 }
 </script>
