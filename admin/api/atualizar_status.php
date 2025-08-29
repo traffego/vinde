@@ -1,19 +1,11 @@
 <?php
-require_once '../../config/config.php';
-require_once '../../config/database.php';
-require_once '../../includes/funcoes.php';
+require_once '../../includes/init.php';
+requer_login('admin');
 
 // Verificar se é uma requisição POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['erro' => 'Método não permitido']);
-    exit;
-}
-
-// Verificar autenticação (admin)
-if (!isset($_SESSION['admin_logado'])) {
-    http_response_code(401);
-    echo json_encode(['erro' => 'Não autorizado']);
     exit;
 }
 
@@ -149,21 +141,21 @@ try {
         }
         
         // Atualizar status do participante baseado no pagamento
-    if ($status_pagamento === 'pago' || $status_inscricao === 'aprovada') {
-        executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$participante_id]);
-    } elseif ($status_pagamento === 'cancelado' || $status_inscricao === 'cancelada') {
-        executar("UPDATE participantes SET status = 'cancelado' WHERE id = ?", [$participante_id]);
-    }
-    
-    // Fazer check-in se solicitado
-    if ($fazer_checkin && ($status_pagamento === 'pago' || $status_inscricao === 'aprovada')) {
-        executar("UPDATE participantes SET checkin_realizado = 1, data_checkin = NOW() WHERE id = ?", [$participante_id]);
-    }
-    
-    // Cancelar check-in se solicitado
-    if ($cancelar_checkin) {
-        executar("UPDATE participantes SET checkin_realizado = 0, data_checkin = NULL WHERE id = ?", [$participante_id]);
-    }
+        if ($status_pagamento === 'pago' || $status_inscricao === 'aprovada') {
+            executar("UPDATE participantes SET status = 'pago' WHERE id = ?", [$participante_id]);
+        } elseif ($status_pagamento === 'cancelado' || $status_inscricao === 'cancelada') {
+            executar("UPDATE participantes SET status = 'cancelado' WHERE id = ?", [$participante_id]);
+        }
+        
+        // Fazer check-in se solicitado
+        if ($fazer_checkin && ($status_pagamento === 'pago' || $status_inscricao === 'aprovada')) {
+            executar("UPDATE participantes SET checkin_realizado = 1, data_checkin = NOW() WHERE id = ?", [$participante_id]);
+        }
+        
+        // Cancelar check-in se solicitado
+        if ($cancelar_checkin) {
+            executar("UPDATE participantes SET checkin_realizado = 0, data_checkin = NULL WHERE id = ?", [$participante_id]);
+        }
         
     } else {
         // Sistema antigo - usar apenas tabela participantes
