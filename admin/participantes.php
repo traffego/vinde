@@ -522,7 +522,7 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         </form>
     </div>
 
-<?php endif; 
+<?php endif; ?>
 
 <!-- Biblioteca Brazilian Values para validação de CPF -->
 <script src="https://unpkg.com/brazilian-values@0.13.1/dist/brazilian-values.umd.min.js"></script>
