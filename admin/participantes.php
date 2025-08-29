@@ -371,6 +371,66 @@ obter_cabecalho_admin($titulo_pagina, 'participantes');
         </div>
     </div>
 
+    <!-- Modal de Atualização de Status -->
+    <div id="modal-atualizar-status" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Atualizar Status</h2>
+                <button class="close" onclick="fecharModalAtualizarStatus()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Participante:</strong> <span id="status-participante-nome"></span></p>
+                
+                <input type="hidden" id="status-participante-id">
+                <input type="hidden" id="status-inscricao-id">
+                
+                <div class="modal-grid">
+                    <div class="modal-section">
+                        <label for="status-atual-participante">Status da Inscrição:</label>
+                        <select id="status-atual-participante" class="form-control">
+                            <option value="ativo">Ativo</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="cancelado">Cancelado</option>
+                            <option value="lista_espera">Lista de Espera</option>
+                        </select>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <label for="status-atual-pagamento">Status do Pagamento:</label>
+                        <select id="status-atual-pagamento" class="form-control">
+                            <option value="pendente">Pendente</option>
+                            <option value="pago">Pago</option>
+                            <option value="cancelado">Cancelado</option>
+                            <option value="reembolsado">Reembolsado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="modal-section">
+                        <label for="valor-pago">Valor Pago (R$):</label>
+                        <input type="number" id="valor-pago" class="form-control" step="0.01" min="0" placeholder="0.00">
+                    </div>
+                    
+                    <div class="modal-section">
+                        <label for="metodo-pagamento">Método de Pagamento:</label>
+                        <select id="metodo-pagamento" class="form-control">
+                            <option value="">Selecione...</option>
+                            <option value="pix">PIX</option>
+                            <option value="cartao_credito">Cartão de Crédito</option>
+                            <option value="cartao_debito">Cartão de Débito</option>
+                            <option value="boleto">Boleto</option>
+                            <option value="transferencia">Transferência</option>
+                            <option value="dinheiro">Dinheiro</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="fecharModalAtualizarStatus()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarAtualizacaoStatus()">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
 <?php else: ?>
     
     <!-- Formulário de Criação/Edição -->
@@ -730,7 +790,10 @@ function criarCardParticipante(p) {
                             ${statusParticipante === 'cancelado' ? '❌ Cancelado' : '⏳ Pendente'}
                         </button>`
                 }
-                <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')" title="Excluir">
+                <button class="btn-atualizar-status" onclick="event.stopPropagation(); abrirModalAtualizarStatus(${p.id}, '${escapeHtml(p.nome)}', '${statusParticipante}', '${statusPagamento}', ${p.inscricao_id || 'null'})" title="Atualizar Status">
+                    🔄
+                </button>
+                <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')"; title="Excluir">
                     🗑️
                 </button>
             </div>
@@ -1336,6 +1399,62 @@ function desfazerCheckinCard(participanteId, nomeParticipante) {
     .catch(error => {
         console.error('Erro ao desfazer check-in:', error);
         mostrarToast('Erro ao desfazer check-in. Tente novamente.', 'error');
+    });
+}
+
+// Função para abrir modal de atualizar status
+function abrirModalAtualizarStatus(participanteId, nomeParticipante, statusParticipante, statusPagamento, inscricaoId) {
+    document.getElementById('modal-atualizar-status').style.display = 'block';
+    document.getElementById('status-participante-id').value = participanteId;
+    document.getElementById('status-inscricao-id').value = inscricaoId || '';
+    document.getElementById('status-participante-nome').textContent = nomeParticipante;
+    document.getElementById('status-atual-participante').value = statusParticipante;
+    document.getElementById('status-atual-pagamento').value = statusPagamento;
+}
+
+// Função para fechar modal de atualizar status
+function fecharModalAtualizarStatus() {
+    document.getElementById('modal-atualizar-status').style.display = 'none';
+}
+
+// Função para salvar alterações de status
+function salvarAtualizacaoStatus() {
+    const participanteId = document.getElementById('status-participante-id').value;
+    const inscricaoId = document.getElementById('status-inscricao-id').value;
+    const statusInscricao = document.getElementById('status-atual-participante').value;
+    const statusPagamento = document.getElementById('status-atual-pagamento').value;
+    const valorPago = document.getElementById('valor-pago').value;
+    const metodoPagamento = document.getElementById('metodo-pagamento').value;
+    
+    const dados = {
+        participante_id: participanteId,
+        inscricao_id: inscricaoId || null,
+        status_inscricao: statusInscricao,
+        status_pagamento: statusPagamento,
+        valor_pago: valorPago ? parseFloat(valorPago) : null,
+        metodo_pagamento: metodoPagamento || null
+    };
+    
+    fetch('<?= SITE_URL ?>/admin/api/atualizar_status.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            mostrarToast(data.mensagem || 'Status atualizado com sucesso!', 'success');
+            fecharModalAtualizarStatus();
+            carregarParticipantes(true); // Recarregar lista
+        } else {
+            mostrarToast(data.erro || 'Erro ao atualizar status', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar status:', error);
+        mostrarToast('Erro ao atualizar status. Tente novamente.', 'error');
     });
 }
 </script>
