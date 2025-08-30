@@ -771,7 +771,7 @@ function criarCardParticipante(p) {
                         </button>`
                 }
                 <button class="btn-confirmar-pagamento ${statusPagamento === 'pago' ? 'btn-cancelar' : 'btn-confirmar'}" onclick="event.stopPropagation(); abrirModalConfirmarPagamento(${p.id}, '${escapeHtml(p.nome)}', '${statusPagamento}', ${p.checkin_realizado ? 'true' : 'false'})" title="${statusPagamento === 'pago' ? 'Alterar para Pendente' : 'Confirmar Pagamento'}">
-                    ${statusPagamento === 'pago' ? '❌' : '✅'}
+                    ${statusPagamento === 'pago' ? '❌ Alterar para Pendente' : '✅ Alternar para Pago'}
                 </button>
                 <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')"; title="Excluir">
                     🗑️
