@@ -199,6 +199,12 @@
     border-color: #dc2626;
 }
 
+.btn-checkin-card {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+    color: white;
+}
+
 .participante-nome {
     font-size: 1.1rem;
     font-weight: 700;
