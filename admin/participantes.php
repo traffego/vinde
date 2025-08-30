@@ -774,7 +774,7 @@ function criarCardParticipante(p) {
                     ${statusPagamento === 'pago' ? '❌ Alterar para Pendente' : '✅ Alternar para Pago'}
                 </button>
                 <button class="btn-delete-card" onclick="event.stopPropagation(); confirmarExclusao(${p.id}, '${escapeHtml(p.nome)}')"; title="Excluir">
-                    🗑️
+                    🗑️Deletar
                 </button>
             </div>
         </div>
